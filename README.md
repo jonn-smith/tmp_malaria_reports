@@ -34,15 +34,18 @@ Synthetic mock-ups (no external data needed):
 ./build_reports.sh v0.7      # writes senegal_malaria_surveillance_<ASSAY>_v0.7.html
 ```
 
-Real-data reports (require private Terra inputs, not in this repo):
+Real-data reports (require the private Terra inputs, not in this repo — pass `""` to skip an assay):
 
 ```bash
-# WGS: export of the sr-malaria `sample` table (per-sample genotype columns)
-python3 load_wgs.py sample.tsv data_wgs.json
-# MAD4HATTER: UCSF mad4hatter outputs (resmarker_table.txt + allele_data.txt per run) + site metadata
-python3 load_mad.py <resmarker_dir> <site_metadata.csv> <allele_dir> -o data_mad4hatter.json
-# then inject the JSON into report_v05.template.html (see build_reports.sh for the inject step)
+# WGS  = Terra export of the sr-malaria `sample` table (per-sample genotype columns)
+# MAD  = UCSF mad4hatter outputs: <resmarker_dir> (resmarker_table.txt per run),
+#        <site_metadata.csv> (Sample_id,Country=site,Latitude,Longitude), <allele_dir> (allele_data.txt for COI)
+./build_real_reports.sh <sample.tsv> <resmarker_dir> <site_metadata.csv> <allele_dir>
+# -> senegal_malaria_surveillance_{WGS,MAD4HATTER}_v0.7-real.html  (git-ignored; embed real per-sample data)
 ```
+
+Under the hood this runs `load_wgs.py` / `load_mad.py` and injects the resulting JSON into
+`report_v05.template.html`.
 
 Both paths funnel a per-sample intermediate through `gen_reports.assemble_report`
 (aggregation, Wilson CIs, stoplight, exports, site/admin-2 maps).
