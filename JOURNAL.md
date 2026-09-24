@@ -364,3 +364,13 @@ Bumped single-source version: gen_reports VERSION default v0.6->v0.7; build_repo
 ## 2026-09-24T12:00:00Z — Export note now per-format/per-tab
 
 Removed the universal export note (was one callout above all views). Added a per-view note to VIEW_META (4-tuple: label,name,title,note) -> _pack_export stores views[k].note; wireExport render() shows it inside the active tab's card only. Notes are format-specific (WHO layout / Africa CDC Mutation-Haplotype / AF-CDC Marker-Centric denominator / PHA4GE 210-field / DHIS2 dataValueSet). Verified jsdom 0 errors, 0 callouts outside exportview, correct note per tab on switch. Rebuilt + reshipped v0.7 real + synthetic.
+
+## 2026-09-24T18:40:00Z — Rebuilt both real reports in fresh container from copied data
+
+**Context.** Jonn copied the real inputs into this container and relayed a command from a prior session: `./build_real_reports.sh sample.tsv rm mad_meta.csv ad`. Bare filenames were wrong for this container — the script cd's to its own dir and the data lives elsewhere: sample.tsv at /workspace/data/, and rm/ (15 resmarker tables), ad/ (15 allele tables), mad_meta.csv at /workspace/fiss_downloads/.
+
+**Action.** Ran with absolute paths: `./build_real_reports.sh /workspace/data/sample.tsv /workspace/fiss_downloads/rm /workspace/fiss_downloads/mad_meta.csv /workspace/fiss_downloads/ad`. Both loaders + gen self-checks passed (ALL CHECKS PASS).
+
+**Evidence (matches prior session exactly).** WGS: 2,161 QC of 3,473, 16/45 depts, 28 sites, 2005–2023; crt K76T 50.5%, dhfr 94.9/95.3/96.9%, dhps K540E 5.1%, dhps A437G 0% (known upstream pfdhps_Lys_437_Gly polarity bug, unchanged), k13 0%; hrp2 5.3%/hrp3 13.2%; COI 1.65/poly 22%. MAD: 880 samples (28 controls + 29 no-dept dropped), 9 depts, 13 sites, 2020+2023; crt K76T 67.7%, dhps A437G 86.6%, A581G 23.7%, k13 0%; naive COI 3.16/poly 92%; HRP2/3 Not assessed. jsdom (fresh install, scratchpad): 0 errors both, drmap 45 admin-2 polygons, summary 28/13 site circles, 5 export tabs, no visible mock/synthetic/undefined text ("McCOIL" hits are the deliberate Methods coi_detail disclaimer). 
+
+**Outcome.** senegal_malaria_surveillance_{WGS,MAD4HATTER}_v0.7-real.html rebuilt in /workspace/malaria_reports/ and copied to /workspace/ (shipped set). Reproducibility of the v0.7-real build from raw inputs in a clean environment confirmed.
