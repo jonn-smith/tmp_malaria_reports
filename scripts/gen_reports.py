@@ -123,8 +123,9 @@ ASSAYS = {
    note='Targeted ONT panel: core WHO-tracked SNP loci. No copy-number or atovaquone/research markers.'),
 }
 PIPELINE_LINKS = {
- 'WGS':[('Short-read malaria WGS workspace (Terra)','https://app.terra.bio/#workspaces/broad-firecloud-dsde-methods/sr-malaria'),
-        ('MalariaGEN Pf7 data resource','https://www.malariagen.net/data_package/open-dataset-plasmodium-falciparum-v70/'),
+ 'WGS':[('Malaria Plasmodium Illumina Whole Genome — featured workspace (Terra)','https://app.terra.bio/#workspaces/malaria-featured-workspaces/Malaria_Plasmodium_Illumina_Whole_Genome'),
+        ('MalariaGEN Pf7 Data Resource (Terra)','https://app.terra.bio/#workspaces/malaria-featured-workspaces/MalariaGEN_Pf7_Data_Resource'),
+        ('MalariaGEN Pf8 Data Resource (Terra)','https://app.terra.bio/#workspaces/gates-malaria/MalariaGEN_Pf8_Data_Resource'),
         ('PlasmoDB (Pf3D7 reference)','https://plasmodb.org/')],
  'MAD4HATTER':[('MAD4HATTER pipeline — EPPIcenter (GitHub)','https://github.com/EPPIcenter/mad4hatter'),
         ('MAD4HATTER documentation','https://eppicenter.github.io/mad4hatter/'),
@@ -133,7 +134,9 @@ PIPELINE_LINKS = {
  'NOMADS':[('NOMADS community (GitHub)','https://github.com/nomads-community'),
         ('nomadic analysis toolkit','https://github.com/nomads-community/nomadic')],
  'COMBINED':[('MAD4HATTER — EPPIcenter (GitHub)','https://github.com/EPPIcenter/mad4hatter'),
-        ('Short-read malaria WGS workspace (Terra)','https://app.terra.bio/#workspaces/broad-firecloud-dsde-methods/sr-malaria')],
+        ('Malaria Plasmodium Illumina Whole Genome — featured workspace (Terra)','https://app.terra.bio/#workspaces/malaria-featured-workspaces/Malaria_Plasmodium_Illumina_Whole_Genome'),
+        ('MalariaGEN Pf7 Data Resource (Terra)','https://app.terra.bio/#workspaces/malaria-featured-workspaces/MalariaGEN_Pf7_Data_Resource'),
+        ('MalariaGEN Pf8 Data Resource (Terra)','https://app.terra.bio/#workspaces/gates-malaria/MalariaGEN_Pf8_Data_Resource')],
 }
 MARKER_PCT = 10.0
 HRP_PCT    = 5.0
@@ -355,7 +358,7 @@ def _csv_text(rows):
     out = [','.join(cols)]
     for r in rows: out.append(','.join(_csv_cell(r.get(c, '')) for c in cols))
     return '\n'.join(out)
-def _pack_export(rep, rows_by_key, note, order, preview_n=200):
+def _pack_export(rep, rows_by_key, note, order, preview_n=50):
     """Store FULL export tables gzip+base64 (decompressed/downloaded client-side) plus a small
     on-screen preview + row count. Avoids embedding the full uncompressed tables in the page.
     rows_by_key: {view_key: [row dicts]}; order: display order of view keys."""
