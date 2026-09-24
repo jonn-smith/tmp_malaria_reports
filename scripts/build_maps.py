@@ -3,9 +3,10 @@
 Equirectangular projection with cos(lat) correction, fit to a fixed width.
 Output: sen_admin2_map.json = {viewBox, W, H, depts:[{name, path, cx, cy, lat, lon}]}
 """
-import json, math
+import json, math, os
+REF = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'reference')
 
-g = json.load(open('sen_adm2.geojson'))
+g = json.load(open(os.path.join(REF, 'sen_adm2.geojson')))
 feats = g['features']
 
 # bbox
@@ -76,16 +77,15 @@ for ft in feats:
 out = {'viewBox': f'0 0 {W} {H}', 'W': W, 'H': H,
        'lonMin': lonMin, 'lonMax': lonMax, 'latMin': latMin, 'latMax': latMax,
        'depts': depts}
-json.dump(out, open('sen_admin2_map.json', 'w'), separators=(',', ':'))
+json.dump(out, open(os.path.join(REF, 'sen_admin2_map.json'), 'w'), separators=(',', ':'))
 
 # --- checks ---
 assert len(depts) == 45, len(depts)
 for d in depts:
     assert d['path'].startswith('M') and d['path'].endswith('Z'), d['name']
     assert 0 <= d['cx'] <= W and 0 <= d['cy'] <= H, (d['name'], d['cx'], d['cy'])
-import os
 print('OK depts:', len(depts), 'viewBox:', out['viewBox'],
-      'json KB:', round(os.path.getsize('sen_admin2_map.json')/1024,1))
+      'json KB:', round(os.path.getsize(os.path.join(REF, 'sen_admin2_map.json'))/1024,1))
 print('sample:', depts[0]['name'], 'cx,cy=', depts[0]['cx'], depts[0]['cy'],
       'pathlen=', len(depts[0]['path']))
 print('lat range of centroids:', round(min(d['lat'] for d in depts),2),

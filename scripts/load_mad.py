@@ -41,7 +41,7 @@ def load_meta(path):
     return m
 
 # --- point-in-polygon dept assignment (sen ADM2) ---
-_FEATS = json.load(open(os.path.join(HERE, 'sen_adm2.geojson')))['features']
+_FEATS = json.load(open(os.path.join(os.path.dirname(HERE), 'reference', 'sen_adm2.geojson')))['features']
 def _rings(g): return g['coordinates'] if g['type'] == 'MultiPolygon' else [g['coordinates']]
 def _pip(lon, lat, poly):
     pts = poly[0]; n = len(pts); ins = False; j = n-1
@@ -165,7 +165,7 @@ def load(rm_dir, meta_csv, ad_dir=None):
 
 if __name__ == '__main__':
     args = [a for a in sys.argv[1:] if a != '-o']
-    out = 'data_mad4hatter.json'
+    out = 'build/data_mad4hatter.json'
     if '-o' in sys.argv: out = sys.argv[sys.argv.index('-o')+1]; args = [a for a in args if a != out]
     rm_dir = args[0] if len(args) > 0 else '/workspace/fiss_downloads/rm'
     meta_csv = args[1] if len(args) > 1 else '/workspace/fiss_downloads/mad_meta.csv'

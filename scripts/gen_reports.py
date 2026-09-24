@@ -45,9 +45,10 @@ def wilson(x, n):
     return (round(100*p,1), round(100*max(0,c-h),1), round(100*min(1,c+h),1))
 def cnt(p, n): return int(round(p/100.0*n))
 
-MAP = json.load(open('sen_admin2_map.json'))
 import os as _os
-PHA4GE_FIELDS = json.load(open(_os.path.join(_os.path.dirname(_os.path.abspath(__file__)), 'pha4ge_fields.json')))
+ROOT = _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__)))  # repo root (this file lives in scripts/)
+MAP = json.load(open(_os.path.join(ROOT, 'reference', 'sen_admin2_map.json')))
+PHA4GE_FIELDS = json.load(open(_os.path.join(ROOT, 'schemas', 'pha4ge_fields.json')))
 DEPTS = MAP['depts']
 latMin = min(d['lat'] for d in DEPTS); latMax = max(d['lat'] for d in DEPTS)
 def southness(lat): return (latMax - lat)/(latMax - latMin)
@@ -544,8 +545,9 @@ def real_export(rep, samples, assay_name, max_afcdc=500):
               'endemicity, study type, host subject ID, haplotype) are not captured in the sequencing data.'))
     return rep
 
+_os.makedirs(_os.path.join(ROOT,'build'), exist_ok=True)
 for a,rep in reports.items():
-    json.dump(rep,open(f'data_{a.lower()}.json','w'),separators=(',',':'))
+    json.dump(rep,open(_os.path.join(ROOT,'build',f'data_{a.lower()}.json'),'w'),separators=(',',':'))
 
 # ---- self-checks -----------------------------------------------------------
 assert abs(wilson(10,100)[1]-5.52)<0.05

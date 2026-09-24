@@ -5,9 +5,8 @@ __pycache__/
 # OS
 .DS_Store
 
-# Build intermediates — regenerate with build_reports.sh / load_*.py
-data_*.json
-cohort_data.json
+# Build intermediates — regenerate with build_reports.sh / build_real_reports.sh
+build/
 
 # Superseded templates / report versions
 report_v2.template.html
@@ -16,8 +15,9 @@ senegal_malaria_surveillance_*_v0.6*.html
 
 # Real-data reports and inputs that embed real per-sample genotypes / coordinates.
 # NOT committed by default (this repo is outward-facing). Regenerate locally from the
-# Terra data with load_wgs.py / load_mad.py, or un-ignore if the repo is private/cleared.
-senegal_malaria_surveillance_*_v0.7-real.html
+# Terra data with scripts/load_wgs.py / scripts/load_mad.py, or un-ignore if the repo
+# is private/cleared.
+senegal_malaria_surveillance_*-real.html
 sample.tsv
 mad_meta*.csv
 mad_meta*.tsv

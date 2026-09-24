@@ -155,6 +155,6 @@ def load(sample_tsv):
 
 if __name__ == '__main__':
     src = sys.argv[1] if len(sys.argv) > 1 else '/workspace/sample.tsv'
-    out = sys.argv[2] if len(sys.argv) > 2 else 'data_wgs.json'
+    out = sys.argv[2] if len(sys.argv) > 2 else 'build/data_wgs.json'
     json.dump(load(src), open(out, 'w'))
     sys.stderr.write(f"[load_wgs] wrote {out}\n")
