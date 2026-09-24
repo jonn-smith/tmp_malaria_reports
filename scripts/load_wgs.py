@@ -146,7 +146,7 @@ def load(sample_tsv):
                      + (f" (unmatched districts: {sorted(x for x in unmatched if x)})" if unmatched else "") + "\n")
     rep = G.assemble_report('WGS', G.ASSAYS['WGS'], units)
     rep['meta']['real'] = True
-    rep['meta']['version'] = 'v0.7-real'   # gen_reports reads sys.argv on import; set explicitly
+    rep['meta']['version'] = 'v0.8-real'   # gen_reports reads sys.argv on import; set explicitly
     rep['meta']['data_source'] = 'Illumina WGS · broad-firecloud-dsde-methods/sr-malaria (Senegal joint call)'
     G.real_export(rep, samples, 'Whole genome sequencing')   # real-only export (no fabrication)
     rep['sites'] = G.sites_from_samples(samples)             # site-level points (finer than admin-2)

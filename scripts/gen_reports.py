@@ -34,7 +34,7 @@ def fmt_years(ys):
 random.seed(505)
 def _na(x):  # accent- & case-insensitive key for name lookups (geoBoundaries names are un-accented)
     return ''.join(c for c in unicodedata.normalize('NFD', str(x)) if unicodedata.category(c) != 'Mn').lower().strip()
-VERSION = sys.argv[1] if len(sys.argv) > 1 else 'v0.7'   # single source of truth; build_reports.sh passes it
+VERSION = sys.argv[1] if len(sys.argv) > 1 else 'v0.8'   # single source of truth; build_reports.sh passes it
 
 Z = 1.959963985
 def wilson(x, n):
@@ -108,25 +108,19 @@ ASSAYS = {
    genes={'k13','crt','mdr1','dhfr','dhps','cytb','coronin','ubp1','ap2mu'},
    cnv=True, hrp=True, species=False,
    div=dict(coi=True,poly=True,mono=True,rh=True,cotx=True,coi_method='24-SNP barcode heterozygosity'),
-   note='Genome-wide: every WHO-tracked and research marker, copy-number (mdr1, pfpm2/3) via gCNV, and hrp2/3 deletion by coverage; full transmission metrics incl. intra-host relatedness (RH) and co-transmission.'),
+   note='Genome-wide: every WHO-tracked and research marker, including copy-number (mdr1, pfpm2/3) via gCNV.'),
  'MAD4HATTER': dict(full='MAD4HATTER v4 amplicon panel (Illumina)', platform='Illumina (v4, pools 1A+1B+2)',
    turnaround='1–2 weeks', color='#1baf7a', n_range=(30,260), n_depts=38, qc=0.87,
    genes={'k13','crt','mdr1','dhfr','dhps','cytb'},
    cnv=True, hrp=True, species=True,
    div=dict(coi=True,poly=True,mono=True,rh=True,cotx=True,coi_method='naive COI (max distinct microhaplotype alleles per locus)'),
-   note='v4 panel (diversity + resistance + diagnostic pools): WHO-tracked SNP markers, pfpm2/3 copy number and hrp2/3 deletions (coverage-based, panel-dependent), 165-microhaplotype COI plus relatedness (RH / co-transmission), and non-falciparum species ID. Does not type coronin/ubp1/ap2mu (not in the resmarker panel).'),
+   note='v4 panel (diversity + resistance pools): WHO-tracked SNP markers and pfpm2/3 copy number (coverage-based, panel-dependent). Does not type coronin/ubp1/ap2mu (not in the resmarker panel).'),
  'NOMADS': dict(full='NOMADS targeted panel (Oxford Nanopore)', platform='ONT MinION (nomads16)',
    turnaround='1–3 days', color='#2a78d6', n_range=(40,160), n_depts=19, qc=0.84,
    genes={'k13','crt','mdr1','dhfr','dhps'},
    cnv=False, hrp=True, species=False,
    div=dict(coi=True,poly=True,mono=True,rh=False,cotx=False,coi_method='msp2 allele counting (coarse)'),
-   note='Targeted ONT panel: core WHO-tracked SNP loci + hrp2/3 deletions + msp2 COI. No copy-number, atovaquone/research markers, or genome-wide relatedness/co-transmission.'),
-}
-COI_DETAIL = {
- 'WGS':'COI here is a proxy from the 24-SNP molecular barcode: mixed / heterozygous base calls (N) mark polyclonal infections, and COI ≈ 1 + the number of heterozygous barcode positions. This is a coarse indicator, not a model-based estimate (e.g. THE REAL McCOIL or moire), which would give a calibrated eCOI.',
- 'MAD4HATTER':'COI here is a naive within-host estimate from the 165 diversity microhaplotypes: COI = the maximum number of distinct microhaplotype alleles observed at any single amplicon locus, and a sample is classed polygenomic when ≥2 loci carry more than one allele. This is not a model-based estimate (moire / THE REAL McCOIL); a calibrated eCOI would require running moire on the allele table.',
- 'NOMADS':'COI from msp2 allele counting (coarse).',
- 'COMBINED':'COI is taken from the WGS 24-SNP barcode estimate where a sample was sequenced by WGS.',
+   note='Targeted ONT panel: core WHO-tracked SNP loci. No copy-number or atovaquone/research markers.'),
 }
 PIPELINE_LINKS = {
  'WGS':[('Short-read malaria WGS workspace (Terra)','https://app.terra.bio/#workspaces/broad-firecloud-dsde-methods/sr-malaria'),
@@ -156,15 +150,10 @@ def assemble_report(name, spec, units):
     sampled=[u for u in units if u.get('sampled')]
     chosen_names={u['name'] for u in sampled}
     tot_col=sum(u.get('n_col',u.get('n',0)) for u in sampled); tot_qc=sum(u.get('n',0) for u in sampled)
-    natx={k:0 for k in MK}; natn={k:0 for k in MK}; h2x=h3x=hrpn=0
-    div_acc={m:[] for m in ('coi','poly','mono','rh','cotx')}
+    natx={k:0 for k in MK}; natn={k:0 for k in MK}
     for u in sampled:
         for k in covered:
             natx[k]+=(u.get('mkx') or {}).get(k,0); natn[k]+=(u.get('mkn') or {}).get(k,0)
-        h2x+=u.get('hrp2x',0); h3x+=u.get('hrp3x',0); hrpn+=u.get('hrpn',0)
-        dv=u.get('div') or {}
-        for m in ('coi','poly','mono','rh','cotx'):
-            if dv.get(m) is not None: div_acc[m].append(dv[m])
     natmarkers=[]
     for k,m in MK.items():
         base=dict(key=k,gene=m['gene'],gene_id=m['gene_id'],aa=m['aa'],drug=m['drug'],who=m['who'],
@@ -173,28 +162,14 @@ def assemble_report(name, spec, units):
         est,lo,hi=wilson(natx[k],natn[k])
         base.update(assessed=True,x=natx[k],n=natn[k],est=est,lo=lo,hi=hi,action=(m['who'] and est>=MARKER_PCT))
         natmarkers.append(base)
-    e2,l2,u2=wilson(h2x,hrpn); e3,l3,u3=wilson(h3x,hrpn)
-    hrp_units_above=sum(1 for u in units if u.get('sampled') and u.get('hrp2',0)>=HRP_PCT and u['n']>=MIN_SAMPLES)
-    def mean(a): return round(sum(a)/len(a),2) if a else None
-    def imean(a): return round(sum(a)/len(a)) if a else None
-    trans=dict(coi=mean(div_acc['coi']),poly=imean(div_acc['poly']),mono=imean(div_acc['mono']),
-               rh=mean(div_acc['rh']),cotx=imean(div_acc['cotx']),method=spec['div']['coi_method'],available=spec['div'])
     res_hits=[m for m in natmarkers if m.get('assessed') and m['who'] and m['est']>=MARKER_PCT]
     res_watch=[m for m in natmarkers if m.get('assessed') and m['who'] and 5.0<=m['est']<MARKER_PCT]
     stoplight=[
       dict(cat='Resistance Markers',status=('red' if res_hits else 'amber' if res_watch else 'green'),
            findings=([f"{m['gene']} {m['aa']} = {m['est']}% (≥{int(MARKER_PCT)}% — WHO criteria indicates TES)" for m in res_hits]
                      +[f"{m['gene']} {m['aa']} = {m['est']}% (watch, 5–10%)" for m in res_watch]) or ['No WHO-tracked marker ≥ threshold']),
-      dict(cat='Diagnostics (HRP2/3)',status='grey',
-           findings=(['pfhrp2/3 not assessed in this dataset — no deletion calls'] if hrpn==0
-                     else [f"{hrp_units_above} sampled unit(s) show pfhrp2 ≥{int(HRP_PCT)}% — UNVALIDATED; requires laboratory confirmation"] if hrp_units_above
-                     else ['pfhrp2/3 deletion calls UNVALIDATED — require laboratory confirmation'])),
-      dict(cat='Transmission',status=('red' if (trans['poly'] or 0)>=60 else 'amber' if (trans['poly'] or 0)>=35 else 'green'),
-           findings=[f"Polygenomic fraction {trans['poly']}% ({'high' if (trans['poly'] or 0)>=60 else 'moderate' if (trans['poly'] or 0)>=35 else 'low'} transmission signal)"]),
     ]
-    tabs=['summary','resistance','diagnostics']
-    if any(spec['div'].values()): tabs.append('transmission')
-    tabs+=['export','methods']
+    tabs=['summary','resistance','export','methods']
     for u in sampled:
         if not u.get('years'):
             u['years']=sorted({str(d)[:4] for d in (u.get('date_min'),u.get('date_max')) if d and str(d)[:4].isdigit()})
@@ -204,17 +179,18 @@ def assemble_report(name, spec, units):
     meta=dict(assay=name,assay_full=spec['full'],platform=spec['platform'],
               color=spec['color'],note=spec['note'],country='Senegal',admin='Admin-2 (department)',
               admin_available=True,dates_available=bool(allyears),period=period,years=sorted(allyears),
-              coi_detail=COI_DETAIL.get(name,''),links=PIPELINE_LINKS.get(name,[]),
+              links=PIPELINE_LINKS.get(name,[]),
               generated='2026-09-23',version=VERSION,real=False,data_source='Synthetic design mock-up (illustrative values)',
-              marker_action_pct=MARKER_PCT,hrp_action_pct=HRP_PCT,min_samples=MIN_SAMPLES,
+              marker_action_pct=MARKER_PCT,min_samples=MIN_SAMPLES,
               n_units_sampled=len(chosen_names),n_units_total=len(DEPTS),n_collected=tot_col,n_qc=tot_qc,
               qc_rate=round(100*tot_qc/tot_col,1) if tot_col else 0)
-    caps=dict(tabs=tabs,genes=sorted(spec['genes']),covered_markers=covered,diversity=spec['div'])
+    caps=dict(tabs=tabs,genes=sorted(spec['genes']),covered_markers=covered)
+    # v0.8: COI (transmission) and HRP2/3 (diagnostics) sections removed from the report;
+    # per-unit hrp/div inputs are accepted from loaders but not emitted.
+    drop=('hrp2','hrp3','hrp2x','hrp3x','hrpn','div','coi','poly','mono')
+    units=[{k:v for k,v in u.items() if k not in drop} for u in units]
     return dict(meta=meta,capabilities=caps,map=MAP,units=units,markers=natmarkers,
-                diagnostics=dict(hrp2=dict(est=e2,lo=l2,hi=u2),hrp3=dict(est=e3,lo=l3,hi=u3),
-                    units_above=hrp_units_above,threshold=HRP_PCT,assessed=(hrpn>0),
-                    note='UNVALIDATED: pfhrp2/pfhrp3 deletion figures are predicted from genetic markers and must not drive decisions without laboratory validation.'),
-                transmission=trans,stoplight=stoplight,marker_defs={k:MK[k] for k in MK})
+                stoplight=stoplight,marker_defs={k:MK[k] for k in MK})
 
 def build_assay(name, spec):
     random.seed(hash(name)%(2**31))
@@ -263,9 +239,6 @@ def build_combined():
             for r in samp:
                 for k,v in r.get('mk',{}).items(): mk.setdefault(k,[]).append(v)
             rec['mk']={k:round(sum(v)/len(v),1) for k,v in mk.items()}
-            h2=[r['hrp2'] for r in samp if 'hrp2' in r]; h3=[r['hrp3'] for r in samp if 'hrp3' in r]
-            rec['hrp2']=round(sum(h2)/len(h2),1) if h2 else None; rec['hrp3']=round(sum(h3)/len(h3),1) if h3 else None
-            rec['div']=recs['WGS']['div'] if recs['WGS'].get('sampled') else samp[0].get('div')
         units.append(rec)
     genes=set().union(*[ASSAYS[a]['genes'] for a in ASSAYS]); covered=[k for k in MK if MK[k]['tok'] in genes]
     natmarkers=[]
@@ -278,15 +251,11 @@ def build_combined():
         n=sum(next((mm['n'] for mm in reports[a]['markers'] if mm['key']==k and mm.get('assessed')),0) for a in contrib)
         est,lo,hi=wilson(x,n); base.update(assessed=True,x=x,n=n,est=est,lo=lo,hi=hi,action=(m['who'] and est>=MARKER_PCT),assays=contrib)
         natmarkers.append(base)
-    trans=reports['WGS']['transmission']
     res_hits=[m for m in natmarkers if m.get('assessed') and m['who'] and m['est']>=MARKER_PCT]
     res_watch=[m for m in natmarkers if m.get('assessed') and m['who'] and 5.0<=m['est']<MARKER_PCT]
-    tp=trans['poly'] or 0
     stoplight=[dict(cat='Resistance Markers',status=('red' if res_hits else 'amber' if res_watch else 'green'),
                     findings=([f"{m['gene']} {m['aa']} = {m['est']}% (≥{int(MARKER_PCT)}% — WHO criteria indicates TES)" for m in res_hits]
-                              +[f"{m['gene']} {m['aa']} = {m['est']}% (watch)" for m in res_watch]) or ['No WHO-tracked marker ≥ threshold']),
-               dict(cat='Diagnostics (HRP2/3)',status='grey',findings=['pfhrp2/3 deletion calls UNVALIDATED — greyed; laboratory confirmation required']),
-               dict(cat='Transmission',status=('red' if tp>=60 else 'amber' if tp>=35 else 'green'),findings=[f"Polygenomic fraction {tp}%"])]
+                              +[f"{m['gene']} {m['aa']} = {m['est']}% (watch)" for m in res_watch]) or ['No WHO-tracked marker ≥ threshold'])]
     tot_qc=sum(reports[a]['meta']['n_qc'] for a in ASSAYS); tot_col=sum(reports[a]['meta']['n_collected'] for a in ASSAYS)
     meta=dict(assay='COMBINED',assay_full='Combined multi-assay (WGS + MAD4HATTER + NOMADS)',
               platform='Illumina WGS + Illumina amplicon + ONT',color='#006dae',
@@ -294,16 +263,16 @@ def build_combined():
               admin='Admin-2 (department)',admin_available=True,dates_available=True,
               period=(fmt_years(set().union(*([set(u.get('years',[])) for u in units if u.get('sampled')] or [set()]))) or 'n/a'),
               years=sorted(set().union(*([set(u.get('years',[])) for u in units if u.get('sampled')] or [set()]))),
-              coi_detail=COI_DETAIL.get('COMBINED',''),links=PIPELINE_LINKS.get('COMBINED',[]),
+              links=PIPELINE_LINKS.get('COMBINED',[]),
               generated='2026-09-23',version=VERSION,real=False,data_source='Synthetic design mock-up (illustrative values)',
-              marker_action_pct=MARKER_PCT,hrp_action_pct=HRP_PCT,min_samples=MIN_SAMPLES,
+              marker_action_pct=MARKER_PCT,min_samples=MIN_SAMPLES,
               n_units_sampled=sum(1 for u in units if u['sampled']),n_units_total=len(DEPTS),
               n_collected=tot_col,n_qc=tot_qc,qc_rate=round(100*tot_qc/tot_col,1),by_assay={a:reports[a]['meta']['n_qc'] for a in ASSAYS})
-    caps=dict(tabs=['summary','resistance','diagnostics','transmission','export','methods'],
-              genes=sorted(genes),covered_markers=covered,diversity=reports['WGS']['capabilities']['diversity'],
+    caps=dict(tabs=['summary','resistance','export','methods'],
+              genes=sorted(genes),covered_markers=covered,
               assays=list(ASSAYS.keys()),assay_colors={a:ASSAYS[a]['color'] for a in ASSAYS})
     return dict(meta=meta,capabilities=caps,map=MAP,units=units,markers=natmarkers,
-                diagnostics=reports['MAD4HATTER']['diagnostics'],transmission=trans,stoplight=stoplight,marker_defs={k:MK[k] for k in MK})
+                stoplight=stoplight,marker_defs={k:MK[k] for k in MK})
 reports['COMBINED']=build_combined()
 
 # Senegal admin-2 (department) -> admin-1 (region), best-effort for the Africa CDC "Region" column.
@@ -325,7 +294,6 @@ SEN_REGION = {
 }
 ASSAY_NAME = {'WGS':'Whole genome sequencing','MAD4HATTER':'Amplicon sequencing',
               'NOMADS':'Amplicon sequencing (Nanopore)','COMBINED':'Mixed (WGS + amplicon)'}
-def endem(poly): return 'high' if (poly or 0)>=60 else 'moderate' if (poly or 0)>=35 else 'low'
 
 _MON = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC']
 def _mmm_yyyy(d):
@@ -373,7 +341,6 @@ def build_pha4ge(samples, mkdefs, assay_name, platform):
                      'sequencing_assay_type': assay_name, 'sequencing_instrument': platform or ''})
         if s.get('lat') is not None: base['geo_loc_latitude'] = s['lat']
         if s.get('lon') is not None: base['geo_loc_longitude'] = s['lon']
-        if s.get('coi') is not None: base['multiplicity_of_infection'] = s['coi']
         for m in muts:
             r = dict(base); g = _afgene(m['gene'])
             r['gene_name'] = g; r['gene_symbol'] = g; r['gene_alteration'] = m['aa']
@@ -424,7 +391,7 @@ def add_export(rep):
         for si in range(1, 2+(1 if u['n']>100 else 0)):
             sid+=1; sample_id=f"SEN-{ab}-{sid:03d}-2024-MSMT-{si}"; date=afdate(u.get('date_min'))
             trav='yes' if random.random()<0.12 else 'no'; tloc=(random.choice(['Mali','Guinea','Mauritania']) if trav=='yes' else '')
-            en=endem((u.get('div') or {}).get('poly'))
+            en=''
             for m in markers:
                 tot=random.randint(12,60); mut=tot if random.random()<(m['est']/100.0) else 0
                 afc.append({'Sample ID':sample_id,'Date of sample collection':date,'Facility name':f"{u['name']} HC",
@@ -467,25 +434,17 @@ def sites_from_samples(samples):
         if s.get('lat') is None or s.get('lon') is None: continue
         key = (s.get('site') or s.get('district') or '', round(s['lat'], 4), round(s['lon'], 4))
         a = agg.setdefault(key, {'name': s.get('site') or s.get('district'), 'district': s.get('district'),
-                                 'lat': s['lat'], 'lon': s['lon'], 'n': 0, 'mkx': {}, 'mkn': {},
-                                 'coi': [], 'poly': 0, 'poly_n': 0, 'h2x': 0, 'h3x': 0, 'hrpn': 0})
+                                 'lat': s['lat'], 'lon': s['lon'], 'n': 0, 'mkx': {}, 'mkn': {}})
         a['n'] += 1
         for k, (wt, mut) in (s.get('calls') or {}).items():
             a['mkn'][k] = a['mkn'].get(k, 0) + 1
             if mut: a['mkx'][k] = a['mkx'].get(k, 0) + 1
-        if s.get('coi') is not None:
-            a['coi'].append(s['coi']); a['poly_n'] += 1; a['poly'] += 1 if s.get('poly') else 0
-        if s.get('hrp_called'):
-            a['hrpn'] += 1; a['h2x'] += 1 if s.get('hrp2del') else 0; a['h3x'] += 1 if s.get('hrp3del') else 0
     sites = []
     for a in agg.values():
         x, y = project(a['lon'], a['lat'])
-        poly_pct = round(100*a['poly']/a['poly_n']) if a['poly_n'] else None
         sites.append({'name': a['name'], 'district': a['district'], 'lat': a['lat'], 'lon': a['lon'], 'x': x, 'y': y,
                       'n': a['n'], 'mk': {k: round(100*a['mkx'].get(k, 0)/a['mkn'][k], 1) for k in a['mkn'] if a['mkn'][k]},
-                      'mkn': a['mkn'], 'coi': (round(sum(a['coi'])/len(a['coi']), 2) if a['coi'] else None),
-                      'poly': poly_pct, 'hrp2': (round(100*a['h2x']/a['hrpn'], 1) if a['hrpn'] else None),
-                      'hrp3': (round(100*a['h3x']/a['hrpn'], 1) if a['hrpn'] else None)})
+                      'mkn': a['mkn']})
     return sorted(sites, key=lambda t: -t['n'])
 
 def _afgene(g):
@@ -555,10 +514,12 @@ for name in ('WGS','MAD4HATTER','NOMADS','COMBINED'):
     r=reports[name]; m=r['meta']
     assert 'incidence' not in json.dumps(r).lower(), f'{name}: incidence leaked'
     assert 'validated' not in json.dumps(r['markers']).lower(), f'{name}: "validated" in markers'
-    assert m['marker_action_pct']==10.0 and m['hrp_action_pct']==5.0
+    assert 'diagnostics' not in r['capabilities']['tabs'] and 'transmission' not in r['capabilities']['tabs']
+    assert 'diagnostics' not in r and 'transmission' not in r
+    assert m['marker_action_pct']==10.0
     nonwho=[mk for mk in r['markers'] if mk.get('assessed') and not mk['who']]
     print(f"{name:11s} units={m['n_units_sampled']:2d}/{m['n_units_total']} n={m['n_qc']:5d} "
           f"markers={sum(1 for mk in r['markers'] if mk.get('assessed'))} (nonWHO={len(nonwho)}) "
-          f"tabs={','.join(r['capabilities']['tabs'])} rh={r['transmission']['rh']} cotx={r['transmission']['cotx']}")
+          f"tabs={','.join(r['capabilities']['tabs'])}")
 print("stoplight (WGS):", [(s['cat'],s['status']) for s in reports['WGS']['stoplight']])
 print("ALL CHECKS PASS")

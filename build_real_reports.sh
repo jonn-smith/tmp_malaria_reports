@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Build the REAL-data reports from the private Terra inputs (which are NOT in this repo).
-# Outputs (reports/senegal_malaria_surveillance_*_v0.7-real.html) embed real per-sample data
+# Outputs (reports/senegal_malaria_surveillance_*_v0.8-real.html) embed real per-sample data
 # and are .gitignored — do not commit them without data-sharing clearance.
 #
 # Usage (skip an assay by passing "" for its inputs):
@@ -14,7 +14,7 @@
 #   allele_dir        = dir of UCSF mad4hatter allele_data.txt files (COI); "" to skip COI
 set -euo pipefail
 cd "$(dirname "$0")"
-VER=v0.7-real   # must match meta.version set in scripts/load_wgs.py / scripts/load_mad.py
+VER=v0.8-real   # must match meta.version set in scripts/load_wgs.py / scripts/load_mad.py
 mkdir -p build reports
 
 WGS_TSV="${1:-}"; RM_DIR="${2:-}"; SITE_META="${3:-}"; ALLELE_DIR="${4:-}"

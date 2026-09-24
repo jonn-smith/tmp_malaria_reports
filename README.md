@@ -5,33 +5,29 @@ molecular surveillance in Senegal, plus the pipeline that builds them. Audience:
 Africa CDC, the Gates Foundation, and national malaria control programmes.
 
 Each report is one standalone `.html` file (inline SVG charts, no external assets)
-covering three surveillance domains:
+focused on **resistance markers** — WHO-tracked drug-resistance amino-acid changes
+(k13, crt, mdr1, dhfr, dhps, cytb, …) with prevalence + 95% Wilson CIs, per admin-2
+choropleth, and a WHO action-threshold flag (≥10%). Research (non-WHO) markers are
+labelled. A **Summary** stoplight, an **Export** tab (dashboard-ready views), and a
+**Methods** tab (statistics, thresholds, pipeline links) round out each report.
 
-- **Resistance markers** — WHO-tracked drug-resistance amino-acid changes (k13, crt,
-  mdr1, dhfr, dhps, cytb, …) with prevalence + 95% Wilson CIs, per admin-2 choropleth,
-  and a WHO action-threshold flag (≥10%). Research (non-WHO) markers are labelled.
-- **Diagnostics** — *pfhrp2 / pfhrp3* deletions (shown greyed / **unvalidated**; a
-  research / lab-confirmation priority, never decision-grade here).
-- **Transmission & diversity** — complexity of infection (COI), polygenomic /
-  monogenomic fractions, and (WGS) relatedness. The COI **method is stated per report**
-  and is a naive estimator (not moire / THE REAL McCOIL).
-
-A **Summary** stoplight, an **Export** tab (dashboard-ready views), and a **Methods**
-tab (statistics, thresholds, pipeline links, COI method) round out each report.
+> **v0.8:** the Diagnostics (*pfhrp2/3* deletions) and Transmission (COI / diversity)
+> sections were removed for the first release — resistance markers only. They may
+> return in a later version.
 
 ## Two kinds of report
 
 | Kind | Files | Data |
 |---|---|---|
-| **Synthetic mock-ups** (in this repo) | `reports/senegal_malaria_surveillance_{WGS,MAD4HATTER,NOMADS,COMBINED}_v0.7.html` | Illustrative, fabricated values (MOCK-UP banner). Real WHO thresholds / marker lists. |
-| **Real-data reports** (not committed) | `…_{WGS,MAD4HATTER}_v0.7-real.html` | Real Senegal data. **Excluded from this repo** — they embed real per-sample genotypes/coordinates; regenerate locally (below). |
+| **Synthetic mock-ups** (in this repo) | `reports/senegal_malaria_surveillance_{WGS,MAD4HATTER,NOMADS,COMBINED}_v0.8.html` | Illustrative, fabricated values (MOCK-UP banner). Real WHO thresholds / marker lists. |
+| **Real-data reports** (not committed) | `…_{WGS,MAD4HATTER}_v0.8-real.html` | Real Senegal data. **Excluded from this repo** — they embed real per-sample genotypes/coordinates; regenerate locally (below). |
 
 ## Build
 
 Synthetic mock-ups (no external data needed):
 
 ```bash
-./build_reports.sh v0.7      # writes reports/senegal_malaria_surveillance_<ASSAY>_v0.7.html
+./build_reports.sh v0.8      # writes reports/senegal_malaria_surveillance_<ASSAY>_v0.8.html
 ```
 
 Real-data reports (require the private Terra inputs, not in this repo — pass `""` to skip an assay):
@@ -41,7 +37,7 @@ Real-data reports (require the private Terra inputs, not in this repo — pass `
 # MAD  = UCSF mad4hatter outputs: <resmarker_dir> (resmarker_table.txt per run),
 #        <site_metadata.csv> (Sample_id,Country=site,Latitude,Longitude), <allele_dir> (allele_data.txt for COI)
 ./build_real_reports.sh <sample.tsv> <resmarker_dir> <site_metadata.csv> <allele_dir>
-# -> reports/senegal_malaria_surveillance_{WGS,MAD4HATTER}_v0.7-real.html  (git-ignored; embed real per-sample data)
+# -> reports/senegal_malaria_surveillance_{WGS,MAD4HATTER}_v0.8-real.html  (git-ignored; embed real per-sample data)
 ```
 
 Under the hood this runs `scripts/load_wgs.py` / `scripts/load_mad.py` and injects the resulting JSON into
@@ -101,10 +97,7 @@ progress popup), so the page stays small; the on-screen table shows a preview.
 
 ## Caveats
 
-- Synthetic reports carry **fabricated** prevalence values (layout review only); real
-  reports carry real markers but **naive COI**, and MAD4HATTER **HRP2/3 = not assessed**
-  (deletion calling needs a coverage-dropout analysis not in the source outputs).
-- *pfhrp2/3* figures are predicted from genetic markers and are **unvalidated**.
+- Synthetic reports carry **fabricated** prevalence values (layout review only).
 - Validation is via jsdom + a static SVG-geometry check (no browser in the build env).
 
-Versioning: the version is always in the filename; current = **v0.7**.
+Versioning: the version is always in the filename; current = **v0.8**.

@@ -279,9 +279,8 @@ $('#h-whatis').innerHTML=`<b>What this is.</b> ${esc(M.note)} Prevalence = share
   if(mw){ if(REAL){ mw.classList.remove('mockwarn'); mw.classList.add('realbanner');
       mw.innerHTML=esc(M.data_source||''); }
     else { mw.innerHTML=`MOCK-UP ${M.version} — illustrative synthetic data for design review. WHO thresholds/criteria &amp; marker lists are real; prevalence values are fabricated.`; } } }
-const LABEL={summary:'Summary',resistance:'Resistance Markers',diagnostics:'Diagnostics (HRP2/3)',
-  transmission:'Transmission',export:'Export',methods:'Methods'};
-const CATS=new Set(['resistance','diagnostics','transmission']);
+const LABEL={summary:'Summary',resistance:'Resistance Markers',export:'Export',methods:'Methods'};
+const CATS=new Set(['resistance']);
 const TABS=CAP.tabs.filter(t=>LABEL[t]);
 $('#tabbar').innerHTML=TABS.map((t,i)=>{
   const sep=(t==='resistance'||t==='export'||t==='methods')?'<span class="tabsep">|</span>':'';
@@ -294,13 +293,13 @@ document.querySelectorAll('.tabbtn').forEach(b=>b.onclick=()=>showTab(b.dataset.
 /* ================= RENDERERS ================= */
 const R={};
 const markerLabel=m=>`${m.gene} ${m.aa}`;
-const RES_PCT=M.marker_action_pct, HRP_PCT=M.hrp_action_pct;
+const RES_PCT=M.marker_action_pct;
 
 R.summary=()=>{
   let html=`<h2 class="sec">Summary — concerns for this population</h2>
-    <div class="sec-desc">Stoplight of the three surveillance domains. Click a card to jump to detail. Flags use WHO action thresholds: resistance markers ≥${RES_PCT}% (therapeutic-efficacy-study trigger), pfhrp2/3 ≥${HRP_PCT}% (RDT-switch) — the latter is shown greyed because deletion figures are predicted from genetic markers only.</div>
+    <div class="sec-desc">Stoplight of surveillance concerns. Click a card to jump to detail. Flags use the WHO action threshold: resistance markers ≥${RES_PCT}% (therapeutic-efficacy-study trigger).</div>
     <div class="stoplight">`;
-  const jump={'Resistance Markers':'resistance','Diagnostics (HRP2/3)':'diagnostics','Transmission':'transmission'};
+  const jump={'Resistance Markers':'resistance'};
   D.stoplight.forEach(s=>{
     const st=s.status, word={red:'Concern',amber:'Watch',green:'No flag',grey:'Not assessed'}[st];
     html+=`<div class="light ${st}" onclick="showTab('${jump[s.cat]||'summary'}')">
@@ -312,8 +311,7 @@ R.summary=()=>{
   html+=`<div class="kpis" style="margin-top:18px">
     <div class="kpi"><div class="lab">Samples analysed (QC-pass)</div><div class="val">${nf(M.n_qc)}</div><div class="foot">${M.n_units_sampled}/${M.n_units_total} admin-2 units · ${M.qc_rate}% pass</div></div>
     <div class="kpi"><div class="lab">WHO-tracked markers ≥${RES_PCT}%</div><div class="val">${D.markers.filter(m=>m.assessed&&m.who&&m.est>=RES_PCT).length}</div><div class="foot"><a onclick="showTab('resistance')" style="cursor:pointer;color:#2a6fb0;text-decoration:underline">of ${D.markers.filter(m=>m.assessed&&m.who).length} WHO-tracked markers assessed →</a></div></div>
-    <div class="kpi"><div class="lab">Research (non-WHO) markers shown</div><div class="val">${D.markers.filter(m=>m.assessed&&!m.who).length}</div><div class="foot">labelled; not WHO-tracked</div></div>`
-    +(D.transmission&&D.transmission.poly!=null?`<div class="kpi"><div class="lab">Polygenomic fraction</div><div class="val">${D.transmission.poly}%</div><div class="foot">share of infections with COI&gt;1 · ${esc(D.transmission.method||'')}</div></div>`:'')+`</div>`;
+    <div class="kpi"><div class="lab">Research (non-WHO) markers shown</div><div class="val">${D.markers.filter(m=>m.assessed&&!m.who).length}</div><div class="foot">labelled; not WHO-tracked</div></div></div>`;
   // --- restored original summary elements (below the stoplight) ---
   const hasSites=D.sites&&D.sites.length;
   const sampMap = hasSites
@@ -384,50 +382,6 @@ function wireResistance(){
   draw();
 }
 
-R.diagnostics=()=>{
-  const g=D.diagnostics;
-  if(!g.assessed) return `<h2 class="sec">Diagnostics — <i>pfhrp2</i> / <i>pfhrp3</i> deletions</h2>
-    <div class="callout"><b>Not assessed in this dataset.</b> No <i>pfhrp2/pfhrp3</i> deletion calls are available for this assay run, so deletion prevalence is not reported. Deletion calling from amplicon data requires a coverage-dropout analysis that was not part of these outputs.</div>`;
-  let html=`<h2 class="sec">Diagnostics — <i>pfhrp2</i> / <i>pfhrp3</i> deletions</h2>
-    <div class="unvalidated"><b>⚠ NOT VALIDATED — do not use for decisions.</b> These <i>pfhrp2/pfhrp3</i> deletion figures are <b>predicted based on genetic markers</b> and require laboratory validation before any operational use. Shown greyed to flag a research/funding priority. WHO's RDT-switch threshold is ≥${HRP_PCT}% <i>pfhrp2</i> deletions causing false-negative HRP2-RDTs; any flags below are indicative only.</div>
-    <div class="greyed">
-      <div class="kpis">
-        <div class="kpi"><div class="lab">National pfhrp2 deletion (indicative)</div><div class="val">${pct(g.hrp2.est)}</div><div class="foot">95% CI ${ci(g.hrp2.lo,g.hrp2.hi)} — unvalidated</div></div>
-        <div class="kpi"><div class="lab">National pfhrp3 deletion (indicative)</div><div class="val">${pct(g.hrp3.est)}</div><div class="foot">unvalidated</div></div>
-        <div class="kpi"><div class="lab">Sampled depts pfhrp2 ≥${HRP_PCT}%</div><div class="val">${g.units_above}</div><div class="foot">indicative only; needs lab confirmation</div></div>
-      </div>
-      <div class="card" style="margin-top:14px"><h3>Per-unit (indicative, unvalidated)</h3>
-        <div class="scroll"><table><thead><tr><th>Location (Admin Level 2)</th><th class="num">n</th><th class="num">pfhrp2 %</th><th class="num">pfhrp3 %</th></tr></thead><tbody>`+
-        D.units.filter(u=>u.sampled&&u.hrp2!=null).sort((a,b)=>b.hrp2-a.hrp2).slice(0,15).map(u=>`<tr><td>${esc(u.name)}</td><td class="num">${u.n}</td><td class="num">${pct(u.hrp2)}</td><td class="num">${pct(u.hrp3)}</td></tr>`).join('')
-        +`</tbody></table></div></div>
-    </div>`;
-  return html;
-};
-
-R.transmission=()=>{
-  const t=D.transmission, av=t.available;
-  let html=`<h2 class="sec">Transmission &amp; parasite diversity</h2>
-    <div class="sec-desc">Per admin-2 unit (not aggregated). COI via <b>${esc(t.method)}</b>. Fractions carry their denominator (n QC-pass infections per unit). Metrics available depend on the assay.</div>
-    <div class="kpis">
-      <div class="kpi"><div class="scope">within-host</div><div class="lab">Mean COI</div><div class="val">${t.coi!=null?t.coi.toFixed(2):'—'}</div><div class="foot">clones per infection · ${esc(t.method)}</div></div>
-      <div class="kpi"><div class="scope">population</div><div class="lab">Polygenomic fraction</div><div class="val">${t.poly!=null?t.poly+'%':'—'}</div><div class="foot">COI&gt;1 ÷ n</div></div>
-      <div class="kpi"><div class="scope">population</div><div class="lab">Monogenomic-clone fraction</div><div class="val">${t.mono!=null?t.mono+'%':'—'}</div><div class="foot">COI=1 ÷ n</div></div>`
-    +(av.rh?`<div class="kpi"><div class="scope">within-host</div><div class="lab">RH (intra-host relatedness)</div><div class="val">${t.rh!=null?t.rh.toFixed(2):'—'}</div><div class="foot">cotransmission vs superinfection</div></div>`:'')
-    +(av.cotx?`<div class="kpi"><div class="scope">across-host</div><div class="lab">Co-transmission fraction</div><div class="val">${t.cotx!=null?t.cotx+'%':'—'}</div><div class="foot">IBD-based</div></div>`:'')+`</div>`;
-  // per-unit map (polygenomic %) + bars
-  const breaks=[0,20,40,60,80,100];
-  html+=`<div class="grid two" style="margin-top:16px">
-    <div class="card"><h3>Polygenomic fraction by admin-2</h3><div class="hint">Click a region to pin; hatched = n&lt;${MINN}.</div>
-      ${choropleth(u=>u&&u.sampled&&u.div?u.div.poly:null,u=>u?u.n:0,breaks,BLU,'%')}${binnedLegend(breaks,BLU,'%')}<div class="readout">Click a region…</div></div>
-    <div class="card"><h3>Mean COI by admin-2</h3><div class="hint">COI per admin-2 unit (${esc(t.method)}).</div>
-      ${(()=>{const r=D.units.filter(u=>u.sampled&&u.div&&u.div.coi!=null).sort((a,b)=>b.div.coi-a.div.coi).slice(0,20).map(u=>({label:u.name,v:u.div.coi})); return r.length?bars(r,{max:3.5,color:'var(--s2)',fmt:v=>v.toFixed(2)}):'<div class="hint">COI not computed for this dataset.</div>';})()}</div></div>`;
-  // per-unit table (with denominators)
-  html+=`<div class="card" style="margin-top:16px"><h3>Per-unit diversity (with denominators)</h3>
-    <div class="scroll"><table><thead><tr><th>Location (Admin Level 2)</th><th class="num">n (denom)</th><th class="num">COI</th><th class="num">Polygenomic %</th><th class="num">Monogenomic %</th>${av.rh?'<th class="num">RH</th>':''}${av.cotx?'<th class="num">cotx %</th>':''}</tr></thead><tbody>`+
-    D.units.filter(u=>u.sampled&&u.div).sort((a,b)=>(b.div.poly||0)-(a.div.poly||0)).map(u=>`<tr><td>${esc(u.name)}</td><td class="num">${u.n}</td><td class="num">${u.div.coi!=null?u.div.coi.toFixed(2):'—'}</td><td class="num">${u.div.poly!=null?u.div.poly+'%':'—'}</td><td class="num">${u.div.mono!=null?u.div.mono+'%':'—'}</td>${av.rh?`<td class="num">${u.div.rh!=null?u.div.rh.toFixed(2):'—'}</td>`:''}${av.cotx?`<td class="num">${u.div.cotx!=null?u.div.cotx+'%':'—'}</td>`:''}</tr>`).join('')
-    +`</tbody></table></div><caption>RH = intra-host relatedness (Wong et al.); cotx = co-transmission fraction. ${av.rh?'':'RH / co-transmission require genome-wide data (WGS) — not available for this assay.'}</caption></div>`;
-  return html;
-};
 
 R.export=()=>{
   const e=D.export, order=e.order||Object.keys(e.views||{});
@@ -461,20 +415,17 @@ R.methods=()=>{
     <div class="grid two">
     <div class="card"><h3>Assay &amp; scope</h3><p style="font-size:13.5px;color:var(--ink2)">${esc(M.assay_full)}. ${esc(M.note)} Marker genes typed: ${(CAP.genes||[]).join(', ')||'—'}.</p></div>
     <div class="card"><h3>Statistics &amp; suppression</h3><p style="font-size:13.5px;color:var(--ink2)">Prevalence = carriers ÷ QC-pass infections typed at the locus; 95% CIs by the Wilson score method. Regions with fewer than the min-sample threshold (default ${M.min_samples}, adjustable) are suppressed so a single positive sample is never shown as "100%". Prevalence only — population case-rates are not reported.</p></div></div>
-    <div class="grid two" style="margin-top:16px">
-      <div class="card"><h3>How complexity of infection (COI) was estimated</h3><p style="font-size:13.5px;color:var(--ink2)">${esc(M.coi_detail||'')}</p></div>
+    <div class="grid" style="margin-top:16px">
       <div class="card"><h3>Pipelines &amp; data sources</h3><ul style="font-size:13px;color:var(--ink2);margin:6px 0 0 18px;line-height:1.9">${(M.links||[]).map(l=>`<li><a href="${l[1]}" target="_blank" rel="noopener">${esc(l[0])}</a></li>`).join('')||'<li>\u2014</li>'}</ul></div>
     </div>
     <div class="card" style="margin-top:16px"><h3>Thresholds &amp; sources</h3>
       <ul style="font-size:13px;color:var(--ink2);margin:6px 0 0 18px;line-height:1.7">
         <li>Resistance markers &amp; WHO-tracked status: <a href="${who}" target="_blank" rel="noopener">WHO Compendium of molecular markers for antimalarial drug resistance</a>.</li>
         <li>Resistance action flag: ≥${RES_PCT}% — aligns with the WHO therapeutic-efficacy-study / treatment-failure (≥10%) trigger for changing first-line policy.</li>
-        <li><i>pfhrp2/3</i> deletions: WHO RDT-switch threshold ≥${HRP_PCT}% (shown greyed — calls unvalidated, require lab confirmation).</li>
         <li>Research markers (Pfcoronin, Pfubp1, Pfap2-mu, …) are labelled "not WHO-tracked".</li>
-        <li>Transmission metrics: complexity of infection (COI; estimation method stated per report on the Transmission tab), polygenomic/monogenomic fractions, RH intra-host relatedness (Wong et al.), co-transmission fraction.</li>
         <li>Admin-2 boundaries: geoBoundaries (SEN ADM2). Admin-3 shown when available; collection dates assumed available (contingency messaging if absent).</li>
       </ul></div>
-    <div class="callout ${REAL?'':'amber'}" style="margin-top:14px"><b>Data status.</b> ${REAL?esc(M.data_source||'Real data.')+`. Prevalence = carriers ÷ QC-pass infections typed at the locus; COI method noted on the Transmission tab. Thresholds &amp; WHO-tracked status are the published WHO criteria.`:`Design mock-up (${M.version}) with synthetic prevalence values. Thresholds, WHO-tracked status, and marker lists are real; the numbers are fabricated for layout review.`}</div>`;
+    <div class="callout ${REAL?'':'amber'}" style="margin-top:14px"><b>Data status.</b> ${REAL?esc(M.data_source||'Real data.')+`. Prevalence = carriers ÷ QC-pass infections typed at the locus. Thresholds &amp; WHO-tracked status are the published WHO criteria.`:`Design mock-up (${M.version}) with synthetic prevalence values. Thresholds, WHO-tracked status, and marker lists are real; the numbers are fabricated for layout review.`}</div>`;
 };
 
 /* render + wire */
