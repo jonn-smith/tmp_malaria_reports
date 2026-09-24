@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Malaria Molecular Surveillance — Senegal (__ASSAY__)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Rubik:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --accent:#006dae; --surface:#fff; --page:#eef1f4; --panel:#f7f9fb;
+  --ink:#0b0b0b; --ink2:#52514e; --muted:#898781; --grid:#e6e8eb; --line:#dfe1e5;
+  --good:#0ca30c; --amber:#e8a400; --red:#d03b3b; --grey:#9a9a9a;
+  --s1:#2a78d6; --s2:#1baf7a;
+  --radius:12px; --font:"Rubik",system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{background:var(--page)}
+body{font-family:var(--font);color:var(--ink);background:var(--page);font-size:15px;line-height:1.5;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1200px;margin:0 auto;padding:0 22px 80px}
+header.top{color:#fff;padding:22px 0 18px;background:linear-gradient(120deg,#003b5e 0%,var(--accent) 60%,#2494c7 100%)}
+.top .wrap{padding-bottom:0}
+.brandrow{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.crest{width:44px;height:44px;border-radius:10px;background:rgba(255,255,255,.16);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:18px;border:1px solid rgba(255,255,255,.28)}
+.brandrow h1{font-size:20px;font-weight:600}
+.assaychip{display:inline-block;background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.35);padding:3px 10px;border-radius:20px;font-size:12px;font-weight:600;margin-left:4px}
+.sub{font-size:12.5px;opacity:.92}
+.tagline{margin-top:12px;display:flex;gap:22px;flex-wrap:wrap;font-size:12px;opacity:.95}
+.tagline b{font-weight:600}
+.whatis{margin-top:14px;padding:11px 14px;border:1px solid rgba(255,255,255,.45);background:rgba(255,255,255,.14);border-radius:9px;font-size:12.5px;line-height:1.5;max-width:110ch}
+.whatis b{font-weight:700}
+.badge{display:inline-block;background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.3);padding:2px 9px;border-radius:20px;font-size:11.5px}
+nav.tabs{position:sticky;top:0;z-index:20;background:var(--surface);border-bottom:1px solid var(--line);box-shadow:0 1px 4px rgba(0,0,0,.04)}
+nav.tabs .wrap{display:flex;gap:2px;padding-top:0;padding-bottom:0;overflow-x:auto;align-items:center}
+.tabbtn{appearance:none;background:none;border:none;font-family:inherit;cursor:pointer;padding:13px 14px;font-size:13.5px;font-weight:500;color:var(--ink2);white-space:nowrap;border-bottom:3px solid transparent}
+.tabbtn:hover{color:var(--ink)} .tabbtn.active{color:var(--accent);border-bottom-color:var(--accent);font-weight:600}
+.tabsep{color:var(--line);padding:0 2px}
+.tab-page{display:none;padding-top:22px}.tab-page.active{display:block}
+h2.sec{font-size:18px;font-weight:600;margin:6px 0 4px}
+.sec-desc{color:var(--ink2);font-size:13.5px;margin-bottom:14px;max-width:82ch}
+.grid{display:grid;gap:16px}.two{grid-template-columns:1fr 1fr}.three{grid-template-columns:repeat(3,1fr)}
+@media(max-width:860px){.two,.three{grid-template-columns:1fr}}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:18px}
+.card h3{font-size:14.5px;font-weight:600;margin-bottom:2px}
+.card .hint{font-size:12px;color:var(--muted);margin-bottom:10px}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px}
+.kpi{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:14px 15px;position:relative;overflow:hidden}
+.kpi .lab{font-size:12px;color:var(--ink2);font-weight:500}
+.kpi .val{font-size:27px;font-weight:600;margin-top:5px;letter-spacing:-.5px}
+.kpi .foot{font-size:11.5px;margin-top:6px;color:var(--ink2)}
+.kpi .scope{font-size:10.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px}
+/* stoplight */
+.stoplight{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+@media(max-width:860px){.stoplight{grid-template-columns:1fr}}
+.light{border:1px solid var(--line);border-radius:var(--radius);padding:16px;cursor:pointer;background:#fff;border-left:6px solid var(--grey)}
+.light:hover{box-shadow:0 2px 10px rgba(0,0,0,.08)}
+.light.red{border-left-color:var(--red)} .light.amber{border-left-color:var(--amber)}
+.light.green{border-left-color:var(--good)} .light.grey{border-left-color:var(--grey)}
+.light .dot{width:14px;height:14px;border-radius:50%;display:inline-block;vertical-align:middle;margin-right:8px}
+.light.red .dot{background:var(--red)} .light.amber .dot{background:var(--amber)}
+.light.green .dot{background:var(--good)} .light.grey .dot{background:var(--grey)}
+.light .cat{font-size:15px;font-weight:600}
+.light .stat{font-size:11.5px;text-transform:uppercase;letter-spacing:.5px;font-weight:600;color:var(--ink2)}
+.light ul{margin:10px 0 0 2px;padding:0;list-style:none;font-size:12.5px;color:var(--ink2)}
+.light li{padding:3px 0;border-top:1px dashed var(--grid)}
+.callout{border-left:4px solid var(--accent);background:var(--panel);border-radius:8px;padding:12px 14px;font-size:13px;color:var(--ink2);margin:8px 0}
+.callout.red{border-left-color:var(--red)} .callout.amber{border-left-color:var(--amber)}
+.callout b{color:var(--ink)}
+.pill{display:inline-block;padding:1px 8px;border-radius:20px;font-size:11px;font-weight:600}
+.pill.who{background:#e3eefb;color:#1c5cab} .pill.research{background:#fdf0e2;color:#9a5b16;border:1px solid #eccfa6}
+.pill.action{background:#fbe3e3;color:#a81e1e} .pill.mut{background:#eef1f4;color:#52514e}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th,td{text-align:left;padding:7px 9px;border-bottom:1px solid var(--grid)}
+th{font-weight:600;color:var(--ink2);font-size:11.5px;text-transform:uppercase;letter-spacing:.3px}
+td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
+tr:hover td{background:#fafbfc} .ci-txt{color:var(--muted);font-variant-numeric:tabular-nums}
+.scroll{overflow-x:auto}
+caption{caption-side:bottom;text-align:left;color:var(--muted);font-size:11.5px;padding-top:8px}
+.legend{display:flex;gap:12px;flex-wrap:wrap;font-size:12px;color:var(--ink2);margin:8px 0 2px;align-items:center}
+.legend .k{display:inline-flex;align-items:center;gap:5px}
+.legend .sw{width:13px;height:13px;border-radius:3px;display:inline-block;border:1px solid rgba(0,0,0,.08)}
+.controls{display:flex;gap:16px;flex-wrap:wrap;align-items:center;margin-bottom:10px;font-size:12.5px}
+select,input[type=range],button.btn{font-family:inherit}
+select{font-size:12.5px;padding:4px 8px;border:1px solid var(--line);border-radius:6px;background:#fff}
+button.btn{font-size:12px;padding:5px 11px;border:1px solid var(--line);border-radius:6px;background:#fff;cursor:pointer;color:var(--ink)}
+button.btn:hover{background:var(--panel)} button.btn.on{background:var(--accent);color:#fff;border-color:var(--accent)}
+.toggles{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:12px;margin:4px 0 10px}
+.toggles label{display:inline-flex;align-items:center;gap:5px;cursor:pointer}
+.readout{font-size:12.5px;color:var(--ink2);min-height:1.4em;margin-top:4px}
+.readout b{color:var(--ink)}
+.greyed{opacity:.45;filter:grayscale(1)}
+.unvalidated{border:2px solid var(--red);background:#fbe9e9;border-radius:10px;padding:12px 14px;font-size:13px;color:#7a1a1a;margin-bottom:14px}
+.unvalidated b{color:#5a0f0f}
+svg{display:block;max-width:100%}text{font-family:var(--font)}
+.mockwarn{background:#fff3d6;color:#7a5600;text-align:center;font-size:12.5px;padding:6px;font-weight:500;border-bottom:1px solid #f0dca0}
+.realbanner{background:#e6f4ea;color:#1f6b3b;text-align:center;font-size:12.5px;padding:6px;font-weight:600;border-bottom:1px solid #b7dfc2}
+.dlmodal{position:fixed;inset:0;background:rgba(20,24,30,.45);display:none;align-items:center;justify-content:center;z-index:9999}
+.dlbox{background:#fff;border-radius:10px;padding:20px 26px;min-width:320px;box-shadow:0 10px 40px rgba(0,0,0,.3);font-size:14px}
+.dllab{margin-bottom:10px;color:#1a1d22;font-weight:600}
+.dlbar{height:10px;background:#eef1f4;border-radius:6px;overflow:hidden}
+.dlbar i{display:block;height:100%;width:0;background:#2a6fb0;transition:width .2s}
+.footer{margin-top:30px;padding-top:14px;border-top:1px solid var(--line);font-size:12px;color:var(--muted)}
+.region-sel{stroke:#111 !important;stroke-width:2 !important}
+a{color:var(--accent)}
+@media print{nav.tabs{display:none}.tab-page{display:block !important;page-break-before:always}.tab-page:first-of-type{page-break-before:avoid}header.top{-webkit-print-color-adjust:exact;print-color-adjust:exact}body{background:#fff}}
+</style>
+</head>
+<body>
+<div id="mockwarn" class="mockwarn"></div>
+<header class="top"><div class="wrap">
+  <div class="brandrow"><div class="crest">Pf</div>
+    <div><h1>Malaria Molecular Surveillance — Senegal <span class="assaychip" id="assaychip"></span></h1>
+      <div class="sub" id="h-sub"></div></div></div>
+  <div class="tagline" id="h-tags"></div>
+  <div class="whatis" id="h-whatis"></div>
+</div></header>
+<nav class="tabs"><div class="wrap" id="tabbar"></div></nav>
+<div class="wrap" id="pages"></div>
+<div class="wrap"><div class="footer" id="footer"></div></div>
+
+<script>
+/*DATA_HERE*/
+</script>
+<script>
+const D=DATA, M=D.meta, CAP=D.capabilities;
+const REAL=!!M.real;
+document.documentElement.style.setProperty('--accent', M.color||'#006dae');
+const $=(s,r=document)=>r.querySelector(s);
+const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const pct=v=>(v==null?'—':(+v).toFixed(1)+'%');
+const ci=(lo,hi)=>`[${(+lo).toFixed(1)}–${(+hi).toFixed(1)}]`;
+const nf=n=>(+n).toLocaleString();
+const unit=n=>D.units.find(u=>u.name===n);
+const isComb=M.assay==='COMBINED';
+let MINN=M.min_samples;                 // live suppression threshold (slider)
+
+/* ---- binned color ---- */
+const RED=['#fdeaea','#f7c7c7','#ef9a9a','#e26565','#d03b3b','#9e2020'];
+const BLU=['#eaf2fb','#c8ddf6','#9ec5f4','#6da7ec','#3987e5','#1c5cab'];
+function binColor(v,breaks,cols){ if(v==null) return null;
+  for(let i=1;i<breaks.length;i++){ if(v<breaks[i]) return cols[Math.min(i-1,cols.length-1)]; }
+  return cols[cols.length-1]; }
+function binnedLegend(breaks,cols,u,actionAt){
+  let s=`<div class="legend">`;
+  for(let i=0;i<breaks.length-1;i++){
+    const lab = breaks[i]+(breaks[i+1]>=1e9?'+':'–'+breaks[i+1])+(u||'');
+    const act = (actionAt!=null && breaks[i+1]===actionAt) ? ' ⚑' : '';
+    s+=`<span class="k"><span class="sw" style="background:${cols[i]}"></span>${lab}${act}</span>`;
+  }
+  s+=`<span class="k"><span class="sw" style="background:repeating-linear-gradient(45deg,#f1f3f6,#f1f3f6 3px,#d5d9de 3px,#d5d9de 4px)"></span>n&lt;${MINN} (suppressed)</span></div>`;
+  return s;
+}
+/* ---- choropleth (binned, clickable, sample-suppressed) ---- */
+let _cid=0;
+function choropleth(valFn,nFn,breaks,cols,u,{labelTop=0}={}){
+  const m=D.map, pid='nd'+(_cid++); let s=`<svg viewBox="${m.viewBox}" width="${m.W}" role="img">`;
+  s+=`<defs><pattern id="${pid}" patternUnits="userSpaceOnUse" width="6" height="6" patternTransform="rotate(45)"><rect width="6" height="6" fill="#f1f3f6"/><line x1="0" y1="0" x2="0" y2="6" stroke="#d5d9de" stroke-width="1.4"/></pattern></defs>`;
+  m.depts.forEach(dp=>{const u0=unit(dp.name),n=nFn(u0),v=valFn(u0);
+    const supp = (n==null||n<MINN);
+    const fill = supp? `url(#${pid})` : (binColor(v,breaks,cols)||'#f1f3f6');
+    const vtxt = supp?`suppressed (n=${n||0}<${MINN})`:(v==null?'no data':(+v).toFixed(1)+(u||''));
+    s+=`<path d="${dp.path}" fill="${fill}" stroke="#fff" stroke-width="0.7" style="cursor:pointer" onclick="pickRegion(this,'${esc(dp.name)}','${vtxt}',${n||0})"><title>${esc(dp.name)}: ${vtxt} · n=${n||0}</title></path>`;});
+  return s+'</svg>';
+}
+function pickRegion(el,name,vtxt,n){
+  document.querySelectorAll('.region-sel').forEach(p=>p.classList.remove('region-sel'));
+  el.classList.add('region-sel');
+  const ro=el.closest('.card').querySelector('.readout'); if(ro) ro.innerHTML=`<b>${esc(name)}</b>: ${esc(vtxt)} &nbsp;·&nbsp; samples n=${n}`;
+}
+function clearRegions(){document.querySelectorAll('.region-sel').forEach(p=>p.classList.remove('region-sel'));
+  document.querySelectorAll('.readout').forEach(r=>r.textContent='Click a region…');}
+// clicking anywhere that is NOT a region path clears the highlight
+document.addEventListener('click',e=>{ if(!(['path','circle'].includes(e.target.tagName) && e.target.getAttribute('onclick'))) clearRegions(); });
+/* ---- horizontal bars (samples per region, or per-unit metric) ---- */
+function bars(rows,{w=560,rowH=20,max=null,unit2='',color='var(--s1)',thr=null,fmt=(v=>(''+v))}={}){
+  const padL=150,padR=56,padT=6,padB=22; max=max??Math.max(...rows.map(r=>r.v),1); max=max||1;
+  const h=padT+rows.length*rowH+padB, iw=w-padL-padR, x=v=>padL+iw*Math.min(v,max)/max;
+  let s=`<svg viewBox="0 0 ${w} ${h}" width="${w}">`;
+  const step=max<=5?1:max<=10?2:max<=30?5:max<=60?20:max<=200?50:100;
+  for(let t=0;t<=max;t+=step){s+=`<line x1="${x(t)}" y1="${padT}" x2="${x(t)}" y2="${h-padB}" stroke="var(--grid)"/><text x="${x(t)}" y="${h-padB+14}" font-size="10" fill="var(--muted)" text-anchor="middle">${t}</text>`;}
+  if(thr!=null){s+=`<line x1="${x(thr)}" y1="${padT}" x2="${x(thr)}" y2="${h-padB}" stroke="var(--red)" stroke-width="1.5" stroke-dasharray="4 3"/><text x="${x(thr)}" y="${padT}" font-size="9.5" fill="var(--red)" text-anchor="middle" dy="-1">${thr}${unit2}</text>`;}
+  rows.forEach((r,i)=>{const cy=padT+i*rowH+rowH/2,bw=11,col=r.color||color;
+    s+=`<text x="${padL-8}" y="${cy}" font-size="11.5" fill="var(--ink2)" text-anchor="end" dominant-baseline="middle">${esc(r.label)}</text>`;
+    s+=`<rect x="${padL}" y="${cy-bw/2}" width="${Math.max(0,x(r.v)-padL)}" height="${bw}" rx="3" fill="${col}"><title>${esc(r.label)}: ${fmt(r.v)}${unit2}</title></rect>`;
+    const lab=fmt(r.v),ex=x(r.v)+6,lw=(''+lab).length*6.4; let lx=ex,an='start'; if(lx+lw>w-2){lx=w-3;an='end';}
+    s+=`<text x="${lx}" y="${cy}" font-size="11" fill="var(--ink)" dominant-baseline="middle" text-anchor="${an}" font-weight="600">${lab}</text>`;});
+  return s+'</svg>';
+}
+/* ---- graduated-symbol "where sampling happened" map ---- */
+function dotmap(nFn,color){
+  const m=D.map, mx=Math.max(1,...m.depts.map(dp=>nFn(unit(dp.name))||0));
+  let s=`<svg viewBox="${m.viewBox}" width="${m.W}">`;
+  m.depts.forEach(dp=>{const n=nFn(unit(dp.name))||0, vt=n?n+' samples':'not sampled';
+    s+=`<path d="${dp.path}" fill="#f4f6f8" stroke="#dbe0e5" stroke-width="0.7" style="cursor:pointer" onclick="pickRegion(this,'${esc(dp.name)}','${vt}',${n})"><title>${esc(dp.name)}: ${vt}</title></path>`;});
+  m.depts.forEach(dp=>{const n=nFn(unit(dp.name)); if(!n)return; const r=(3+22*Math.sqrt(n/mx)).toFixed(1);
+    s+=`<circle cx="${dp.cx}" cy="${dp.cy}" r="${r}" fill="${color}" fill-opacity="0.6" stroke="#fff" stroke-width="1" style="cursor:pointer" onclick="pickRegion(this,'${esc(dp.name)}','${n} samples',${n})"><title>${esc(dp.name)}: ${n} samples</title></circle>`;});
+  return s+'</svg>';
+}
+function dotLegend(nFn,color){const m=D.map, mx=Math.max(1,...m.depts.map(dp=>nFn(unit(dp.name))||0));
+  const vals=[mx,Math.max(1,Math.round(mx/2)),Math.max(1,Math.round(mx/6))];
+  const R=v=>3+22*Math.sqrt(v/mx), maxR=R(mx), cy=18+maxR, labY=cy+maxR+15;
+  let x=12+maxR, s=`<svg viewBox="0 0 360 ${labY+8}" width="360">`;
+  s+=`<text x="2" y="12" font-size="11" fill="var(--ink2)">Circle area ∝ QC-pass samples</text>`;
+  vals.forEach(v=>{const r=R(v);
+    s+=`<circle cx="${x}" cy="${cy}" r="${r.toFixed(1)}" fill="${color}" fill-opacity="0.55" stroke="#fff" stroke-width="1"/>`;
+    s+=`<text x="${x}" y="${labY}" font-size="11.5" fill="var(--ink)" text-anchor="middle" font-weight="600" style="paint-order:stroke;stroke:#fff;stroke-width:3px">${v}</text>`;
+    x+=2*maxR+30;});
+  return s+'</svg>';}
+// site-level map: real collection-site points (finer than admin-2). valFn/breaks null => sampling map (size by n).
+function siteMap(valFn,breaks,cols,u){
+  const m=D.map, S=D.sites||[], mx=Math.max(1,...S.map(t=>t.n||0));
+  let s=`<svg viewBox="${m.viewBox}" width="${m.W}" role="img">`;
+  m.depts.forEach(dp=>{ s+=`<path d="${dp.path}" fill="#f4f6f8" stroke="#dbe0e5" stroke-width="0.7"/>`; });
+  S.forEach(t=>{ const colored=!!(valFn&&breaks); const v=colored?valFn(t):null; const supp=(t.n<MINN);
+    const r=(3.5+16*Math.sqrt((t.n||0)/mx)).toFixed(1);
+    const fill = colored ? (supp?'#c9ccd1':(binColor(v,breaks,cols)||'#eef1f4')) : cols;
+    const vt = colored ? (supp?`suppressed (n=${t.n}<${MINN})`:(v==null?'no data':(+v).toFixed(1)+(u||''))) : `${t.n} samples`;
+    s+=`<circle cx="${t.x}" cy="${t.y}" r="${r}" fill="${fill}" fill-opacity="${colored?0.85:0.62}" stroke="${colored?'#2b2f36':'#fff'}" stroke-width="${colored?0.8:1}" style="cursor:pointer" onclick="pickRegion(this,'${esc(t.name)} (${esc(t.district)})','${vt}',${t.n})"><title>${esc(t.name)} — ${esc(t.district)}: n=${t.n}${colored&&v!=null&&!supp?', '+(+v).toFixed(1)+(u||''):''}</title></circle>`; });
+  return s+'</svg>';
+}
+function methodTile(){return `<table>
+  <tr><td>Platform</td><td><b>${esc(M.platform)}</b></td></tr>
+  <tr><td>Admin-2 units sampled</td><td>${M.n_units_sampled} / ${M.n_units_total}</td></tr>
+  <tr><td>Samples (QC-pass)</td><td>${nf(M.n_qc)} (${M.qc_rate}% pass)</td></tr>
+  <tr><td>Marker genes typed</td><td>${(CAP.genes||[]).length}</td></tr>`
+  +(isComb&&M.by_assay?`<tr><td>By assay (QC-pass)</td><td>${Object.entries(M.by_assay).map(([a,v])=>a+' '+nf(v)).join(' · ')}</td></tr>`:'')+`</table>`;}
+
+const csvDL=(name,rows)=>{ if(!rows.length) return '';
+  const cols=Object.keys(rows[0]); const body=[cols.join(',')].concat(rows.map(r=>cols.map(c=>{const v=(''+ (r[c]??'')).replace(/"/g,'""'); return /[",\n]/.test(v)?`"${v}"`:v;}).join(','))).join('\n');
+  const href='data:text/csv;charset=utf-8,'+encodeURIComponent(body);
+  return `<a class="btn" href="${href}" download="${name}">⤓ Download CSV (${rows.length} rows)</a>`; };
+
+// compact year display: contiguous runs use en-dash, non-contiguous entries comma-separated
+function fmtYears(ys){
+  ys=[...new Set((ys||[]).map(x=>parseInt(x,10)).filter(x=>!isNaN(x)))].sort((a,b)=>a-b);
+  if(!ys.length) return '';
+  const runs=[]; let s=ys[0],p=ys[0];
+  for(let i=1;i<ys.length;i++){ if(ys[i]===p+1){p=ys[i];} else {runs.push([s,p]); s=p=ys[i];} }
+  runs.push([s,p]);
+  return runs.map(([a,b])=>a===b?`${a}`:`${a}–${b}`).join(', ');
+}
+// gunzip a base64 gzip payload -> text (client-side, DecompressionStream; no library)
+async function gunzipB64(b64){
+  const bin=atob(b64); const bytes=new Uint8Array(bin.length);
+  for(let i=0;i<bin.length;i++) bytes[i]=bin.charCodeAt(i);
+  if(typeof DecompressionStream==='undefined') throw new Error('browser lacks DecompressionStream');
+  const stream=new Response(bytes).body.pipeThrough(new DecompressionStream('gzip'));
+  return await new Response(stream).text();
+}
+function dlModal(show,label,pct){
+  let m=$('#dlmodal');
+  if(!m){ m=document.createElement('div'); m.id='dlmodal'; m.className='dlmodal';
+    m.innerHTML='<div class="dlbox"><div class="dllab"></div><div class="dlbar"><i></i></div></div>'; document.body.appendChild(m); }
+  m.style.display=show?'flex':'none';
+  if(label!=null) m.querySelector('.dllab').textContent=label;
+  if(pct!=null) m.querySelector('.dlbar i').style.width=pct+'%';
+}
+async function downloadCSVgz(gz,name){
+  try{
+    dlModal(true,'Preparing '+name+' …',10); await new Promise(r=>setTimeout(r,30));
+    dlModal(true,'Decompressing …',45);
+    const text=await gunzipB64(gz);
+    dlModal(true,'Building CSV …',80);
+    const blob=new Blob([text],{type:'text/csv'}); const url=URL.createObjectURL(blob);
+    const a=document.createElement('a'); a.href=url; a.download=name; document.body.appendChild(a); a.click(); a.remove();
+    dlModal(true,'Done',100); setTimeout(()=>{dlModal(false); URL.revokeObjectURL(url);},400);
+  }catch(e){ dlModal(false); alert('Export failed: '+e.message); }
+}
+
+/* ================= HEADER + NAV ================= */
+$('#assaychip').textContent=M.assay;
+$('#h-sub').textContent=`${M.assay_full} · ${M.country} · ${M.admin} · ${M.period}`;
+$('#h-tags').innerHTML=[['Platform',M.platform],['Admin-2 units sampled',`${M.n_units_sampled} / ${M.n_units_total}`],
+  ['Samples (QC-pass)',nf(M.n_qc)],['Prevalence basis','share of QC-pass infections'],['Generated',M.generated]]
+  .map(([k,v])=>`<span><b>${k}:</b> ${v}</span>`).join('')+` <span class="badge">${M.version}</span>`;
+$('#h-whatis').innerHTML=`<b>What this is.</b> ${esc(M.note)} Prevalence = share of QC-pass infections carrying the alteration; regions with n&lt;${M.min_samples} samples are suppressed to avoid misleading small-denominator percentages.`;
+// top banner: mock-up warning only for synthetic data; real data gets a neutral provenance line
+{ const mw=$('#mockwarn');
+  if(mw){ if(REAL){ mw.classList.remove('mockwarn'); mw.classList.add('realbanner');
+      mw.innerHTML=esc(M.data_source||''); }
+    else { mw.innerHTML=`MOCK-UP ${M.version} — illustrative synthetic data for design review. WHO thresholds/criteria &amp; marker lists are real; prevalence values are fabricated.`; } } }
+const LABEL={summary:'Summary',resistance:'Resistance Markers',diagnostics:'Diagnostics (HRP2/3)',
+  transmission:'Transmission',export:'Export',methods:'Methods'};
+const CATS=new Set(['resistance','diagnostics','transmission']);
+const TABS=CAP.tabs.filter(t=>LABEL[t]);
+$('#tabbar').innerHTML=TABS.map((t,i)=>{
+  const sep=(t==='resistance'||t==='export'||t==='methods')?'<span class="tabsep">|</span>':'';
+  return sep+`<button class="tabbtn${i?'':' active'}" data-t="${t}">${LABEL[t]}</button>`;}).join('');
+$('#pages').innerHTML=TABS.map((t,i)=>`<section id="pg-${t}" class="tab-page${i?'':' active'}"></section>`).join('');
+function showTab(t){document.querySelectorAll('.tabbtn').forEach(x=>x.classList.toggle('active',x.dataset.t===t));
+  document.querySelectorAll('.tab-page').forEach(x=>x.classList.toggle('active',x.id==='pg-'+t));window.scrollTo({top:0});}
+document.querySelectorAll('.tabbtn').forEach(b=>b.onclick=()=>showTab(b.dataset.t));
+
+/* ================= RENDERERS ================= */
+const R={};
+const markerLabel=m=>`${m.gene} ${m.aa}`;
+const RES_PCT=M.marker_action_pct, HRP_PCT=M.hrp_action_pct;
+
+R.summary=()=>{
+  let html=`<h2 class="sec">Summary — concerns for this population</h2>
+    <div class="sec-desc">Stoplight of the three surveillance domains. Click a card to jump to detail. Flags use WHO action thresholds: resistance markers ≥${RES_PCT}% (therapeutic-efficacy-study trigger), pfhrp2/3 ≥${HRP_PCT}% (RDT-switch) — the latter is shown greyed because deletion figures are predicted from genetic markers only.</div>
+    <div class="stoplight">`;
+  const jump={'Resistance Markers':'resistance','Diagnostics (HRP2/3)':'diagnostics','Transmission':'transmission'};
+  D.stoplight.forEach(s=>{
+    const st=s.status, word={red:'Concern',amber:'Watch',green:'No flag',grey:'Not assessed'}[st];
+    html+=`<div class="light ${st}" onclick="showTab('${jump[s.cat]||'summary'}')">
+      <div class="cat"><span class="dot"></span>${esc(s.cat)}</div>
+      <div class="stat">${word}</div>
+      <ul>${s.findings.map(f=>`<li>${esc(f)}</li>`).join('')}</ul></div>`;
+  });
+  html+=`</div>`;
+  html+=`<div class="kpis" style="margin-top:18px">
+    <div class="kpi"><div class="lab">Samples analysed (QC-pass)</div><div class="val">${nf(M.n_qc)}</div><div class="foot">${M.n_units_sampled}/${M.n_units_total} admin-2 units · ${M.qc_rate}% pass</div></div>
+    <div class="kpi"><div class="lab">WHO-tracked markers ≥${RES_PCT}%</div><div class="val">${D.markers.filter(m=>m.assessed&&m.who&&m.est>=RES_PCT).length}</div><div class="foot"><a onclick="showTab('resistance')" style="cursor:pointer;color:#2a6fb0;text-decoration:underline">of ${D.markers.filter(m=>m.assessed&&m.who).length} WHO-tracked markers assessed →</a></div></div>
+    <div class="kpi"><div class="lab">Research (non-WHO) markers shown</div><div class="val">${D.markers.filter(m=>m.assessed&&!m.who).length}</div><div class="foot">labelled; not WHO-tracked</div></div>`
+    +(D.transmission&&D.transmission.poly!=null?`<div class="kpi"><div class="lab">Polygenomic fraction</div><div class="val">${D.transmission.poly}%</div><div class="foot">share of infections with COI&gt;1 · ${esc(D.transmission.method||'')}</div></div>`:'')+`</div>`;
+  // --- restored original summary elements (below the stoplight) ---
+  const hasSites=D.sites&&D.sites.length;
+  const sampMap = hasSites
+    ? `<div class="hint">One point per collection <b>site</b> at its real coordinates — finer than admin-2 (${D.sites.length} sites). Circle size ∝ QC-pass samples. Click a site to pin its count.</div>
+       ${siteMap(null,null,M.color)}<div class="readout">Click a site…</div>`
+    : `<div class="hint">Circle size ∝ QC-pass samples per admin-2 unit. Click a region to pin its sample count; hover for the number.</div>
+       ${dotmap(u=>u&&u.sampled?u.n:0,M.color)}${dotLegend(u=>u&&u.sampled?u.n:0,M.color)}<div class="readout">Click a region…</div>`;
+  html+=`<div class="grid two" style="margin-top:16px">
+    <div class="card"><h3>Where sampling happened${hasSites?' (site-level)':''}</h3>${sampMap}</div>
+    <div class="card"><h3>${isComb?'Method / assays at a glance':'Method at a glance'}</h3>${methodTile()}</div></div>`;
+  html+=`<div class="card" style="margin-top:16px"><h3>Locations (Admin Level 2) by sample count</h3>
+    <div class="hint">Sampled units, most samples first — the denominator behind each unit's prevalence (small n ⇒ interpret cautiously).</div>
+    <div class="scroll"><table><thead><tr><th>Location (Admin Level 2)</th><th class="num"># samples (QC-pass)</th><th class="num">Collection window</th></tr></thead><tbody>`+
+    [...D.units].filter(u=>u.sampled).sort((a,b)=>b.n-a.n).slice(0,12).map(u=>`<tr><td>${esc(u.name)}</td><td class="num">${nf(u.n)}</td><td class="num">${esc(fmtYears(u.years||[u.date_min,u.date_max])||'—')}</td></tr>`).join('')
+    +`</tbody></table></div></div>`;
+  return html;
+};
+
+R.resistance=()=>{
+  const cm=(CAP.covered_markers||[]).filter(k=>D.markers.find(m=>m.key===k&&m.assessed));
+  let html=`<h2 class="sec">Genetic alterations associated with antimalarial drug resistance</h2>
+    <div class="sec-desc">Gene, amino-acid change, associated drug, and WHO-tracked status — with prevalence among QC-pass infections (95% Wilson CI). Markers reaching the WHO action threshold (≥${RES_PCT}%) are flagged. Research markers not yet tracked by WHO are labelled. Toggle markers to focus the map/table.</div>`;
+  // marker toggles
+  html+=`<div class="toggles" id="mtoggles">`+cm.map(k=>{const m=D.markers.find(x=>x.key===k);
+    return `<label><input type="checkbox" data-k="${k}" checked> ${esc(markerLabel(m))} <span class="pill ${m.who?'who':'research'}">${m.who?'WHO':'research'}</span></label>`;}).join('')+`</div>`;
+  // map + controls (detail page = admin-2 choropleth only, no circles)
+  const hasSites=false;
+  html+=`<div class="grid two"><div class="card"><h3>Prevalence by ${hasSites?'site':'admin-2'} <select id="drsel">${cm.map(k=>{const m=D.markers.find(x=>x.key===k);return `<option value="${k}">${esc(markerLabel(m))}</option>`;}).join('')}</select></h3>
+      <div class="controls"><label>Min samples/region: <b id="minlab">${MINN}</b> <input type="range" id="minslider" min="1" max="30" value="${MINN}"></label></div>
+      <div class="hint">Click a ${hasSites?'site':'region'} to pin its value; hover for the number. ${hasSites?'Small-n sites are greyed':'Hatched = n below threshold'} (suppressed).</div>
+      <div id="drmap"></div><div id="drlegend"></div><div class="readout">Click a region…</div></div>
+    <div class="card"><h3>Samples per ${hasSites?'site':'admin-2 unit'}</h3><div class="hint">Denominator behind each ${hasSites?'site':'region'}'s prevalence — small n means an unstable %.</div><div id="drbars"></div></div></div>`;
+  // table
+  html+=`<div class="card" style="margin-top:16px"><h3>Marker table</h3><div class="hint" id="dltbl"></div>
+    <div class="scroll"><table id="mtable"><thead><tr><th>Gene</th><th>AA change</th><th>Associated drug</th><th>Status</th><th>WHO criterion</th><th class="num">Prevalence</th><th class="num">95% CI</th><th>Flag</th></tr></thead><tbody>`+
+    D.markers.filter(m=>m.assessed).map(m=>`<tr data-k="${m.key}"><td><i>${esc(m.gene)}</i></td><td>${esc(m.aa)}</td><td>${esc(m.drug)}</td>
+      <td><span class="pill ${m.who?'who':'research'}">${m.who?'WHO-tracked':'Research'}</span></td><td style="font-size:11.5px;color:var(--ink2)">${esc(m.crit)}</td>
+      <td class="num">${pct(m.est)}</td><td class="num ci-txt">${ci(m.lo,m.hi)}</td>
+      <td>${m.action?`<span class="pill action">≥${RES_PCT}% — WHO criteria indicates TES</span>`:''}</td></tr>`).join('')
+    +`</tbody></table></div><caption>WHO thresholds &amp; marker lists are real; prevalence values are ${REAL?'observed from the sequenced samples':'synthetic'}. "WHO criteria indicates TES" = WHO therapeutic-efficacy-study / treatment-failure trigger (≥${RES_PCT}%).</caption></div>`;
+  return html;
+};
+function wireResistance(){
+  const sel=$('#drsel'), slider=$('#minslider'); if(!sel) return;
+  const draw=()=>{const k=sel.value;
+    const src=D.units.filter(u=>u.sampled);
+    const vals=src.filter(o=>o.mk&&o.mk[k]!=null&&o.n>=MINN).map(o=>o.mk[k]);
+    const mx=Math.max(2,...vals); const breaks=mx<=10?[0,1,2,5,10,20,100]:[0,2,5,10,20,50,100];
+    // detail pages: admin-2 CHOROPLETH only (no circles)
+    $('#drmap').innerHTML = choropleth(u=>u&&u.sampled&&u.mk?(u.mk[k]??null):null,u=>u?u.n:0,breaks,RED,'%');
+    $('#drlegend').innerHTML=binnedLegend(breaks,RED,'%',RES_PCT);
+    // sample bars (sorted desc by n) — per admin-2
+    const rows=src.slice().sort((a,b)=>b.n-a.n).slice(0,20).map(o=>({label:o.name,v:o.n,color:(o.n<MINN?'#c9ccd1':'var(--s1)')}));
+    $('#drbars').innerHTML=bars(rows,{thr:MINN,unit2:'',w:560});
+  };
+  sel.onchange=draw;
+  slider.oninput=()=>{MINN=+slider.value; $('#minlab').textContent=MINN; draw();};
+  // marker toggles filter table rows + selector options
+  document.querySelectorAll('#mtoggles input').forEach(cb=>cb.onchange=()=>{
+    const k=cb.dataset.k, on=cb.checked;
+    document.querySelectorAll(`#mtable tr[data-k="${k}"]`).forEach(r=>r.style.display=on?'':'none');
+    const opt=sel.querySelector(`option[value="${k}"]`); if(opt) opt.disabled=!on;
+    if(!on && sel.value===k){const first=[...sel.options].find(o=>!o.disabled); if(first){sel.value=first.value; draw();}}
+  });
+  // download
+  const dl=D.markers.filter(m=>m.assessed).map(m=>({gene:m.gene,aa_change:m.aa,drug:m.drug,who_tracked:m.who?'yes':'no',prevalence_pct:m.est,ci_low:m.lo,ci_high:m.hi,n:m.n,positive:m.x}));
+  $('#dltbl').innerHTML=csvDL('resistance_markers.csv',dl);
+  draw();
+}
+
+R.diagnostics=()=>{
+  const g=D.diagnostics;
+  if(!g.assessed) return `<h2 class="sec">Diagnostics — <i>pfhrp2</i> / <i>pfhrp3</i> deletions</h2>
+    <div class="callout"><b>Not assessed in this dataset.</b> No <i>pfhrp2/pfhrp3</i> deletion calls are available for this assay run, so deletion prevalence is not reported. Deletion calling from amplicon data requires a coverage-dropout analysis that was not part of these outputs.</div>`;
+  let html=`<h2 class="sec">Diagnostics — <i>pfhrp2</i> / <i>pfhrp3</i> deletions</h2>
+    <div class="unvalidated"><b>⚠ NOT VALIDATED — do not use for decisions.</b> These <i>pfhrp2/pfhrp3</i> deletion figures are <b>predicted based on genetic markers</b> and require laboratory validation before any operational use. Shown greyed to flag a research/funding priority. WHO's RDT-switch threshold is ≥${HRP_PCT}% <i>pfhrp2</i> deletions causing false-negative HRP2-RDTs; any flags below are indicative only.</div>
+    <div class="greyed">
+      <div class="kpis">
+        <div class="kpi"><div class="lab">National pfhrp2 deletion (indicative)</div><div class="val">${pct(g.hrp2.est)}</div><div class="foot">95% CI ${ci(g.hrp2.lo,g.hrp2.hi)} — unvalidated</div></div>
+        <div class="kpi"><div class="lab">National pfhrp3 deletion (indicative)</div><div class="val">${pct(g.hrp3.est)}</div><div class="foot">unvalidated</div></div>
+        <div class="kpi"><div class="lab">Sampled depts pfhrp2 ≥${HRP_PCT}%</div><div class="val">${g.units_above}</div><div class="foot">indicative only; needs lab confirmation</div></div>
+      </div>
+      <div class="card" style="margin-top:14px"><h3>Per-unit (indicative, unvalidated)</h3>
+        <div class="scroll"><table><thead><tr><th>Location (Admin Level 2)</th><th class="num">n</th><th class="num">pfhrp2 %</th><th class="num">pfhrp3 %</th></tr></thead><tbody>`+
+        D.units.filter(u=>u.sampled&&u.hrp2!=null).sort((a,b)=>b.hrp2-a.hrp2).slice(0,15).map(u=>`<tr><td>${esc(u.name)}</td><td class="num">${u.n}</td><td class="num">${pct(u.hrp2)}</td><td class="num">${pct(u.hrp3)}</td></tr>`).join('')
+        +`</tbody></table></div></div>
+    </div>`;
+  return html;
+};
+
+R.transmission=()=>{
+  const t=D.transmission, av=t.available;
+  let html=`<h2 class="sec">Transmission &amp; parasite diversity</h2>
+    <div class="sec-desc">Per admin-2 unit (not aggregated). COI via <b>${esc(t.method)}</b>. Fractions carry their denominator (n QC-pass infections per unit). Metrics available depend on the assay.</div>
+    <div class="kpis">
+      <div class="kpi"><div class="scope">within-host</div><div class="lab">Mean COI</div><div class="val">${t.coi!=null?t.coi.toFixed(2):'—'}</div><div class="foot">clones per infection · ${esc(t.method)}</div></div>
+      <div class="kpi"><div class="scope">population</div><div class="lab">Polygenomic fraction</div><div class="val">${t.poly!=null?t.poly+'%':'—'}</div><div class="foot">COI&gt;1 ÷ n</div></div>
+      <div class="kpi"><div class="scope">population</div><div class="lab">Monogenomic-clone fraction</div><div class="val">${t.mono!=null?t.mono+'%':'—'}</div><div class="foot">COI=1 ÷ n</div></div>`
+    +(av.rh?`<div class="kpi"><div class="scope">within-host</div><div class="lab">RH (intra-host relatedness)</div><div class="val">${t.rh!=null?t.rh.toFixed(2):'—'}</div><div class="foot">cotransmission vs superinfection</div></div>`:'')
+    +(av.cotx?`<div class="kpi"><div class="scope">across-host</div><div class="lab">Co-transmission fraction</div><div class="val">${t.cotx!=null?t.cotx+'%':'—'}</div><div class="foot">IBD-based</div></div>`:'')+`</div>`;
+  // per-unit map (polygenomic %) + bars
+  const breaks=[0,20,40,60,80,100];
+  html+=`<div class="grid two" style="margin-top:16px">
+    <div class="card"><h3>Polygenomic fraction by admin-2</h3><div class="hint">Click a region to pin; hatched = n&lt;${MINN}.</div>
+      ${choropleth(u=>u&&u.sampled&&u.div?u.div.poly:null,u=>u?u.n:0,breaks,BLU,'%')}${binnedLegend(breaks,BLU,'%')}<div class="readout">Click a region…</div></div>
+    <div class="card"><h3>Mean COI by admin-2</h3><div class="hint">COI per admin-2 unit (${esc(t.method)}).</div>
+      ${(()=>{const r=D.units.filter(u=>u.sampled&&u.div&&u.div.coi!=null).sort((a,b)=>b.div.coi-a.div.coi).slice(0,20).map(u=>({label:u.name,v:u.div.coi})); return r.length?bars(r,{max:3.5,color:'var(--s2)',fmt:v=>v.toFixed(2)}):'<div class="hint">COI not computed for this dataset.</div>';})()}</div></div>`;
+  // per-unit table (with denominators)
+  html+=`<div class="card" style="margin-top:16px"><h3>Per-unit diversity (with denominators)</h3>
+    <div class="scroll"><table><thead><tr><th>Location (Admin Level 2)</th><th class="num">n (denom)</th><th class="num">COI</th><th class="num">Polygenomic %</th><th class="num">Monogenomic %</th>${av.rh?'<th class="num">RH</th>':''}${av.cotx?'<th class="num">cotx %</th>':''}</tr></thead><tbody>`+
+    D.units.filter(u=>u.sampled&&u.div).sort((a,b)=>(b.div.poly||0)-(a.div.poly||0)).map(u=>`<tr><td>${esc(u.name)}</td><td class="num">${u.n}</td><td class="num">${u.div.coi!=null?u.div.coi.toFixed(2):'—'}</td><td class="num">${u.div.poly!=null?u.div.poly+'%':'—'}</td><td class="num">${u.div.mono!=null?u.div.mono+'%':'—'}</td>${av.rh?`<td class="num">${u.div.rh!=null?u.div.rh.toFixed(2):'—'}</td>`:''}${av.cotx?`<td class="num">${u.div.cotx!=null?u.div.cotx+'%':'—'}</td>`:''}</tr>`).join('')
+    +`</tbody></table></div><caption>RH = intra-host relatedness (Wong et al.); cotx = co-transmission fraction. ${av.rh?'':'RH / co-transmission require genome-wide data (WGS) — not available for this assay.'}</caption></div>`;
+  return html;
+};
+
+R.export=()=>{
+  const e=D.export, order=e.order||Object.keys(e.views||{});
+  let html=`<h2 class="sec">Export \u2014 dashboard-ready views</h2>
+    <div class="sec-desc">The same data formatted for downstream dashboards. Switch views; download each as CSV.</div>
+    <div class="controls">`+order.map((k,i)=>`<button class="btn${i?'':' on'}" data-x="${k}">${esc(e.views[k].label||k)}</button>`).join('')+`</div>
+    <div id="exportview"></div>`;
+  return html;
+};
+function wireExport(){
+  const V=(D.export&&D.export.views)||{}, order=(D.export&&D.export.order)||Object.keys(V);
+  const render=key=>{const v=V[key]||{cols:[],count:0,preview:[]};
+    const rows=v.preview||[], cols=(v.cols&&v.cols.length)?v.cols:Object.keys(rows[0]||{a:1});
+    let h=`<div class="card"><h3>${esc(v.title||key)}</h3>`
+      +(v.note?`<div class="callout"><b>Note.</b> ${esc(v.note)}</div>`:``)
+      +`<div class="hint"><button class="btn" id="dlbtn">\u2913 Download full CSV (${v.count} rows)</button>`
+      +(v.count>rows.length?` <span style="color:var(--ink2)">Table shows the first ${rows.length} of ${v.count} rows; download for the full set.</span>`:``)+`</div>`
+      +`<div class="scroll"><table><thead><tr>`+cols.map(c=>`<th>${esc(c)}</th>`).join('')+`</tr></thead><tbody>`
+      +rows.map(r=>`<tr>`+cols.map(c=>`<td>${esc(r[c])}</td>`).join('')+`</tr>`).join('')+`</tbody></table></div></div>`;
+    $('#exportview').innerHTML=h;
+    const b=$('#dlbtn'); if(b) b.onclick=()=>downloadCSVgz(v.gz,v.name||(key+'.csv'));
+  };
+  document.querySelectorAll('#pg-export .controls .btn').forEach(b=>b.onclick=()=>{
+    document.querySelectorAll('#pg-export .controls .btn').forEach(x=>x.classList.remove('on'));b.classList.add('on');render(b.dataset.x);});
+  render(order[0]);
+}
+
+R.methods=()=>{
+  const who='https://www.who.int/publications/m/item/compendium-of-molecular-markers-for-antimalarial-drug-resistance';
+  return `<h2 class="sec">Methods &amp; notes</h2>
+    <div class="grid two">
+    <div class="card"><h3>Assay &amp; scope</h3><p style="font-size:13.5px;color:var(--ink2)">${esc(M.assay_full)}. ${esc(M.note)} Marker genes typed: ${(CAP.genes||[]).join(', ')||'—'}.</p></div>
+    <div class="card"><h3>Statistics &amp; suppression</h3><p style="font-size:13.5px;color:var(--ink2)">Prevalence = carriers ÷ QC-pass infections typed at the locus; 95% CIs by the Wilson score method. Regions with fewer than the min-sample threshold (default ${M.min_samples}, adjustable) are suppressed so a single positive sample is never shown as "100%". Prevalence only — population case-rates are not reported.</p></div></div>
+    <div class="grid two" style="margin-top:16px">
+      <div class="card"><h3>How complexity of infection (COI) was estimated</h3><p style="font-size:13.5px;color:var(--ink2)">${esc(M.coi_detail||'')}</p></div>
+      <div class="card"><h3>Pipelines &amp; data sources</h3><ul style="font-size:13px;color:var(--ink2);margin:6px 0 0 18px;line-height:1.9">${(M.links||[]).map(l=>`<li><a href="${l[1]}" target="_blank" rel="noopener">${esc(l[0])}</a></li>`).join('')||'<li>\u2014</li>'}</ul></div>
+    </div>
+    <div class="card" style="margin-top:16px"><h3>Thresholds &amp; sources</h3>
+      <ul style="font-size:13px;color:var(--ink2);margin:6px 0 0 18px;line-height:1.7">
+        <li>Resistance markers &amp; WHO-tracked status: <a href="${who}" target="_blank" rel="noopener">WHO Compendium of molecular markers for antimalarial drug resistance</a>.</li>
+        <li>Resistance action flag: ≥${RES_PCT}% — aligns with the WHO therapeutic-efficacy-study / treatment-failure (≥10%) trigger for changing first-line policy.</li>
+        <li><i>pfhrp2/3</i> deletions: WHO RDT-switch threshold ≥${HRP_PCT}% (shown greyed — calls unvalidated, require lab confirmation).</li>
+        <li>Research markers (Pfcoronin, Pfubp1, Pfap2-mu, …) are labelled "not WHO-tracked".</li>
+        <li>Transmission metrics: complexity of infection (COI; estimation method stated per report on the Transmission tab), polygenomic/monogenomic fractions, RH intra-host relatedness (Wong et al.), co-transmission fraction.</li>
+        <li>Admin-2 boundaries: geoBoundaries (SEN ADM2). Admin-3 shown when available; collection dates assumed available (contingency messaging if absent).</li>
+      </ul></div>
+    <div class="callout ${REAL?'':'amber'}" style="margin-top:14px"><b>Data status.</b> ${REAL?esc(M.data_source||'Real data.')+`. Prevalence = carriers ÷ QC-pass infections typed at the locus; COI method noted on the Transmission tab. Thresholds &amp; WHO-tracked status are the published WHO criteria.`:`Design mock-up (${M.version}) with synthetic prevalence values. Thresholds, WHO-tracked status, and marker lists are real; the numbers are fabricated for layout review.`}</div>`;
+};
+
+/* render + wire */
+TABS.forEach(t=>{const el=$('#pg-'+t); if(R[t]) el.innerHTML=R[t]();});
+if($('#pg-resistance')) wireResistance();
+if($('#pg-export')) wireExport();
+$('#footer').innerHTML=`Malaria Molecular Surveillance — ${esc(M.country)} · ${esc(M.assay_full)} · ${M.period} · ${M.version} (${REAL?'real data':'synthetic data'}).`;
+</script>
+</body>
+</html>

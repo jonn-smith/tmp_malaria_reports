@@ -1,0 +1,704 @@
+[
+{
+"drug": "Amodiaquine",
+"gene": "Pfcrt",
+"alt": "C72S+K76T+A220S+N326D+I356L",
+"cls": "Candidate marker ( Epi. & Lab.)"
+},
+{
+"drug": "Amodiaquine",
+"gene": "Pfmdr1",
+"alt": "N86Y",
+"cls": "Candidate marker ( Epi. & Lab.)"
+},
+{
+"drug": "Artemisinins",
+"gene": "Pfk13",
+"alt": "Y493H",
+"cls": "Validated marker (Epi., Lab. & Clin.)"
+},
+{
+"drug": "Artemisinins",
+"gene": "Pfk13",
+"alt": "I543T",
+"cls": "Validated marker (Epi., Lab. & Clin.)"
+},
+{
+"drug": "Artemisinins",
+"gene": "Pfk13",
+"alt": "C580Y",
+"cls": "Validated marker (Epi., Lab. & Clin.)"
+},
+{
+"drug": "Artemisinins",
+"gene": "Pfk13",
+"alt": "R539T",
+"cls": "Validated marker (Epi., Lab. & Clin.)"
+},
+{
+"drug": "Artemisinins",
+"gene": "Pfk13",
+"alt": "P574L",
+"cls": "Validated marker (Epi., Lab. & Clin.)"
+},
+{
+"drug": "Artemisinins",
+"gene": "Pfk13",
+"alt": "N458Y",
+"cls": "Validated marker (Epi., Lab. & Clin.)"
+},
+{
+"drug": "Artemisinins",
+"gene": "Pfk13",
+"alt": "P553L",
+"cls": "Validated marker (Epi., Lab. & Clin.)"
+},
+{
+"drug": "Artemisinins",
+"gene": "Pfk13",
+"alt": "M476I",
+"cls": "Validated marker (Epi., Lab. & Clin.)"
+},
+{
+"drug": "Artemisinins",
+"gene": "Pfk13",
+"alt": "F446I",
+"cls": "Validated marker (Epi., Lab. & Clin.)"
+},
+{
+"drug": "Artemisinins",
+"gene": "Pfk13",
+"alt": "R561H",
+"cls": "Validated marker (Epi., Lab. & Clin.)"
+},
+{
+"drug": "Artemisinins",
+"gene": "Pfk13",
+"alt": "G538V",
+"cls": "Candidate marker (Epi. & Clin.)"
+},
+{
+"drug": "Artemisinins",
+"gene": "Pfk13",
+"alt": "N537I",
+"cls": "Candidate marker (Epi. & Clin.)"
+},
+{
+"drug": "Artemisinins",
+"gene": "Pfk13",
+"alt": "P441L",
+"cls": "Candidate marker (Epi. & Clin.)"
+},
+{
+"drug": "Artemisinins",
+"gene": "Pfk13",
+"alt": "G449A",
+"cls": "Potential marker (Epi.)"
+},
+{
+"drug": "Artemisinins",
+"gene": "Pfk13",
+"alt": "Q613E",
+"cls": "Potential marker (Epi.)"
+},
+{
+"drug": "Artemisinins",
+"gene": "Pfk13",
+"alt": "V568G",
+"cls": "Candidate marker (Epi. & Clin.)"
+},
+{
+"drug": "Artemisinins",
+"gene": "Pfk13",
+"alt": "R622I",
+"cls": "Validated marker (Epi., Lab. & Clin.)"
+},
+{
+"drug": "Artemisinins",
+"gene": "Pfk13",
+"alt": "P527H",
+"cls": "Potential marker (Clin.)"
+},
+{
+"drug": "Artemisinins",
+"gene": "Pfk13",
+"alt": "K438N",
+"cls": "Potential marker (Epi.)"
+},
+{
+"drug": "Artemisinins",
+"gene": "Pfk13",
+"alt": "E252Q",
+"cls": "Candidate marker (Epi. & Clin.)"
+},
+{
+"drug": "Artemisinins",
+"gene": "Pfk13",
+"alt": "Y511H",
+"cls": "Potential marker (Epi.)"
+},
+{
+"drug": "Artemisinins",
+"gene": "Pfk13",
+"alt": "D584V",
+"cls": "Potential marker (Lab.)"
+},
+{
+"drug": "Artemisinins",
+"gene": "Pfk13",
+"alt": "C469F",
+"cls": "Candidate marker (Epi. & Clin.)"
+},
+{
+"drug": "Artemisinins",
+"gene": "Pfk13",
+"alt": "N585K",
+"cls": "Potential marker (Epi.)"
+},
+{
+"drug": "Artemisinins",
+"gene": "Pfcoronin",
+"alt": "R100K",
+"cls": "Potential marker (Lab.)"
+},
+{
+"drug": "Artemisinins",
+"gene": "Pfcoronin",
+"alt": "E107V",
+"cls": "Potential marker (Lab.)"
+},
+{
+"drug": "Artemisinins",
+"gene": "Pfcoronin",
+"alt": "G50E",
+"cls": "Potential marker (Lab.)"
+},
+{
+"drug": "Artemisinins",
+"gene": "Pfk13",
+"alt": "G625R",
+"cls": "Potential marker (Clin.)"
+},
+{
+"drug": "Artemisinins",
+"gene": "Pfk13",
+"alt": "A675V",
+"cls": "Validated marker (Epi., Lab. & Clin.)"
+},
+{
+"drug": "Artemisinins",
+"gene": "Pfk13",
+"alt": "R515K",
+"cls": "Potential marker (Lab.)"
+},
+{
+"drug": "Artemisinins",
+"gene": "Pfk13",
+"alt": "G533S",
+"cls": "Validated marker (Epi., Lab. & Clin.)"
+},
+{
+"drug": "Artemisinins",
+"gene": "Pfk13",
+"alt": "F495L",
+"cls": "Potential marker (Lab.)"
+},
+{
+"drug": "Artemisinins",
+"gene": "Pfk13",
+"alt": "T508N",
+"cls": "Potential marker (Epi.)"
+},
+{
+"drug": "Artemisinins",
+"gene": "Pfk13",
+"alt": "S577L",
+"cls": "Potential marker (Epi.)"
+},
+{
+"drug": "Artemisinins",
+"gene": "Pfk13",
+"alt": "M579I",
+"cls": "Potential marker (Lab.)"
+},
+{
+"drug": "Artemisinins",
+"gene": "Pfk13",
+"alt": "C469Y",
+"cls": "Validated marker (Epi., Lab. & Clin.)"
+},
+{
+"drug": "Artemisinins",
+"gene": "Pfk13",
+"alt": "P413A",
+"cls": "Potential marker (Lab.)"
+},
+{
+"drug": "Artemisinins",
+"gene": "Pfk13",
+"alt": "A582V",
+"cls": "Potential marker (Epi.)"
+},
+{
+"drug": "Atovaquone",
+"gene": "Pfcytb",
+"alt": "M133I + P275T",
+"cls": "Potential marker (Lab.)"
+},
+{
+"drug": "Atovaquone",
+"gene": "Pfcytb",
+"alt": "M133I + K272R",
+"cls": "Potential marker (Lab.)"
+},
+{
+"drug": "Atovaquone",
+"gene": "Pfcytb",
+"alt": "M133I + G280D",
+"cls": "Potential marker (Lab.)"
+},
+{
+"drug": "Atovaquone",
+"gene": "Pfcytb",
+"alt": "L283I + V284K",
+"cls": "Potential marker (Lab.)"
+},
+{
+"drug": "Atovaquone",
+"gene": "Pfcytb",
+"alt": "M133I",
+"cls": "Potential marker (Lab.)"
+},
+{
+"drug": "Atovaquone",
+"gene": "Pfcytb",
+"alt": "Y268S",
+"cls": "Validated marker (Lab. & Clin.)"
+},
+{
+"drug": "Atovaquone",
+"gene": "Pfcytb",
+"alt": "M133I  + L271F",
+"cls": "Potential marker (Lab.)"
+},
+{
+"drug": "Atovaquone",
+"gene": "Pfcytb",
+"alt": "Y268C",
+"cls": "Potential marker (Clin.)"
+},
+{
+"drug": "Chloroquine",
+"gene": "Pfcrt",
+"alt": "K76T",
+"cls": "Validated marker (Epi., Lab. & Clin.)"
+},
+{
+"drug": "Chloroquine",
+"gene": "Pfmdr1",
+"alt": "N86Y",
+"cls": "Validated marker (Epi., Lab. & Clin.)"
+},
+{
+"drug": "Chloroquine",
+"gene": "Pfcrt",
+"alt": "C72S + (V73 + M74 + N75)+ K76T",
+"cls": "Candidate marker ( Epi. & Lab.)"
+},
+{
+"drug": "Chloroquine",
+"gene": "Pfcrt",
+"alt": "C72S + K76T + A220S + N326D + I356L",
+"cls": "Candidate marker ( Epi. & Lab.)"
+},
+{
+"drug": "Chloroquine",
+"gene": "Pfcrt",
+"alt": "(C72 + V73) + M74I + N75E + K76T",
+"cls": "Validated marker (Epi., Lab. & Clin.)"
+},
+{
+"drug": "Chloroquine",
+"gene": "Pfcrt",
+"alt": "K76T+A144T+L160Y+N326D",
+"cls": "Potential marker (Lab.)"
+},
+{
+"drug": "Chloroquine",
+"gene": "Pfcrt",
+"alt": "M74I + N75E + K76T + A220S + Q271E + N326S + I356T + R371I",
+"cls": "Candidate marker ( Epi. & Lab.)"
+},
+{
+"drug": "Chloroquine",
+"gene": "Pfcrt",
+"alt": "M74I + N75E + K76T + A220S + Q271E + R371I",
+"cls": "Candidate marker ( Epi. & Lab.)"
+},
+{
+"drug": "Chloroquine",
+"gene": "Pfcrt",
+"alt": "M74I + N75E + K76T + A220S + Q271E + I356T + R371I",
+"cls": "Candidate marker ( Epi. & Lab.)"
+},
+{
+"drug": "Chloroquine",
+"gene": "Pfcrt",
+"alt": "M74I + N75E + K76T+ A220S + Q271E + N326S + R371I",
+"cls": "Candidate marker ( Epi. & Lab.)"
+},
+{
+"drug": "Cycloguanil",
+"gene": "Pfdhfr",
+"alt": "C59R + S108N",
+"cls": "Potential marker (Lab.)"
+},
+{
+"drug": "Cycloguanil",
+"gene": "Pfdhfr",
+"alt": "A16V + S108T",
+"cls": "Potential marker (Lab.)"
+},
+{
+"drug": "Cycloguanil",
+"gene": "Pfdhfr",
+"alt": "S108N/T",
+"cls": "Potential marker (Lab.)"
+},
+{
+"drug": "Cycloguanil",
+"gene": "Pfdhfr",
+"alt": "I164L",
+"cls": "Potential marker (Lab.)"
+},
+{
+"drug": "Cycloguanil",
+"gene": "Pfdhfr",
+"alt": "N51I + C59R",
+"cls": "Potential marker (Lab.)"
+},
+{
+"drug": "Cycloguanil",
+"gene": "Pfdhfr",
+"alt": "N51I + S108N",
+"cls": "Potential marker (Lab.)"
+},
+{
+"drug": "Cycloguanil",
+"gene": "Pfdhfr",
+"alt": "N51I + C59R + S108N + I164L",
+"cls": "Potential marker (Lab.)"
+},
+{
+"drug": "Cycloguanil",
+"gene": "Pfdhfr",
+"alt": "N51I + C59R + S108N",
+"cls": "Potential marker (Lab.)"
+},
+{
+"drug": "Cycloguanil",
+"gene": "Pfdhfr",
+"alt": "C50R + S108N",
+"cls": "Potential marker (Lab.)"
+},
+{
+"drug": "Lumefantrine",
+"gene": "Pfmdr1",
+"alt": "Amplification",
+"cls": "Potential marker (Lab.)"
+},
+{
+"drug": "Mefloquine",
+"gene": "Pfmdr1",
+"alt": "Amplification",
+"cls": "Validated marker (Epi., Lab. & Clin.)"
+},
+{
+"drug": "Piperaquine",
+"gene": "Pfcrt",
+"alt": "C350R",
+"cls": "Validated marker (Epi., Lab. & Clin.)"
+},
+{
+"drug": "Piperaquine",
+"gene": "Pfpm2/3",
+"alt": "Amplification",
+"cls": "Validated marker (Epi., Lab. & Clin.)"
+},
+{
+"drug": "Piperaquine",
+"gene": "Pfcrt",
+"alt": "C101F",
+"cls": "Potential marker (Lab.)"
+},
+{
+"drug": "Piperaquine",
+"gene": "Pfcrt",
+"alt": "F145I",
+"cls": "Validated marker (Epi., Lab. & Clin.)"
+},
+{
+"drug": "Piperaquine",
+"gene": "Pfcrt",
+"alt": "H97Y",
+"cls": "Validated marker (Epi., Lab. & Clin.)"
+},
+{
+"drug": "Piperaquine",
+"gene": "Pfcrt",
+"alt": "G353V",
+"cls": "Candidate marker (Epi. & Lab.)"
+},
+{
+"drug": "Piperaquine",
+"gene": "Pfcrt",
+"alt": "M343L",
+"cls": "Candidate marker (Epi. & Lab.)"
+},
+{
+"drug": "Piperaquine",
+"gene": "Pfcrt",
+"alt": "T93S",
+"cls": "Validated marker (Epi., Lab. & Clin.)"
+},
+{
+"drug": "Piperaquine",
+"gene": "Pfcrt",
+"alt": "I218F",
+"cls": "Validated marker (Epi., Lab. & Clin.)"
+},
+{
+"drug": "Piperaquine",
+"gene": "Pfcrt",
+"alt": "G367C",
+"cls": "Potential marker (Lab.)"
+},
+{
+"drug": "Pyrimethamine",
+"gene": "Pfdhfr",
+"alt": "C59R + S108N",
+"cls": "Candidate marker (Epi. & Lab.)"
+},
+{
+"drug": "Pyrimethamine",
+"gene": "Pfdhfr",
+"alt": "C59R + S108N + I164L",
+"cls": "Potential marker (Lab.)"
+},
+{
+"drug": "Pyrimethamine",
+"gene": "Pfdhfr",
+"alt": "N51I + S108N",
+"cls": "Candidate marker (Epi. & Lab.)"
+},
+{
+"drug": "Pyrimethamine",
+"gene": "Pfdhfr",
+"alt": "N51I + C59R + S108N",
+"cls": "Candidate marker (Epi. & Lab.)"
+},
+{
+"drug": "Pyrimethamine",
+"gene": "Pfdhfr",
+"alt": "N51I + C59R + S108N + I164L",
+"cls": "Potential marker (Lab.)"
+},
+{
+"drug": "Pyrimethamine",
+"gene": "Pfdhfr",
+"alt": "S108N",
+"cls": "Candidate marker (Epi. & Lab.)"
+},
+{
+"drug": "Pyrimethamine",
+"gene": "Pfgch1",
+"alt": "Amplification",
+"cls": "Candidate marker (Epi. & Lab.)"
+},
+{
+"drug": "Pyrimethamine",
+"gene": "Pfdhfr",
+"alt": "I164L",
+"cls": "Potential marker (Lab.)"
+},
+{
+"drug": "Pyrimethamine",
+"gene": "Pfdhfr",
+"alt": "N51I",
+"cls": "Potential marker (Lab.)"
+},
+{
+"drug": "Pyrimethamine",
+"gene": "Pfdhfr",
+"alt": "C59R",
+"cls": "Potential marker (Lab.)"
+},
+{
+"drug": "Quinine",
+"gene": "Pfmdr1",
+"alt": "S1034C + N1042D + D1246Y",
+"cls": "Potential marker (Lab.)"
+},
+{
+"drug": "Quinine",
+"gene": "Pfmdr1",
+"alt": "Amplification",
+"cls": "Potential marker (Lab.)"
+},
+{
+"drug": "Quinine",
+"gene": "Pfcrt",
+"alt": "Q352K/R",
+"cls": "Potential marker (Lab.)"
+},
+{
+"drug": "Sulfadoxine",
+"gene": "Pfdhps",
+"alt": "S436A + A437G + K540E + A613T",
+"cls": "Potential marker (Lab.)"
+},
+{
+"drug": "Sulfadoxine",
+"gene": "Pfdhps",
+"alt": "S436A + A437G + K540E",
+"cls": "Potential marker (Lab.)"
+},
+{
+"drug": "Sulfadoxine",
+"gene": "Pfdhps",
+"alt": "S436F + A613S",
+"cls": "Potential marker (Lab.)"
+},
+{
+"drug": "Sulfadoxine",
+"gene": "Pfdhps",
+"alt": "S436F + A437G + A613S",
+"cls": "Potential marker (Lab.)"
+},
+{
+"drug": "Sulfadoxine",
+"gene": "Pfdhps",
+"alt": "A437G",
+"cls": "Potential marker (Lab.)"
+},
+{
+"drug": "Sulfadoxine",
+"gene": "Pfdhps",
+"alt": "S436F + A437G + A613S",
+"cls": "Potential marker (Lab.)"
+},
+{
+"drug": "Sulfadoxine",
+"gene": "Pfdhps",
+"alt": "A437G + A581G",
+"cls": "Potential marker (Lab.)"
+},
+{
+"drug": "Sulfadoxine",
+"gene": "Pfdhps",
+"alt": "A437G + K540E",
+"cls": "Potential marker (Epi.)"
+},
+{
+"drug": "Sulfadoxine",
+"gene": "Pfdhps",
+"alt": "S436A + A437G",
+"cls": "Potential marker (Lab.)"
+},
+{
+"drug": "Sulfadoxine-Pyrimethamine",
+"gene": "Pfdhfr & Pfdhps",
+"alt": "N51I + C59R + S108N & A437G + K540E",
+"cls": "Validated marker (Epi., Lab. & Clin.)"
+},
+{
+"drug": "Sulfadoxine-Pyrimethamine",
+"gene": "Pfdhfr & Pfdhps",
+"alt": "C59R + S108N & S436A",
+"cls": "Candidate marker (Epi. & Lab.)"
+},
+{
+"drug": "Sulfadoxine-Pyrimethamine",
+"gene": "Pfdhfr & Pfdhps",
+"alt": "C59R + S108N & A437G",
+"cls": "Candidate marker (Epi. & Lab.)"
+},
+{
+"drug": "Sulfadoxine-Pyrimethamine",
+"gene": "Pfdhfr & Pfdhps",
+"alt": "N51I + C59R + S108N & S436A + A437G",
+"cls": "Validated marker (Epi., Lab. & Clin.)"
+},
+{
+"drug": "Sulfadoxine-Pyrimethamine",
+"gene": "Pfdhfr & Pfdhps",
+"alt": "N51I + C59R + S108N &  A437G",
+"cls": "Validated marker (Epi., Lab. & Clin.)"
+},
+{
+"drug": "Sulfadoxine-Pyrimethamine",
+"gene": "Pfdhfr & Pfdhps",
+"alt": "C59R + S108N & K540E",
+"cls": "Validated marker (Epi., Lab. & Clin.)"
+},
+{
+"drug": "Sulfadoxine-Pyrimethamine",
+"gene": "Pfdhfr & Pfdhps",
+"alt": "N51I + C59R + S108N & A437G + A581G + 613T",
+"cls": "Candidate marker (Epi. & Lab.)"
+},
+{
+"drug": "Sulfadoxine-Pyrimethamine",
+"gene": "Pfdhfr & Pfdhps",
+"alt": "N51I + C59R + S108N & A437G + K540E + A581G",
+"cls": "Candidate marker (Epi. & Lab.)"
+},
+{
+"drug": "Sulfadoxine-Pyrimethamine",
+"gene": "Pfdhfr & Pfdhps",
+"alt": "N51I + S108N & A437G + K540E",
+"cls": "Validated marker (Epi., Lab. & Clin.)"
+},
+{
+"drug": "Sulfadoxine-Pyrimethamine",
+"gene": "Pfdhfr & Pfdhps",
+"alt": "N51I+C59R+S108N & S436A + A437G + K540E",
+"cls": "Candidate marker (Epi. & Lab.)"
+},
+{
+"drug": "Sulfadoxine-Pyrimethamine",
+"gene": "Pfdhfr & Pfdhps",
+"alt": "N51I + C59R + S108N & A437G + K540E + A581G + S436A",
+"cls": "Candidate marker (Epi. & Lab.)"
+},
+{
+"drug": "Sulfadoxine-Pyrimethamine",
+"gene": "Pfdhfr & Pfdhps",
+"alt": "N51I + C59R + S108N & I431V + S436A + A437G + A581G + A613S",
+"cls": "Candidate marker (Epi. & Lab.)"
+},
+{
+"drug": "Sulfadoxine-Pyrimethamine",
+"gene": "Pfdhfr & Pfdhps",
+"alt": "N51I + C59R + S108N & S436A + A437G + A581G",
+"cls": "Candidate marker (Epi. & Lab.)"
+},
+{
+"drug": "Sulfadoxine-Pyrimethamine",
+"gene": "Pfdhfr & Pfdhps",
+"alt": "N51I + C59R + S108N & S436A  + A437G + A581G + A613S",
+"cls": "Candidate marker (Epi. & Lab.)"
+},
+{
+"drug": "Sulfadoxine-Pyrimethamine",
+"gene": "Pfdhfr & Pfdhps",
+"alt": "N51I + C59R + S108N & S436A + A437G + A613S",
+"cls": "Candidate marker (Epi. & Lab.)"
+},
+{
+"drug": "Sulfadoxine-Pyrimethamine",
+"gene": "Pfdhfr & Pfdhps",
+"alt": "N51I + C59R + S108N &  A437G + A581G",
+"cls": "Candidate marker (Epi. & Lab.)"
+}
+]
