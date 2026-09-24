@@ -302,6 +302,15 @@ const R={};
 const markerLabel=m=>`${m.gene} ${m.aa}`;
 const RES_PCT=M.marker_action_pct;
 
+function markerTable(id){
+  return `<div class="scroll"><table${id?` id="${id}"`:''}><thead><tr><th>Gene</th><th>AA change</th><th>Associated drug</th><th>Status</th><th>WHO criterion</th><th class="num">Prevalence</th><th class="num">95% CI</th><th>Flag</th></tr></thead><tbody>`+
+    D.markers.filter(m=>m.assessed).map(m=>`<tr data-k="${m.key}"><td><i>${esc(m.gene)}</i></td><td>${esc(m.aa)}</td><td>${esc(m.drug)}</td>
+      <td><span class="pill ${m.who?'who':'research'}">${m.who?'WHO-tracked':'Research'}</span></td><td style="font-size:11.5px;color:var(--ink2)">${esc(m.crit)}</td>
+      <td class="num">${pct(m.est)}</td><td class="num ci-txt">${ci(m.lo,m.hi)}</td>
+      <td>${m.action?`<span class="pill action">≥${RES_PCT}% — WHO criteria indicates TES</span>`:''}</td></tr>`).join('')
+    +`</tbody></table></div>`;
+}
+
 R.summary=()=>{
   let html=`<h2 class="sec">Summary — concerns for this population</h2>
     <div class="sec-desc">Stoplight of surveillance concerns. Click a card to jump to detail. Flags use the WHO action threshold: resistance markers ≥${RES_PCT}% (therapeutic-efficacy-study trigger).</div>
@@ -312,7 +321,8 @@ R.summary=()=>{
     html+=`<div class="light ${st}" onclick="showTab('${jump[s.cat]||'summary'}')">
       <div class="cat"><span class="dot"></span>${esc(s.cat)}</div>
       <div class="stat">${word}</div>
-      <ul>${s.findings.map(f=>`<li>${esc(f)}</li>`).join('')}</ul></div>`;
+      <div style="margin-top:10px">${markerTable(null)}</div>
+      <div class="hint" style="margin:8px 0 0">Click for the full resistance detail (map, per-region table, marker toggles) →</div></div>`;
   });
   html+=`</div>`;
   html+=`<div class="kpis" style="margin-top:18px">
@@ -353,12 +363,7 @@ R.resistance=()=>{
     <div class="card"><h3>Samples per ${hasSites?'site':'admin-2 unit'}</h3><div class="hint">Denominator behind each ${hasSites?'site':'region'}'s prevalence — small n means an unstable %.</div><div id="drbars"></div></div></div>`;
   // table
   html+=`<div class="card" style="margin-top:16px"><h3>Marker table</h3><div class="hint" id="dltbl"></div>
-    <div class="scroll"><table id="mtable"><thead><tr><th>Gene</th><th>AA change</th><th>Associated drug</th><th>Status</th><th>WHO criterion</th><th class="num">Prevalence</th><th class="num">95% CI</th><th>Flag</th></tr></thead><tbody>`+
-    D.markers.filter(m=>m.assessed).map(m=>`<tr data-k="${m.key}"><td><i>${esc(m.gene)}</i></td><td>${esc(m.aa)}</td><td>${esc(m.drug)}</td>
-      <td><span class="pill ${m.who?'who':'research'}">${m.who?'WHO-tracked':'Research'}</span></td><td style="font-size:11.5px;color:var(--ink2)">${esc(m.crit)}</td>
-      <td class="num">${pct(m.est)}</td><td class="num ci-txt">${ci(m.lo,m.hi)}</td>
-      <td>${m.action?`<span class="pill action">≥${RES_PCT}% — WHO criteria indicates TES</span>`:''}</td></tr>`).join('')
-    +`</tbody></table></div><caption>WHO thresholds &amp; marker lists are real; prevalence values are ${REAL?'observed from the sequenced samples':'synthetic'}. "WHO criteria indicates TES" = WHO therapeutic-efficacy-study / treatment-failure trigger (≥${RES_PCT}%).</caption></div>`;
+    ${markerTable('mtable')}<caption>WHO thresholds &amp; marker lists are real; prevalence values are ${REAL?'observed from the sequenced samples':'synthetic'}. "WHO criteria indicates TES" = WHO therapeutic-efficacy-study / treatment-failure trigger (≥${RES_PCT}%).</caption></div>`;
   return html;
 };
 function wireResistance(){
