@@ -139,15 +139,15 @@ const BLU=['#eaf2fb','#c8ddf6','#9ec5f4','#6da7ec','#3987e5','#1c5cab'];
 function binColor(v,breaks,cols){ if(v==null) return null;
   for(let i=1;i<breaks.length;i++){ if(v<breaks[i]) return cols[Math.min(i-1,cols.length-1)]; }
   return cols[cols.length-1]; }
-function binnedLegend(breaks,cols,u,actionAt){
+function binnedLegend(breaks,cols,u,actionAt,showSupp=true){
   let s=`<div class="legend">`;
   for(let i=0;i<breaks.length-1;i++){
     const lab = breaks[i]+(breaks[i+1]>=1e9?'+':'–'+breaks[i+1])+(u||'');
     const act = (actionAt!=null && breaks[i+1]===actionAt) ? ' ⚑' : '';
     s+=`<span class="k"><span class="sw" style="background:${cols[i]}"></span>${lab}${act}</span>`;
   }
-  s+=`<span class="k"><span class="sw" style="background:repeating-linear-gradient(45deg,#f1f3f6,#f1f3f6 3px,#d5d9de 3px,#d5d9de 4px)"></span>n&lt;${MINN} (suppressed)</span></div>`;
-  return s;
+  if(showSupp) s+=`<span class="k"><span class="sw" style="background:repeating-linear-gradient(45deg,#f1f3f6,#f1f3f6 3px,#d5d9de 3px,#d5d9de 4px)"></span>n&lt;${MINN} (suppressed)</span>`;
+  return s+`</div>`;
 }
 /* ---- choropleth (binned, clickable, sample-suppressed) ---- */
 let _cid=0;
@@ -206,10 +206,18 @@ function dotLegend(nFn,color){const m=D.map, mx=Math.max(1,...m.depts.map(dp=>nF
     x+=2*maxR+30;});
   return s+'</svg>';}
 // site-level map: real collection-site points (finer than admin-2). valFn/breaks null => sampling map (size by n).
+function nBreaks(mx){ // "nice" sample-count bins for the region backdrop
+  const step=Math.max(1,Math.ceil(mx/5/10)*10);
+  return [0,step,2*step,3*step,4*step,5*step]; }
 function siteMap(valFn,breaks,cols,u){
   const m=D.map, S=D.sites||[], mx=Math.max(1,...S.map(t=>t.n||0));
+  const rmx=Math.max(1,...m.depts.map(dp=>{const u0=unit(dp.name);return (u0&&u0.sampled)?u0.n:0;}));
+  const rbr=nBreaks(rmx);
   let s=`<svg viewBox="${m.viewBox}" width="${m.W}" role="img">`;
-  m.depts.forEach(dp=>{ s+=`<path d="${dp.path}" fill="#f4f6f8" stroke="#dbe0e5" stroke-width="0.7"/>`; });
+  m.depts.forEach(dp=>{ const u0=unit(dp.name), rn=(u0&&u0.sampled)?u0.n:0;
+    const rfill=rn?binColor(rn,rbr,BLU):'#f4f6f8';
+    const rvt=rn?`${rn} QC-pass samples (region total)`:'not sampled';
+    s+=`<path d="${dp.path}" fill="${rfill}" stroke="#fff" stroke-width="0.7" style="cursor:pointer" onclick="pickRegion(this,'${esc(dp.name)}','${rvt}',${rn})"><title>${esc(dp.name)}: ${rvt}</title></path>`; });
   S.forEach(t=>{ const colored=!!(valFn&&breaks); const v=colored?valFn(t):null; const supp=(t.n<MINN);
     const r=(3.5+16*Math.sqrt((t.n||0)/mx)).toFixed(1);
     const fill = colored ? (supp?'#c9ccd1':(binColor(v,breaks,cols)||'#eef1f4')) : cols;
@@ -314,8 +322,8 @@ R.summary=()=>{
   // --- restored original summary elements (below the stoplight) ---
   const hasSites=D.sites&&D.sites.length;
   const sampMap = hasSites
-    ? `<div class="hint">One point per collection <b>site</b> at its real coordinates — finer than admin-2 (${D.sites.length} sites). Circle size ∝ QC-pass samples. Click a site to pin its count.</div>
-       ${siteMap(null,null,M.color)}<div class="readout">Click a site…</div>`
+    ? `<div class="hint">One point per collection <b>site</b> at its real coordinates — finer than admin-2 (${D.sites.length} sites). Circle size ∝ QC-pass samples. Regions shaded by total QC-pass samples. Click a site to pin its count, or a region for its total.</div>
+       ${siteMap(null,null,M.color)}${binnedLegend(nBreaks(Math.max(1,...D.map.depts.map(dp=>{const u0=unit(dp.name);return (u0&&u0.sampled)?u0.n:0;}))),BLU,'',null,false)}<div class="readout">Click a site or region…</div>`
     : `<div class="hint">Circle size ∝ QC-pass samples per admin-2 unit. Click a region to pin its sample count; hover for the number.</div>
        ${dotmap(u=>u&&u.sampled?u.n:0,M.color)}${dotLegend(u=>u&&u.sampled?u.n:0,M.color)}<div class="readout">Click a region…</div>`;
   html+=`<div class="grid two" style="margin-top:16px">
