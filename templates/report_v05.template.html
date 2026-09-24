@@ -302,9 +302,11 @@ const R={};
 const markerLabel=m=>`${m.gene} ${m.aa}`;
 const RES_PCT=M.marker_action_pct;
 
-function markerTable(id){
+function markerTable(id,onlyFlagged){
+  const rows=D.markers.filter(m=>m.assessed&&(!onlyFlagged||m.est>=RES_PCT));
+  if(onlyFlagged&&!rows.length) return `<div class="hint" style="margin-top:6px">No assessed marker is at or above the ${RES_PCT}% action threshold.</div>`;
   return `<div class="scroll"><table${id?` id="${id}"`:''}><thead><tr><th>Gene</th><th>AA change</th><th>Associated drug</th><th>Status</th><th>WHO criterion</th><th class="num">Prevalence</th><th class="num">95% CI</th><th>Flag</th></tr></thead><tbody>`+
-    D.markers.filter(m=>m.assessed).map(m=>`<tr data-k="${m.key}"><td><i>${esc(m.gene)}</i></td><td>${esc(m.aa)}</td><td>${esc(m.drug)}</td>
+    rows.map(m=>`<tr data-k="${m.key}"><td><i>${esc(m.gene)}</i></td><td>${esc(m.aa)}</td><td>${esc(m.drug)}</td>
       <td><span class="pill ${m.who?'who':'research'}">${m.who?'WHO-tracked':'Research'}</span></td><td style="font-size:11.5px;color:var(--ink2)">${esc(m.crit)}</td>
       <td class="num">${pct(m.est)}</td><td class="num ci-txt">${ci(m.lo,m.hi)}</td>
       <td>${m.action?`<span class="pill action">≥${RES_PCT}% — WHO criteria indicates TES</span>`:''}</td></tr>`).join('')
@@ -321,8 +323,8 @@ R.summary=()=>{
     html+=`<div class="light ${st}" onclick="showTab('${jump[s.cat]||'summary'}')">
       <div class="cat"><span class="dot"></span>${esc(s.cat)}</div>
       <div class="stat">${word}</div>
-      <div style="margin-top:10px">${markerTable(null)}</div>
-      <div class="hint" style="margin:8px 0 0">Click for the full resistance detail (map, per-region table, marker toggles) →</div></div>`;
+      <div style="margin-top:10px">${markerTable(null,true)}</div>
+      <div class="hint" style="margin:8px 0 0">Markers at or above the ${RES_PCT}% action threshold only. Click for the full resistance detail (all markers, map, per-region table) →</div></div>`;
   });
   html+=`</div>`;
   html+=`<div class="kpis" style="margin-top:18px">
