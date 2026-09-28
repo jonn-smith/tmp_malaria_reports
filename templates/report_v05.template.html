@@ -100,6 +100,7 @@ svg{display:block;max-width:100%}text{font-family:var(--font)}
 .dlbar i{display:block;height:100%;width:0;background:#2a6fb0;transition:width .2s}
 .footer{margin-top:30px;padding-top:14px;border-top:1px solid var(--line);font-size:12px;color:var(--muted)}
 .region-sel{stroke:#111 !important;stroke-width:2 !important}
+tr.region-sel td{background:#e8f1fb !important}
 a{color:var(--accent)}
 @media print{nav.tabs{display:none}.tab-page{display:block !important;page-break-before:always}.tab-page:first-of-type{page-break-before:avoid}header.top{-webkit-print-color-adjust:exact;print-color-adjust:exact}body{background:#fff}}
 </style>
@@ -239,7 +240,7 @@ function methodTile(){return `<table>
   <tr><td>Platform</td><td><b>${esc(M.platform)}</b></td></tr>
   <tr><td>Admin-2 units sampled</td><td>${M.n_units_sampled} / ${M.n_units_total}</td></tr>
   <tr><td>Samples (QC-pass)</td><td>${nf(M.n_qc)} (${M.qc_rate}% pass)</td></tr>
-  <tr><td>Marker genes typed</td><td>${(CAP.genes||[]).length}</td></tr>`
+  <tr><td>Markers typed</td><td>${D.markers.filter(m=>m.assessed).length}</td></tr>`
   +(isComb&&M.by_assay?`<tr><td>By assay (QC-pass)</td><td>${Object.entries(M.by_assay).map(([a,v])=>a+' '+nf(v)).join(' · ')}</td></tr>`:'')+`</table>`;}
 
 const csvDL=(name,rows)=>{ if(!rows.length) return '';
@@ -312,35 +313,36 @@ const R={};
 const markerLabel=m=>`${m.gene} ${m.aa}`;
 const RES_PCT=M.marker_action_pct;
 
-function markerTable(id,onlyFlagged){
-  const rows=D.markers.filter(m=>m.assessed&&(!onlyFlagged||m.est>=RES_PCT));
-  if(onlyFlagged&&!rows.length) return `<div class="hint" style="margin-top:6px">No assessed marker is at or above the ${RES_PCT}% action threshold.</div>`;
-  return `<div class="scroll"><table${id?` id="${id}"`:''}><thead><tr><th>Gene</th><th>AA change</th><th>Associated drug</th><th>Status</th><th>WHO criterion</th><th class="num">Prevalence</th><th class="num">95% CI</th><th>Flag</th></tr></thead><tbody>`+
-    rows.map(m=>`<tr data-k="${m.key}"><td><i>${esc(m.gene)}</i></td><td>${esc(m.aa)}</td><td>${esc(m.drug)}</td>
-      <td><span class="pill ${m.who?'who':'research'}">${m.who?'WHO-tracked':'Research'}</span></td><td style="font-size:11.5px;color:var(--ink2)">${esc(m.crit)}</td>
+function mkRow(m,summary){
+  return `<tr data-k="${m.key}"${summary?'':' style="cursor:pointer" title="Click to show this marker on the map"'}><td><i>${esc(m.gene)}</i></td><td>${esc(m.aa)}</td><td>${esc(m.drug)}</td>
+      <td><span class="pill ${m.who?'who':'research'}">${m.who?'WHO-tracked':'Research'}</span></td>${summary?'':`<td style="font-size:11.5px;color:var(--ink2)">${esc(m.crit)}</td>`}
       <td class="num">${pct(m.est)}</td><td class="num ci-txt">${ci(m.lo,m.hi)}</td>
-      <td>${m.action?`<span class="pill action">≥${RES_PCT}% — WHO criteria indicates TES</span>`:''}</td></tr>`).join('')
+      <td>${m.action?`<span class="pill action">≥${RES_PCT}% — WHO criteria indicates TES</span>`:''}</td></tr>`;
+}
+function markerTable(id,summary){
+  const rows=D.markers.filter(m=>m.assessed&&(!summary||m.est>=RES_PCT));
+  if(summary&&!rows.length) return `<div class="hint" style="margin-top:6px">No assessed marker is at or above the ${RES_PCT}% action threshold.</div>`;
+  return `<div class="scroll"><table${id?` id="${id}"`:''}><thead><tr><th>Gene</th><th>AA change</th><th>Associated drug</th><th>Status</th>${summary?'':'<th>WHO criterion</th>'}<th class="num">Prevalence</th><th class="num">95% CI</th><th>Flag</th></tr></thead><tbody>`+
+    rows.map(m=>mkRow(m,summary)).join('')
     +`</tbody></table></div>`;
 }
 
 R.summary=()=>{
-  let html=`<h2 class="sec">Summary — concerns for this population</h2>
-    <div class="sec-desc">Stoplight of surveillance concerns. Click a card to jump to detail. Flags use the WHO action threshold: resistance markers ≥${RES_PCT}% (therapeutic-efficacy-study trigger).</div>
+  let html=`<h2 class="sec">Summary</h2>
+    <div class="sec-desc">WHO drug resistance markers discovered at ≥${RES_PCT}% in the population (WHO therapeutic-efficacy-study trigger), aggregated across all years. Click to jump to details.</div>
     <div class="stoplight">`;
   const jump={'Resistance Markers':'resistance'};
   D.stoplight.forEach(s=>{
     const st=s.status, word={red:'Concern',amber:'Watch',green:'No flag',grey:'Not assessed'}[st];
     html+=`<div class="light ${st}" onclick="showTab('${jump[s.cat]||'summary'}')">
       <div class="cat"><span class="dot"></span>${esc(s.cat)}</div>
-      <div class="stat">${word}</div>
-      <div style="margin-top:10px">${markerTable(null,true)}</div>
-      <div class="hint" style="margin:8px 0 0">Markers at or above the ${RES_PCT}% action threshold only. Click for the full resistance detail (all markers, map, per-region table) →</div></div>`;
+      <div style="margin-top:10px">${markerTable(null,true)}</div></div>`;
   });
   html+=`</div>`;
   html+=`<div class="kpis" style="margin-top:18px">
     <div class="kpi"><div class="lab">Samples analysed (QC-pass)</div><div class="val">${nf(M.n_qc)}</div><div class="foot">${M.n_units_sampled}/${M.n_units_total} admin-2 units · ${M.qc_rate}% pass</div></div>
     <div class="kpi"><div class="lab">WHO-tracked markers ≥${RES_PCT}%</div><div class="val">${D.markers.filter(m=>m.assessed&&m.who&&m.est>=RES_PCT).length}</div><div class="foot"><a onclick="showTab('resistance')" style="cursor:pointer;color:#2a6fb0;text-decoration:underline">of ${D.markers.filter(m=>m.assessed&&m.who).length} WHO-tracked markers assessed →</a></div></div>
-    <div class="kpi"><div class="lab">Research (non-WHO) markers shown</div><div class="val">${D.markers.filter(m=>m.assessed&&!m.who).length}</div><div class="foot">labelled; not WHO-tracked</div></div></div>`;
+</div>`;
   // --- restored original summary elements (below the stoplight) ---
   const hasSites=D.sites&&D.sites.length;
   const sampMap = hasSites
@@ -355,6 +357,7 @@ R.summary=()=>{
     <div class="hint">Sampled units, most samples first — the denominator behind each unit's prevalence (small n ⇒ interpret cautiously).</div>
     <div class="scroll"><table><thead><tr><th>Location (Admin Level 2)</th><th class="num"># samples (QC-pass)</th><th class="num">Collection window</th></tr></thead><tbody>`+
     [...D.units].filter(u=>u.sampled).sort((a,b)=>b.n-a.n).slice(0,12).map(u=>`<tr><td>${esc(u.name)}</td><td class="num">${nf(u.n)}</td><td class="num">${esc(fmtYears(u.years||[u.date_min,u.date_max])||'—')}</td></tr>`).join('')
+    +`<tr style="font-weight:700;border-top:2px solid var(--line)"><td>TOTAL</td><td class="num">${nf(M.n_qc)}</td><td class="num">${esc(M.period)}</td></tr>`
     +`</tbody></table></div></div>`;
   return html;
 };
@@ -375,6 +378,11 @@ R.resistance=()=>{
     <div class="card"><h3>Samples per ${hasSites?'site':'admin-2 unit'}</h3><div class="hint">Denominator behind each ${hasSites?'site':'region'}'s prevalence — small n means an unstable %.</div><div id="drbars"></div></div></div>`;
   // table
   html+=`<div class="card" style="margin-top:16px"><h3>Marker table</h3><div class="hint" id="dltbl"></div>
+    <div class="controls">
+      <label>Show: <select id="mtfilter"><option value="all">All markers</option><option value="who">WHO-tracked only</option><option value="research">Research only</option><option value="action">≥${RES_PCT}% prevalence only</option></select></label>
+      <label>Min prevalence: <input type="number" id="mtminprev" min="0" max="100" step="0.5" value="0" style="width:64px;font-size:12.5px;padding:3px 6px;border:1px solid var(--line);border-radius:6px"> %</label>
+      <label>Sort: <select id="mtsort"><option value="gene">Gene order</option><option value="desc">Prevalence high→low</option><option value="asc">Prevalence low→high</option></select></label>
+    </div>
     ${markerTable('mtable')}<caption>WHO thresholds &amp; marker lists are real; prevalence values are ${REAL?'observed from the sequenced samples':'synthetic'}. "WHO criteria indicates TES" = WHO therapeutic-efficacy-study / treatment-failure trigger (≥${RES_PCT}%).</caption></div>`;
   return html;
 };
@@ -399,6 +407,32 @@ function wireResistance(){
     document.querySelectorAll(`#mtable tr[data-k="${k}"]`).forEach(r=>r.style.display=on?'':'none');
     const opt=sel.querySelector(`option[value="${k}"]`); if(opt) opt.disabled=!on;
     if(!on && sel.value===k){const first=[...sel.options].find(o=>!o.disabled); if(first){sel.value=first.value; draw();}}
+  });
+  // marker-table widget: filter (WHO/research/threshold/min-prevalence) + sort by prevalence
+  const mtf=$('#mtfilter'), mts=$('#mtsort'), mtp=$('#mtminprev');
+  const toggledOff=()=>new Set([...document.querySelectorAll('#mtoggles input')].filter(cb=>!cb.checked).map(cb=>cb.dataset.k));
+  const rebuildTable=()=>{
+    let rows=D.markers.filter(m=>m.assessed);
+    if(mtf.value==='who') rows=rows.filter(m=>m.who);
+    else if(mtf.value==='research') rows=rows.filter(m=>!m.who);
+    else if(mtf.value==='action') rows=rows.filter(m=>m.est>=RES_PCT);
+    const minp=parseFloat(mtp.value)||0; if(minp>0) rows=rows.filter(m=>m.est>=minp);
+    if(mts.value==='desc') rows=rows.slice().sort((a,b)=>b.est-a.est);
+    else if(mts.value==='asc') rows=rows.slice().sort((a,b)=>a.est-b.est);
+    const off=toggledOff();
+    $('#mtable tbody').innerHTML=rows.map(m=>mkRow(m,false)).join('')||`<tr><td colspan="8" class="hint">No markers match the current filter.</td></tr>`;
+    document.querySelectorAll('#mtable tr[data-k]').forEach(r=>{if(off.has(r.dataset.k)) r.style.display='none';});
+  };
+  mtf.onchange=rebuildTable; mts.onchange=rebuildTable; mtp.oninput=rebuildTable;
+  // clicking a marker row shows that marker on the prevalence map
+  $('#mtable').addEventListener('click',e=>{
+    const tr=e.target.closest('tr[data-k]'); if(!tr) return;
+    const k=tr.dataset.k, opt=sel.querySelector(`option[value="${k}"]`);
+    if(!opt||opt.disabled) return;
+    sel.value=k; draw();
+    document.querySelectorAll('#mtable tr').forEach(r=>r.classList.remove('region-sel'));
+    tr.classList.add('region-sel');
+    const mapCard=$('#drmap').closest('.card'); if(mapCard&&mapCard.scrollIntoView) mapCard.scrollIntoView({behavior:'smooth',block:'nearest'});
   });
   // download
   const dl=D.markers.filter(m=>m.assessed).map(m=>({gene:m.gene,aa_change:m.aa,drug:m.drug,who_tracked:m.who?'yes':'no',prevalence_pct:m.est,ci_low:m.lo,ci_high:m.hi,n:m.n,positive:m.x}));
