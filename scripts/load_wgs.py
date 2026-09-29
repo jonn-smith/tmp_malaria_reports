@@ -30,12 +30,19 @@ import gen_reports as G
 csv.field_size_limit(10**7)
 
 # gene token in the table column  ->  MK marker token
-GENE2TOK = {'kelch13':'k13','crt':'crt','mdr1':'mdr1','dhfr':'dhfr','dhps':'dhps',
-            'coronin':'coronin','ubp1':'ubp1','ap2_mu':'ap2mu','cytb':'cytb'}
+GENE2TOK = {'kelch13':'k13','crt':'crt','mdr1':'mdr1','mdr2':'mdr2','dhfr':'dhfr','dhps':'dhps',
+            'coronin':'coronin','ubp1':'ubp1','ap2_mu':'ap2mu','cytb':'cytb',
+            'arps10':'arps10','exo':'exo','aat1':'aat1','carl':'carl','atg18':'atg18','fd':'fd'}
+AA3 = {'A':'Ala','R':'Arg','N':'Asn','D':'Asp','C':'Cys','Q':'Gln','E':'Glu','G':'Gly','H':'His',
+       'I':'Ile','L':'Leu','K':'Lys','M':'Met','F':'Phe','P':'Pro','S':'Ser','T':'Thr','W':'Trp',
+       'Y':'Tyr','V':'Val'}
 def _codon(aa): return int(re.findall(r'\d+', aa)[0])
-# MK key -> (tok, codon) for every report marker
-MK_POS = {k: (G.MK[k]['tok'], _codon(G.MK[k]['aa'])) for k in G.MK}
-MARKER_COL_RE = re.compile(r'^pf(?P<gene>.+?)_[A-Z][a-z]{2}_(?P<pos>\d+)_[A-Z][a-z]{2}$')
+# MK key -> (tok, codon, ref3, alt3): the mutant AA disambiguates columns that share a codon
+# (e.g. pfdhps_Ala_613_Ser vs _Thr) and tolerates a mis-annotated reference AA in the export
+# (e.g. pfdhps_Lys_437_Gly for the A437G marker — flagged upstream, still the right column).
+MK_POS = {k: (G.MK[k]['tok'], _codon(G.MK[k]['aa']),
+              AA3.get(G.MK[k]['aa'][0], ''), AA3.get(G.MK[k]['aa'][-1], '')) for k in G.MK}
+MARKER_COL_RE = re.compile(r'^pf(?P<gene>.+?)_(?P<ref>[A-Z][a-z]{2})_(?P<pos>\d+)_(?P<alt>[A-Z][a-z]{2})$')
 
 # health-district / alt spelling -> geoBoundaries department
 HEALTH2DEPT = {'RICHARD TOLL':'Dagana','DIOULOULOU':'Bignona','NDOFFANE':'Kaolack',
@@ -44,14 +51,24 @@ HEALTH2DEPT = {'RICHARD TOLL':'Dagana','DIOULOULOU':'Bignona','NDOFFANE':'Kaolac
 DEPT_BY_NA = {G._na(d['name']): d['name'] for d in G.DEPTS}
 
 def marker_columns(header):
-    """Map each report marker key -> its genotype column in this export (if present)."""
-    col_by_pos = {}
+    """Map each report marker key -> its genotype column in this export (if present).
+    Prefers an exact ref+codon+alt AA match, then falls back to codon+alt (mis-annotated
+    reference AA), then codon alone."""
+    exact = {}; by_alt = {}; by_pos = {}
     for col in header:
         m = MARKER_COL_RE.match(col)
         if not m: continue
         tok = GENE2TOK.get(m.group('gene').lower())
-        if tok: col_by_pos[(tok, int(m.group('pos')))] = col
-    return {k: col_by_pos[MK_POS[k]] for k in G.MK if MK_POS[k] in col_by_pos}
+        if not tok: continue
+        pos, ref, alt = int(m.group('pos')), m.group('ref'), m.group('alt')
+        exact[(tok, pos, ref, alt)] = col
+        by_alt.setdefault((tok, pos, alt), col)
+        by_pos.setdefault((tok, pos), col)
+    out = {}
+    for k, (tok, pos, ref, alt) in MK_POS.items():
+        col = exact.get((tok, pos, ref, alt)) or by_alt.get((tok, pos, alt)) or by_pos.get((tok, pos))
+        if col: out[k] = col
+    return out
 
 def dept_of(row):
     d = (row.get('District') or '').strip()

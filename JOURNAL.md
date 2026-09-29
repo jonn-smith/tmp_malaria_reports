@@ -408,3 +408,24 @@ Jonn: summary map circles should sit on a region choropleth (shaded by total sam
 **Side effect (explained, kept).** MAD cohort n 880 -> 881: one sample's only resmarker calls are at newly-added codons; previously matched zero report markers and was dropped from aggregation.
 
 **Verify (jsdom, WGS-real + MAD-real + NOMADS + COMBINED).** 0 errors; summary head has 7 cols (no criterion); sec-desc/heading/no-Concern/2-KPIs/bold-TOTAL all confirmed; widget: filter all->WHO->action->minprev row counts 22->21->5->4 (WGS), sort desc verified monotonic, row click drives #drsel (clickDrivesMap true both real reports).
+
+## 2026-09-29T01:30:00Z — Marker catalogue rebuilt from source: 16 -> 80, WHO evidence classes + per-panel background markers
+
+**Context.** Jonn: "make sure you've got all the markers now. For Mad4Hatter and NOMADS, I imagine they have their own markers. Those should be counted, but labeled properly. look it up."
+
+**What I looked up (three authoritative sources, not memory).**
+1. `reference/who_combined.json` (WHO Compendium, 117 entries) grouped by class: 29 "Validated (Epi.,Lab.&Clin.)" + 1 "Validated (Lab.&Clin.)", 8+18 Candidate, 9+3+43 Potential. This gave the real WHO tiering per gene/alteration, including markers we never had: Pfcrt T93S/H97Y/F145I/I218F/C350R/M343L/G353V/C101F (piperaquine), nine more WHO-confirmed Pfk13 codons, Pfcoronin G50E/R100K/E107V as WHO *potential* (lab), Pfdhfr I164L/A16V, Pfdhps S436A/A613S/A613T/I431V, Pfmdr1 S1034C/N1042D/D1246Y, Pfcytb Y268C.
+2. Codons actually typed by WGS: enumerated the `pf<gene>_<Aaa>_<pos>_<Aaa>` columns in the real sample.tsv — 18 k13, 10 crt, 6 dhps, 5 each mdr1/dhfr/carl, 4 each coronin/aat1, 1 each ubp1/mdr2/exo/atg18/arps10/ap2-mu.
+3. Codons actually typed by MAD4HATTER: enumerated Gene+CodonID across all 15 UCSF resmarker tables — crt 17, k13 63, dhfr 6, dhps 6, mdr1 8, mdr2 4, coronin 3, arps10 2, fd, exo, ubp1, pib7, csp 17, Rh5, Ripr.
+
+**Correction to a previous entry.** See 2026-09-23T00:30Z, which recorded "NO coronin, NO ubp1, NO ap2mu in the principal resmarker table". The *deployed* UCSF panel output does type coronin (50/100/107) and ubp1 (1525); that conclusion came from the older principal_resistance_marker_info_table.tsv, not the shipped panel. ASSAYS comment + MAD note corrected in place.
+
+**New catalogue (scripts/gen_reports.py).** 80 markers with an explicit evidence class: `confirmed` (WHO highest class) / `candidate` / `potential` (incl. codons WHO lists only inside haplotypes, e.g. the Pfcrt CQ haplotype components and the Pfmdr1 1034/1042/1246 trio) / `background` (panel loci WHO does not track: Pfarps10 V127M+D128H, Pffd D193Y, Pfmdr2 T484I, Pfexo E415G, Pfmdr1 Y184F) / `research` (Pfaat1 x4, Pfcarl x4, Pfatg18, Pfcoronin P76S, Pfubp1 x2, Pfap2-mu). Never uses the word "validated" (self-check still enforces this) — tiers read "WHO-tracked / WHO candidate / WHO potential". Action flag (>=10% TES) now fires only on WHO-confirmed markers; stoplight escalation likewise. Deliberately excluded: amplification markers (Pfmdr1/Pfpm2-3/Pfgch1 — CNV not in v0.8), the ~40 remaining k13 propeller codons MAD scans but WHO does not name, and the panel's csp/Rh5/Ripr vaccine/invasion loci (not drug resistance).
+
+**Per-assay counts now differ as intended.** Assessed markers: WGS real 56, MAD4HATTER real 54, NOMADS 57 (synthetic; core 5 genes only), COMBINED 80. WGS marker->column mapping went 22/27 -> 57/80.
+
+**Loader fix (real correctness bug this exposed).** load_wgs matched columns on (gene, codon) only, so the new dhps A613S/A613T pair collided (last-wins) and the k13 553/574 columns with mis-annotated reference AAs were picked arbitrarily. Now matches (gene, codon, refAA, altAA) exactly, falling back to (gene, codon, altAA) then codon. A437G still maps to the mis-annotated `pfdhps_Lys_437_Gly` via the alt-AA fallback, preserving the known upstream-bug behaviour rather than silently dropping it.
+
+**Template.** Status column renders the class with its own pill style (WHO-tracked / candidate / potential / panel-background / research, criterion on hover); summary table now filters to WHO-tracked markers >=10% (matches its description); filter widget gained per-class options; Methods documents the class scheme.
+
+**Verify (jsdom, all 4 + real).** 0 errors. Filter counts WGS-real all/who/confirmed/candidate/potential/background/research/action = 56/40/16/8/16/4/12/10; MAD-real 54/53/20/14/19/1/0/15. Summary shows only WHO classes (7 rows WGS, 14 MAD). "validated" absent from rendered text. Export blobs round-trip: WGS who 894 / afcdc 10,753 / marker-centric 92,321 / PHA4GE 10,753x210 cols / DHIS2 894. New real values look right: Pfcrt CQ-haplotype components track K76T (67.7% MAD), Pfdhps S436A 59.1%, A613S 32.4%, I431V 25.3%, Pfaat1 S258L 85.1% (WGS), all k13 confirmed markers 0%.

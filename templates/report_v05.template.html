@@ -67,6 +67,8 @@ h2.sec{font-size:18px;font-weight:600;margin:6px 0 4px}
 .callout b{color:var(--ink)}
 .pill{display:inline-block;padding:1px 8px;border-radius:20px;font-size:11px;font-weight:600}
 .pill.who{background:#e3eefb;color:#1c5cab} .pill.research{background:#fdf0e2;color:#9a5b16;border:1px solid #eccfa6}
+.pill.cand{background:#eef4fc;color:#2a6fb0;border:1px solid #cfe0f4} .pill.pot{background:#f4f7fb;color:#4a6d92;border:1px solid #dde6f0}
+.pill.bg{background:#f1f2f4;color:#5b6067;border:1px solid #dcdfe3}
 .pill.action{background:#fbe3e3;color:#a81e1e} .pill.mut{background:#eef1f4;color:#52514e}
 table{width:100%;border-collapse:collapse;font-size:13px}
 th,td{text-align:left;padding:7px 9px;border-bottom:1px solid var(--grid)}
@@ -313,15 +315,18 @@ const R={};
 const markerLabel=m=>`${m.gene} ${m.aa}`;
 const RES_PCT=M.marker_action_pct;
 
+const CLSPILL={confirmed:'who',candidate:'cand',potential:'pot',background:'bg',research:'research'};
+const clsPill=m=>CLSPILL[m.cls]||(m.who?'who':'research');
+const clsLabel=m=>m.category||(m.who?'WHO-tracked':'Research');
 function mkRow(m,summary){
   return `<tr data-k="${m.key}"${summary?'':' style="cursor:pointer" title="Click to show this marker on the map"'}><td><i>${esc(m.gene)}</i></td><td>${esc(m.aa)}</td><td>${esc(m.drug)}</td>
-      <td><span class="pill ${m.who?'who':'research'}">${m.who?'WHO-tracked':'Research'}</span></td>${summary?'':`<td style="font-size:11.5px;color:var(--ink2)">${esc(m.crit)}</td>`}
+      <td><span class="pill ${clsPill(m)}" title="${esc(m.crit||'')}">${esc(clsLabel(m))}</span></td>${summary?'':`<td style="font-size:11.5px;color:var(--ink2)">${esc(m.crit)}</td>`}
       <td class="num">${pct(m.est)}</td><td class="num ci-txt">${ci(m.lo,m.hi)}</td>
       <td>${m.action?`<span class="pill action">≥${RES_PCT}% — WHO criteria indicates TES</span>`:''}</td></tr>`;
 }
 function markerTable(id,summary){
-  const rows=D.markers.filter(m=>m.assessed&&(!summary||m.est>=RES_PCT));
-  if(summary&&!rows.length) return `<div class="hint" style="margin-top:6px">No assessed marker is at or above the ${RES_PCT}% action threshold.</div>`;
+  const rows=D.markers.filter(m=>m.assessed&&(!summary||(m.who&&m.est>=RES_PCT)));
+  if(summary&&!rows.length) return `<div class="hint" style="margin-top:6px">No WHO-tracked marker is at or above the ${RES_PCT}% action threshold.</div>`;
   return `<div class="scroll"><table${id?` id="${id}"`:''}><thead><tr><th>Gene</th><th>AA change</th><th>Associated drug</th><th>Status</th>${summary?'':'<th>WHO criterion</th>'}<th class="num">Prevalence</th><th class="num">95% CI</th><th>Flag</th></tr></thead><tbody>`+
     rows.map(m=>mkRow(m,summary)).join('')
     +`</tbody></table></div>`;
@@ -365,10 +370,10 @@ R.summary=()=>{
 R.resistance=()=>{
   const cm=(CAP.covered_markers||[]).filter(k=>D.markers.find(m=>m.key===k&&m.assessed));
   let html=`<h2 class="sec">Genetic alterations associated with antimalarial drug resistance</h2>
-    <div class="sec-desc">Gene, amino-acid change, associated drug, and WHO-tracked status — with prevalence among QC-pass infections (95% Wilson CI). Markers reaching the WHO action threshold (≥${RES_PCT}%) are flagged. Research markers not yet tracked by WHO are labelled. Toggle markers to focus the map/table.</div>`;
+    <div class="sec-desc">Gene, amino-acid change, associated drug, and WHO-tracked status — with prevalence among QC-pass infections (95% Wilson CI). Markers are labelled by WHO evidence class (WHO-tracked confirmed / candidate / potential, from the WHO compendium) or as panel background / research loci that WHO does not track. The ≥${RES_PCT}% action flag is applied to WHO-confirmed markers. Filter, sort, or click a row to map it.</div>`;
   // marker toggles
   html+=`<div class="toggles" id="mtoggles">`+cm.map(k=>{const m=D.markers.find(x=>x.key===k);
-    return `<label><input type="checkbox" data-k="${k}" checked> ${esc(markerLabel(m))} <span class="pill ${m.who?'who':'research'}">${m.who?'WHO':'research'}</span></label>`;}).join('')+`</div>`;
+    return `<label><input type="checkbox" data-k="${k}" checked> ${esc(markerLabel(m))} <span class="pill ${clsPill(m)}">${esc((m.cls||'').slice(0,4)||'?')}</span></label>`;}).join('')+`</div>`;
   // map + controls (detail page = admin-2 choropleth only, no circles)
   const hasSites=false;
   html+=`<div class="grid two"><div class="card"><h3>Prevalence by ${hasSites?'site':'admin-2'} <select id="drsel">${cm.map(k=>{const m=D.markers.find(x=>x.key===k);return `<option value="${k}">${esc(markerLabel(m))}</option>`;}).join('')}</select></h3>
@@ -379,7 +384,7 @@ R.resistance=()=>{
   // table
   html+=`<div class="card" style="margin-top:16px"><h3>Marker table</h3><div class="hint" id="dltbl"></div>
     <div class="controls">
-      <label>Show: <select id="mtfilter"><option value="all">All markers</option><option value="who">WHO-tracked only</option><option value="research">Research only</option><option value="action">≥${RES_PCT}% prevalence only</option></select></label>
+      <label>Show: <select id="mtfilter"><option value="all">All markers</option><option value="who">WHO-tracked (any class)</option><option value="confirmed">WHO-tracked — confirmed only</option><option value="candidate">WHO candidate only</option><option value="potential">WHO potential only</option><option value="background">Panel / background only</option><option value="research">Research only</option><option value="action">≥${RES_PCT}% prevalence only</option></select></label>
       <label>Min prevalence: <input type="number" id="mtminprev" min="0" max="100" step="0.5" value="0" style="width:64px;font-size:12.5px;padding:3px 6px;border:1px solid var(--line);border-radius:6px"> %</label>
       <label>Sort: <select id="mtsort"><option value="gene">Gene order</option><option value="desc">Prevalence high→low</option><option value="asc">Prevalence low→high</option></select></label>
     </div>
@@ -414,8 +419,8 @@ function wireResistance(){
   const rebuildTable=()=>{
     let rows=D.markers.filter(m=>m.assessed);
     if(mtf.value==='who') rows=rows.filter(m=>m.who);
-    else if(mtf.value==='research') rows=rows.filter(m=>!m.who);
     else if(mtf.value==='action') rows=rows.filter(m=>m.est>=RES_PCT);
+    else if(mtf.value!=='all') rows=rows.filter(m=>m.cls===mtf.value);
     const minp=parseFloat(mtp.value)||0; if(minp>0) rows=rows.filter(m=>m.est>=minp);
     if(mts.value==='desc') rows=rows.slice().sort((a,b)=>b.est-a.est);
     else if(mts.value==='asc') rows=rows.slice().sort((a,b)=>a.est-b.est);
@@ -480,7 +485,7 @@ R.methods=()=>{
       <ul style="font-size:13px;color:var(--ink2);margin:6px 0 0 18px;line-height:1.7">
         <li>Resistance markers &amp; WHO-tracked status: <a href="${who}" target="_blank" rel="noopener">WHO Compendium of molecular markers for antimalarial drug resistance</a>.</li>
         <li>Resistance action flag: ≥${RES_PCT}% — aligns with the WHO therapeutic-efficacy-study / treatment-failure (≥10%) trigger for changing first-line policy.</li>
-        <li>Research markers (Pfcoronin, Pfubp1, Pfap2-mu, …) are labelled "not WHO-tracked".</li>
+        <li>Marker classes follow the WHO compendium: <b>WHO-tracked</b> (highest evidence class), <b>WHO candidate</b>, <b>WHO potential</b> (includes codons listed only inside WHO haplotypes). Loci the assay panel types that WHO does not track are labelled <b>Panel / background</b> (e.g. Pfarps10, Pffd, Pfmdr2, Pfexo, Pfmdr1 Y184F) or <b>Research</b> (e.g. Pfaat1, Pfcarl, Pfubp1, Pfap2-mu). All are counted; only WHO-confirmed markers carry the action flag.</li>
         <li>Admin-2 boundaries: geoBoundaries (SEN ADM2). Admin-3 shown when available; collection dates assumed available (contingency messaging if absent).</li>
       </ul></div>
     <div class="callout ${REAL?'':'amber'}" style="margin-top:14px"><b>Data status.</b> ${REAL?esc(M.data_source||'Real data.')+`. Prevalence = carriers ÷ QC-pass infections typed at the locus. Thresholds &amp; WHO-tracked status are the published WHO criteria.`:`Design mock-up (${M.version}) with synthetic prevalence values. Thresholds, WHO-tracked status, and marker lists are real; the numbers are fabricated for layout review.`}</div>`;
