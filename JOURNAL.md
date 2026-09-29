@@ -443,3 +443,17 @@ Single-source bump v0.8 -> v0.9: gen_reports VERSION default, build_reports.sh d
 **Also fixed.** NOMADS assay note claimed the panel carries no background loci, but Pfmdr1 Y184F is on it — reworded to name the dedicated background loci it lacks (Pfarps10/Pffd/Pfmdr2/Pfexo) while acknowledging Y184F.
 
 **Verify (jsdom, all 6).** 0 errors; 0 truncated class stubs remain; 2 legend blocks per report (Summary + Resistance) listing WHO/CAN/POT/BKG/RES with full labels; gene groups WGS-real 14, MAD-real 5, NOMADS 5, COMBINED 16; longest chip label 6 chars; per-gene "none" on Pfk13 hides exactly that gene's rows (WGS 56->42, MAD 54->31) and "all" restores.
+
+## 2026-09-29T03:40:00Z — Verified shipped v0.9 set; found and fixed build non-reproducibility
+
+**Context.** Jonn asked whether the latest versions are updated. Mtime comparison was inconclusive (source edit and build landed in the same second), so I verified by content and by rebuilding.
+
+**Content verification.** All 8 shipped files (6 in reports/, 2 copies at /workspace) carry every feature from the last several commits: 80-marker catalogue, class abbreviations + `classLegend()` + `.clslegend` CSS, gene-grouped `.tgroups` toggles with per-gene all/none (`data-gsel`), marker-table filter widget incl. the `background` option, row-click-to-map, `siteLegend`, region-total choropleth backdrop, bold TOTAL row, "Markers typed" tile, and the summary table's suppressed WHO-criterion column. meta.version reads v0.9 (synthetic) / v0.9-real. No v0.[0-8] artifacts anywhere. Real reports in reports/ and /workspace are byte-identical (md5 match).
+
+**Finding: synthetic mock-ups were not reproducible.** Rebuilding from unchanged sources produced a different DATA blob every time (WGS n_qc 364 -> 350, different sampled departments). Root cause: `build_assay` seeded with `random.seed(hash(name)%2**31)` — `str.__hash__` is salted by PYTHONHASHSEED, which Python randomises per process. So the committed synthetic reports could never be regenerated, and any earlier claim that a rebuild was "byte-identical" held only by luck within a single process. Fixed with `zlib.crc32(name.encode())` (same for the synthetic AfCDC seed).
+
+**Second, smaller cause (real reports).** `load_mad` built each sample's `calls` dict by iterating the `cov[b]` **set**, so the per-sample AfCDC/PHA4GE export row order tracked PYTHONHASHSEED — this is the "key order" difference noted at 2026-09-24T19:45Z, now diagnosed rather than assumed. Fixed by iterating `sorted(cov[b])`.
+
+**Evidence.** Two consecutive synthetic builds now byte-identical; identical again under PYTHONHASHSEED=1. Real reports byte-identical across PYTHONHASHSEED=0/5/42 (WGS md5 2a3fbcb4224f, MAD 867b6205ae74 in all three). jsdom across all 6: 0 errors, 4 nav tabs, 45 choropleth polygons, 5 export tabs, no empty pages.
+
+**Outcome.** Everything shipped is current, and the build is now deterministic — a rebuild from a clean checkout reproduces the committed synthetic reports exactly, which is what makes the committed HTML auditable.

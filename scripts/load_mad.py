@@ -118,7 +118,9 @@ def load(rm_dir, meta_csv, ad_dir=None):
         if lat is None: drop['no_meta'] += 1; continue
         d = dept_of(lat, lon)
         if not d: drop['no_dept'] += 1; continue
-        calls = {k: ((0, 1) if k in mut.get(b, set()) else (1, 0)) for k in cov[b]}
+        # sorted(): cov[b] is a set, and its iteration order would otherwise leak
+        # PYTHONHASHSEED into the per-sample export row order.
+        calls = {k: ((0, 1) if k in mut.get(b, set()) else (1, 0)) for k in sorted(cov[b])}
         coi, poly = coi_map.get(b, (None, None))
         samples.append({'id': b, 'district': d, 'region': '—', 'site': site, 'lat': lat, 'lon': lon,
                         'coi': coi, 'poly': poly, 'date': (year_of(b) or ''), 'calls': calls})

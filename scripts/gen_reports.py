@@ -17,7 +17,7 @@ v0.5 redesign (colleague feedback):
   - Export views: WHO Malaria Threats Map, Africa CDC, DHIS2 (DHIS2 schema real; others representative).
 Synthetic data throughout.
 """
-import json, math, random, sys, unicodedata, gzip, base64
+import json, math, random, sys, unicodedata, gzip, base64, zlib
 
 def fmt_years(ys):
     """Compress a set of years to a compact string: contiguous runs use en-dashes,
@@ -285,7 +285,7 @@ def assemble_report(name, spec, units):
                 stoplight=stoplight,marker_defs={k:MK[k] for k in MK})
 
 def build_assay(name, spec):
-    random.seed(hash(name)%(2**31))
+    random.seed(zlib.crc32(name.encode()))   # stable across runs (hash() is PYTHONHASHSEED-salted)
     order=sorted(DEPTS,key=lambda d:(-EPI[d['name']]['pop']-random.random()*400000))
     chosen=(random.sample([d for d in DEPTS if EPI[d['name']]['pop']>250000],spec['n_depts'])
             if name=='WGS' else order[:spec['n_depts']])
@@ -471,7 +471,7 @@ def add_export(rep):
         dhis.append(dict(dataElement=("MAL_RES_"+m['gene']+"_"+m['aa']).replace(' ',''),period='2024',
                          orgUnit=ctry,categoryOptionCombo='default',value=m['est']))
     # Africa CDC: one row per (sample, gene, codon) with wildtype/mutation read counts (real schema).
-    random.seed(hash('afcdc_'+assay)%(2**31)); afc=[]; sid=0
+    random.seed(zlib.crc32(('afcdc_'+assay).encode())); afc=[]; sid=0
     def afgene(g): g=g[2:] if g.startswith('Pf') else g; return 'kelch13' if g=='k13' else g
     def afdate(dm):
         if not dm: return ''
