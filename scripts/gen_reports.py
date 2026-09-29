@@ -208,7 +208,7 @@ ASSAYS = {
    genes={'k13','crt','mdr1','dhfr','dhps'},
    cnv=False, hrp=True, species=False,
    div=dict(coi=True,poly=True,mono=True,rh=False,cotx=False,coi_method='msp2 allele counting (coarse)'),
-   note='Targeted ONT amplicon panel (nomads16); this report shows the prevalence of the core Pfcrt / Pfk13 / Pfdhfr / Pfdhps / Pfmdr1 markers. The panel carries no atovaquone, Pfcoronin or background/research loci.'),
+   note='Targeted ONT amplicon panel (nomads16); this report shows the prevalence of the core Pfcrt / Pfk13 / Pfdhfr / Pfdhps / Pfmdr1 markers. The panel carries no atovaquone or Pfcoronin markers and none of the dedicated background loci (Pfarps10, Pffd, Pfmdr2, Pfexo), though Pfmdr1 Y184F is typed.'),
 }
 PIPELINE_LINKS = {
  'WGS':[('Malaria Plasmodium Illumina Whole Genome — featured workspace (Terra)','https://app.terra.bio/#workspaces/malaria-featured-workspaces/Malaria_Plasmodium_Illumina_Whole_Genome'),

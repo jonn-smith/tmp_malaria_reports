@@ -87,6 +87,19 @@ button.btn{font-size:12px;padding:5px 11px;border:1px solid var(--line);border-r
 button.btn:hover{background:var(--panel)} button.btn.on{background:var(--accent);color:#fff;border-color:var(--accent)}
 .toggles{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:12px;margin:4px 0 10px}
 .toggles label{display:inline-flex;align-items:center;gap:5px;cursor:pointer}
+/* marker toggles: one block per gene, chips on a fixed column grid so they line up */
+.tgroups{display:grid;grid-template-columns:repeat(auto-fit,minmax(330px,1fr));gap:10px;margin:4px 0 14px}
+.tgroup{border:1px solid var(--grid);border-radius:9px;padding:9px 11px;background:var(--panel)}
+.tglab{font-size:12px;font-weight:600;color:var(--ink2);display:flex;align-items:center;gap:8px;margin-bottom:7px}
+.tglab .tgn{font-weight:400;color:var(--muted)} .tglab .tgacts{margin-left:auto;white-space:nowrap}
+.tgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(136px,1fr));gap:3px 12px}
+.tgrid label{display:flex;align-items:center;gap:5px;font-size:12px;cursor:pointer;white-space:nowrap}
+.tgrid label .aa{font-variant-numeric:tabular-nums}
+.tgrid label .pill{margin-left:auto}
+button.lnk{background:none;border:none;color:#2a6fb0;font-size:11.5px;cursor:pointer;text-decoration:underline;padding:0 1px;font-family:inherit}
+.clslegend{display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:5px 18px;font-size:12px;color:var(--ink2);margin:0 0 14px}
+.clslegend .k{display:flex;gap:7px;align-items:baseline}
+.clslegend .k .pill{flex:none}
 .readout{font-size:12.5px;color:var(--ink2);min-height:1.4em;margin-top:4px}
 .readout b{color:var(--ink)}
 .greyed{opacity:.45;filter:grayscale(1)}
@@ -316,7 +329,22 @@ const markerLabel=m=>`${m.gene} ${m.aa}`;
 const RES_PCT=M.marker_action_pct;
 
 const CLSPILL={confirmed:'who',candidate:'cand',potential:'pot',background:'bg',research:'research'};
+const CLSABBR={confirmed:'WHO',candidate:'CAN',potential:'POT',background:'BKG',research:'RES'};
+const CLSFULL={confirmed:'WHO-tracked',candidate:'WHO candidate',potential:'WHO potential',
+               background:'Panel / background',research:'Research'};
+const CLSDESC={confirmed:'WHO compendium marker with the highest evidence class (epidemiological, laboratory and clinical). Carries the \u2265'+M.marker_action_pct+'% action flag.',
+               candidate:'WHO compendium candidate marker, or a codon WHO lists only inside a candidate resistance haplotype.',
+               potential:'WHO compendium potential marker, or a codon WHO lists only inside a potential resistance haplotype.',
+               background:'Locus on this assay panel that marks resistance genetic background or modulates partner-drug response. Not WHO-tracked.',
+               research:'Published research association, including markers for investigational drugs. Not WHO-tracked.'};
+const CLSORDER=['confirmed','candidate','potential','background','research'];
 const clsPill=m=>CLSPILL[m.cls]||(m.who?'who':'research');
+// spelled-out key for the coloured class pills (abbreviation -> full label -> meaning)
+function classLegend(){
+  const present=new Set(D.markers.filter(m=>m.assessed).map(m=>m.cls));
+  return `<div class="clslegend">`+CLSORDER.filter(c=>present.has(c)).map(c=>
+    `<span class="k"><span class="pill ${CLSPILL[c]}">${CLSABBR[c]}</span><span><b>${CLSFULL[c]}</b> \u2014 ${esc(CLSDESC[c])}</span></span>`).join('')+`</div>`;
+}
 const clsLabel=m=>m.category||(m.who?'WHO-tracked':'Research');
 function mkRow(m,summary){
   return `<tr data-k="${m.key}"${summary?'':' style="cursor:pointer" title="Click to show this marker on the map"'}><td><i>${esc(m.gene)}</i></td><td>${esc(m.aa)}</td><td>${esc(m.drug)}</td>
@@ -335,6 +363,7 @@ function markerTable(id,summary){
 R.summary=()=>{
   let html=`<h2 class="sec">Summary</h2>
     <div class="sec-desc">WHO drug resistance markers discovered at ≥${RES_PCT}% in the population (WHO therapeutic-efficacy-study trigger), aggregated across all years. Click to jump to details.</div>
+    ${classLegend()}
     <div class="stoplight">`;
   const jump={'Resistance Markers':'resistance'};
   D.stoplight.forEach(s=>{
@@ -372,8 +401,17 @@ R.resistance=()=>{
   let html=`<h2 class="sec">Genetic alterations associated with antimalarial drug resistance</h2>
     <div class="sec-desc">Gene, amino-acid change, associated drug, and WHO-tracked status — with prevalence among QC-pass infections (95% Wilson CI). Markers are labelled by WHO evidence class (WHO-tracked confirmed / candidate / potential, from the WHO compendium) or as panel background / research loci that WHO does not track. The ≥${RES_PCT}% action flag is applied to WHO-confirmed markers. Filter, sort, or click a row to map it.</div>`;
   // marker toggles
-  html+=`<div class="toggles" id="mtoggles">`+cm.map(k=>{const m=D.markers.find(x=>x.key===k);
-    return `<label><input type="checkbox" data-k="${k}" checked> ${esc(markerLabel(m))} <span class="pill ${clsPill(m)}">${esc((m.cls||'').slice(0,4)||'?')}</span></label>`;}).join('')+`</div>`;
+  html+=classLegend();
+  const grp=[]; const seen={};
+  cm.forEach(k=>{const m=D.markers.find(x=>x.key===k); if(!m) return;
+    if(!(m.gene in seen)){seen[m.gene]=grp.length; grp.push({gene:m.gene,gene_id:m.gene_id,items:[]});}
+    grp[seen[m.gene]].items.push(m);});
+  html+=`<div class="tgroups" id="mtoggles">`+grp.map((g,gi)=>
+    `<div class="tgroup"><div class="tglab"><i>${esc(g.gene)}</i><span class="tgn">${g.items.length} marker${g.items.length>1?'s':''} \u00b7 ${esc(g.gene_id||'')}</span>
+       <span class="tgacts"><button class="lnk" data-gsel="${gi}" data-on="1">all</button> / <button class="lnk" data-gsel="${gi}" data-on="0">none</button></span></div>
+     <div class="tgrid">`+g.items.map(m=>
+      `<label title="${esc(m.gene+' '+m.aa+' \u2014 '+CLSFULL[m.cls]+': '+(m.crit||''))}"><input type="checkbox" data-k="${m.key}" data-g="${gi}" checked><span class="aa">${esc(m.aa)}</span><span class="pill ${clsPill(m)}">${esc(CLSABBR[m.cls]||'?')}</span></label>`).join('')
+    +`</div></div>`).join('')+`</div>`;
   // map + controls (detail page = admin-2 choropleth only, no circles)
   const hasSites=false;
   html+=`<div class="grid two"><div class="card"><h3>Prevalence by ${hasSites?'site':'admin-2'} <select id="drsel">${cm.map(k=>{const m=D.markers.find(x=>x.key===k);return `<option value="${k}">${esc(markerLabel(m))}</option>`;}).join('')}</select></h3>
@@ -412,6 +450,13 @@ function wireResistance(){
     document.querySelectorAll(`#mtable tr[data-k="${k}"]`).forEach(r=>r.style.display=on?'':'none');
     const opt=sel.querySelector(`option[value="${k}"]`); if(opt) opt.disabled=!on;
     if(!on && sel.value===k){const first=[...sel.options].find(o=>!o.disabled); if(first){sel.value=first.value; draw();}}
+  });
+  // per-gene all/none
+  document.querySelectorAll('#mtoggles button.lnk').forEach(b=>b.onclick=e=>{
+    e.preventDefault();
+    const on=b.dataset.on==='1';
+    document.querySelectorAll(`#mtoggles input[data-g="${b.dataset.gsel}"]`).forEach(cb=>{
+      if(cb.checked!==on){cb.checked=on; cb.dispatchEvent(new Event('change'));}});
   });
   // marker-table widget: filter (WHO/research/threshold/min-prevalence) + sort by prevalence
   const mtf=$('#mtfilter'), mts=$('#mtsort'), mtp=$('#mtminprev');
