@@ -156,7 +156,7 @@ def load(rm_dir, meta_csv, ad_dir=None):
                      f"sites={len(set(s['site'] for s in samples))} dropped={drop}\n")
     rep = G.assemble_report('MAD4HATTER', G.ASSAYS['MAD4HATTER'], units)
     rep['meta']['real'] = True
-    rep['meta']['version'] = 'v0.8-real'   # gen_reports reads sys.argv on import; set explicitly
+    rep['meta']['version'] = 'v0.9-real'   # gen_reports reads sys.argv on import; set explicitly
     rep['meta']['data_source'] = 'MAD4HATTER v4 amplicon · UCSF mad4hatter outputs (runs 1–10)'
     G.real_export(rep, samples, 'Amplicon sequencing')
     rep['sites'] = G.sites_from_samples(samples)

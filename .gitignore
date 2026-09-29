@@ -10,7 +10,7 @@ build/
 
 # Superseded templates / report versions
 report_v2.template.html
-senegal_malaria_surveillance_*_v0.[0-7].html
+senegal_malaria_surveillance_*_v0.[0-8].html
 
 # Real-data reports and inputs that embed real per-sample genotypes / coordinates.
 # NOT committed by default (this repo is outward-facing). Regenerate locally from the

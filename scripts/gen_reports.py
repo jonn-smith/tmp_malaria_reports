@@ -34,7 +34,7 @@ def fmt_years(ys):
 random.seed(505)
 def _na(x):  # accent- & case-insensitive key for name lookups (geoBoundaries names are un-accented)
     return ''.join(c for c in unicodedata.normalize('NFD', str(x)) if unicodedata.category(c) != 'Mn').lower().strip()
-VERSION = sys.argv[1] if len(sys.argv) > 1 else 'v0.8'   # single source of truth; build_reports.sh passes it
+VERSION = sys.argv[1] if len(sys.argv) > 1 else 'v0.9'   # single source of truth; build_reports.sh passes it
 
 Z = 1.959963985
 def wilson(x, n):
