@@ -422,7 +422,7 @@ R.resistance=()=>{
   // table
   html+=`<div class="card" style="margin-top:16px"><h3>Marker table</h3><div class="hint" id="dltbl"></div>
     <div class="controls">
-      <label>Show: <select id="mtfilter"><option value="all">All markers</option><option value="who">WHO-tracked (any class)</option><option value="confirmed">WHO-tracked — confirmed only</option><option value="candidate">WHO candidate only</option><option value="potential">WHO potential only</option><option value="background">Panel / background only</option><option value="research">Research only</option><option value="action">≥${RES_PCT}% prevalence only</option></select></label>
+      <label>Show: <select id="mtfilter"><option value="all">All markers</option><option value="who">WHO-tracked (any class)</option><option value="confirmed">WHO-tracked — confirmed only</option><option value="candidate">WHO candidate only</option><option value="potential">WHO potential only</option><option value="background">Panel / background only</option><option value="research">Research only</option><option value="tes">Flagged — WHO criteria indicates TES</option><option value="action">≥${RES_PCT}% prevalence (any class)</option></select></label>
       <label>Min prevalence: <input type="number" id="mtminprev" min="0" max="100" step="0.5" value="0" style="width:64px;font-size:12.5px;padding:3px 6px;border:1px solid var(--line);border-radius:6px"> %</label>
       <label>Sort: <select id="mtsort"><option value="gene">Gene order</option><option value="desc">Prevalence high→low</option><option value="asc">Prevalence low→high</option></select></label>
     </div>
@@ -464,6 +464,7 @@ function wireResistance(){
   const rebuildTable=()=>{
     let rows=D.markers.filter(m=>m.assessed);
     if(mtf.value==='who') rows=rows.filter(m=>m.who);
+    else if(mtf.value==='tes') rows=rows.filter(m=>m.action);            // WHO-confirmed marker at/above the action threshold
     else if(mtf.value==='action') rows=rows.filter(m=>m.est>=RES_PCT);
     else if(mtf.value!=='all') rows=rows.filter(m=>m.cls===mtf.value);
     const minp=parseFloat(mtp.value)||0; if(minp>0) rows=rows.filter(m=>m.est>=minp);

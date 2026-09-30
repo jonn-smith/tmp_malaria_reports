@@ -457,3 +457,9 @@ Single-source bump v0.8 -> v0.9: gen_reports VERSION default, build_reports.sh d
 **Evidence.** Two consecutive synthetic builds now byte-identical; identical again under PYTHONHASHSEED=1. Real reports byte-identical across PYTHONHASHSEED=0/5/42 (WGS md5 2a3fbcb4224f, MAD 867b6205ae74 in all three). jsdom across all 6: 0 errors, 4 nav tabs, 45 choropleth polygons, 5 export tabs, no empty pages.
 
 **Outcome.** Everything shipped is current, and the build is now deterministic — a rebuild from a clean checkout reproduces the committed synthetic reports exactly, which is what makes the committed HTML auditable.
+
+## 2026-09-30T00:20:00Z — Marker table: filter for TES-flagged markers
+
+Jonn: add a filter for markers that indicate a TES. Added `<option value="tes">Flagged — WHO criteria indicates TES</option>` to the marker-table Show filter, backed by `rows.filter(m=>m.action)` — i.e. the report's existing action flag (WHO-confirmed class AND prevalence ≥10%), not merely ≥10%. Kept the pre-existing threshold option but relabelled it "≥10% prevalence (any class)" so the two are distinguishable: on real WGS, TES = 2 markers (Pfcrt K76T 50.5%, Pfmdr1 N86Y 11.9%) while any-class ≥10% = 10 (which includes WHO-potential dhfr/dhps, background Pfmdr1 Y184F and research Pfaat1 S258L — none of which carry the TES flag).
+
+Verified (jsdom, 3 reports): filter output matches `markers.filter(assessed && action)` from the embedded DATA exactly, every returned row shows the TES flag pill, and each report's count is right (WGS-real 2, MAD-real 2, NOMADS 1). 0 errors; standard checks still pass.
