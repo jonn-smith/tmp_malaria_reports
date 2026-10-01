@@ -69,6 +69,9 @@ h2.sec{font-size:18px;font-weight:600;margin:6px 0 4px}
 .pill.who{background:#e3eefb;color:#1c5cab} .pill.research{background:#fdf0e2;color:#9a5b16;border:1px solid #eccfa6}
 .pill.cand{background:#eef4fc;color:#2a6fb0;border:1px solid #cfe0f4} .pill.pot{background:#f4f7fb;color:#4a6d92;border:1px solid #dde6f0}
 .pill.bg{background:#f1f2f4;color:#5b6067;border:1px solid #dcdfe3}
+.pill.hap{background:#eef7f2;color:#1f6b4a;border:1px solid #cfe8dc}
+a.pill:hover{filter:brightness(0.96)}
+.clshead{font-size:12px;color:var(--ink2);margin:0 0 7px}
 .pill.action{background:#fbe3e3;color:#a81e1e} .pill.mut{background:#eef1f4;color:#52514e}
 table{width:100%;border-collapse:collapse;font-size:13px}
 th,td{text-align:left;padding:7px 9px;border-bottom:1px solid var(--grid)}
@@ -384,29 +387,36 @@ function unitPrev(u,key){                   // per-unit prevalence under the cur
   return t.d?Math.round(1000*t.x/t.d)/10:null;
 }
 const unitNsel=u=>!u?0:(!YSEL?(u.sampled?u.n:0):trUnit(u.name,YSEL,0).n);
-const CLSPILL={confirmed:'who',candidate:'cand',potential:'pot',background:'bg',research:'research'};
-const CLSABBR={confirmed:'WHO',candidate:'CAN',potential:'POT',background:'BKG',research:'RES'};
-const CLSFULL={confirmed:'WHO-tracked',candidate:'WHO candidate',potential:'WHO potential',
-               background:'Panel / background',research:'Research'};
-const CLSDESC={confirmed:'WHO compendium marker with the highest evidence class (epidemiological, laboratory and clinical). Carries the \u2265'+M.marker_action_pct+'% action flag.',
-               candidate:'WHO compendium candidate marker, or a codon WHO lists only inside a candidate resistance haplotype.',
-               potential:'WHO compendium potential marker, or a codon WHO lists only inside a potential resistance haplotype.',
-               background:'Locus on this assay panel that marks resistance genetic background or modulates partner-drug response. Not WHO-tracked.',
-               research:'Published research association, including markers for investigational drugs. Not WHO-tracked.'};
-const CLSORDER=['confirmed','candidate','potential','background','research'];
+const WHO_URL=M.who_url||'https://www.who.int/publications/m/item/compendium-of-molecular-markers-for-antimalarial-drug-resistance';
+const CLSPILL={validated:'who',candidate:'cand',potential:'pot',haplotype:'hap',background:'bg',research:'research'};
+const CLSABBR={validated:'VAL',candidate:'CAN',potential:'POT',haplotype:'HAP',background:'BKG',research:'RES'};
+/* Class names are WHO's own, taken from the Compendium of molecular markers for
+   antimalarial drug resistance (see WHO_URL). Only the last two are ours, and they say
+   explicitly that WHO does not list the locus. */
+const CLSFULL={validated:'Validated marker',candidate:'Candidate marker',potential:'Potential marker',
+               haplotype:'Haplotype component',background:'Not in WHO compendium (panel locus)',
+               research:'Not in WHO compendium (research)'};
+const CLSDESC={validated:'WHO class, listed for this alteration on its own. Carries the \u2265'+M.marker_action_pct+'% action flag.',
+               candidate:'WHO class, listed for this alteration on its own.',
+               potential:'WHO class, listed for this alteration on its own.',
+               haplotype:'WHO lists this codon only as part of a multi-codon haplotype; the class shown on the row is the haplotype\u2019s, not a class WHO gives the single codon.',
+               background:'Locus typed by this assay panel that marks resistance genetic background or modulates partner-drug response. WHO does not list it.',
+               research:'Published research association, including markers for investigational drugs. WHO does not list it.'};
+const CLSORDER=['validated','candidate','potential','haplotype','background','research'];
 const clsPill=m=>CLSPILL[m.cls]||(m.who?'who':'research');
 // spelled-out key for the coloured class pills (abbreviation -> full label -> meaning)
 function classLegend(){
   const present=new Set(D.markers.filter(m=>m.assessed).map(m=>m.cls));
-  return `<div class="clslegend">`+CLSORDER.filter(c=>present.has(c)).map(c=>
-    `<span class="k"><span class="pill ${CLSPILL[c]}">${CLSABBR[c]}</span><span><b>${CLSFULL[c]}</b> \u2014 ${esc(CLSDESC[c])}</span></span>`).join('')+`</div>`;
+  return `<div class="clshead">Marker classes are the classes used by the <a href="${WHO_URL}" target="_blank" rel="noopener">WHO Compendium of molecular markers for antimalarial drug resistance</a>; each label below links to it.</div>`
+    +`<div class="clslegend">`+CLSORDER.filter(c=>present.has(c)).map(c=>
+    `<span class="k"><a class="pill ${CLSPILL[c]}" href="${WHO_URL}" target="_blank" rel="noopener" style="text-decoration:none">${CLSABBR[c]}</a><span><b><a href="${WHO_URL}" target="_blank" rel="noopener" style="color:inherit">${CLSFULL[c]}</a></b> \u2014 ${esc(CLSDESC[c])}</span></span>`).join('')+`</div>`;
 }
-const clsLabel=m=>m.category||(m.who?'WHO-tracked':'Research');
+const clsLabel=m=>m.category||CLSFULL[m.cls]||'Not in WHO compendium';
 /* The summary table is pooled over every year and every sampled area. A pooled flag can
    hide the fact that the marker only crosses the threshold in some periods (and vice
    versa), so each row states which periods the flag actually holds in. */
 function periodFlags(m){
-  if(!TR||m.cls!=='confirmed') return null;
+  if(!TR||m.cls!=='validated') return null;
   const mi=trIdx(m.key); if(mi<0) return null;
   const hit=[],miss=[],na=[];
   TR.frames.forEach(f=>{const t=trNat(f.years,mi);
@@ -424,16 +434,16 @@ function periodRange(m){
 }
 function mkRow(m,summary,stat){
   if(stat){m=Object.assign({},m,{est:stat.est,lo:stat.lo,hi:stat.hi,x:stat.x,n:stat.n,
-                                 action:(m.cls==='confirmed'&&stat.est>=RES_PCT)});}
+                                 action:(m.cls==='validated'&&stat.est>=RES_PCT)});}
   return `<tr data-k="${m.key}"${summary?'':' style="cursor:pointer" title="Click to show this marker on the map"'}><td><i>${esc(m.gene)}</i></td><td>${esc(m.aa)}</td><td>${esc(m.drug)}</td>
-      <td><span class="pill ${clsPill(m)}" title="${esc(m.crit||'')}">${esc(clsLabel(m))}</span></td>${summary?'':`<td style="font-size:11.5px;color:var(--ink2)">${esc(m.crit)}</td>`}
+      <td><a class="pill ${clsPill(m)}" href="${WHO_URL}" target="_blank" rel="noopener" onclick="event.stopPropagation()" style="text-decoration:none" title="${esc(m.who_cls?m.who_cls+' \u2014 '+(m.who_how||'')+'. Source: WHO Compendium of molecular markers for antimalarial drug resistance.':(m.crit||''))}">${esc(clsLabel(m))}</a></td>${summary?'':`<td style="font-size:11.5px;color:var(--ink2)">${esc(m.crit)}</td>`}
       <td class="num">${pct(m.est)}${(()=>{if(!summary) return '';
         const r=periodRange(m); return r?`<div class="sub2">by period: ${r.lo}–${r.hi}%</div>`:'';})()}</td>
       <td class="num ci-txt">${ci(m.lo,m.hi)}</td>
       <td>${m.action?`<span class="pill action">≥${RES_PCT}% — WHO criteria indicates TES</span>`:''}${(()=>{
         if(!summary) return '';
         const pf=periodFlags(m);
-        if(!pf) return m.who?`<div class="sub2">no TES flag — ${esc(clsLabel(m))} class; the flag applies to WHO-tracked (confirmed) markers only</div>`:'';
+        if(!pf) return m.who?`<div class="sub2">no TES flag — ${esc(clsLabel(m))} class; the ≥${RES_PCT}% flag applies to WHO <b>Validated markers</b> only</div>`:'';
         const assessed=pf.hit.length+pf.miss.length;
         if(!assessed) return `<div class="sub2">not assessed in any period</div>`;
         if(pf.hit.length===assessed) return `<div class="sub2">holds in <b>${assessed===1?'the only period':assessed===2?'both periods':'all '+assessed+' periods'}</b> (${esc(pf.hit.join(', '))})</div>`;
@@ -442,7 +452,7 @@ function mkRow(m,summary,stat){
 }
 function markerTable(id,summary){
   const rows=D.markers.filter(m=>m.assessed&&(!summary||(m.who&&m.est>=RES_PCT)));
-  if(summary&&!rows.length) return `<div class="hint" style="margin-top:6px">No WHO-tracked marker is at or above the ${RES_PCT}% action threshold.</div>`;
+  if(summary&&!rows.length) return `<div class="hint" style="margin-top:6px">No marker listed in the WHO compendium is at or above the ${RES_PCT}% action threshold.</div>`;
   return `<div class="scroll"><table${id?` id="${id}"`:''}><thead><tr><th>Gene</th><th>AA change</th><th>Associated drug</th><th>Status</th>${summary?'':'<th>WHO criterion</th>'}<th class="num">Prevalence${summary?' (all years, all areas)':''}</th><th class="num">95% CI</th><th>${summary?`TES flag${TR?' · periods it holds in':''}`:'Flag'}</th></tr></thead><tbody>`+
     rows.map(m=>mkRow(m,summary)).join('')
     +`</tbody></table></div>`+(summary&&TR?`<div class="tcap">Every figure in this table pools all years and all sampled areas. The per-period notes show where each flag actually holds — see the <a onclick="showTab('trends')" style="cursor:pointer;color:#2a6fb0;text-decoration:underline">Trends</a> tab for the full series, or filter by period on <a onclick="showTab('resistance')" style="cursor:pointer;color:#2a6fb0;text-decoration:underline">Resistance Markers</a>.</div>`:'');
@@ -467,7 +477,7 @@ R.summary=()=>{
   html+=`</div>`;
   html+=`<div class="kpis" style="margin-top:18px">
     <div class="kpi"><div class="lab">Samples analysed (QC-pass)</div><div class="val">${nf(M.n_qc)}</div><div class="foot">${M.n_units_sampled}/${M.n_units_total} admin-2 units · ${M.qc_rate}% pass</div></div>
-    <div class="kpi"><div class="lab">WHO-tracked markers ≥${RES_PCT}%</div><div class="val">${D.markers.filter(m=>m.assessed&&m.who&&m.est>=RES_PCT).length}</div><div class="foot"><a onclick="showTab('resistance')" style="cursor:pointer;color:#2a6fb0;text-decoration:underline">of ${D.markers.filter(m=>m.assessed&&m.who).length} WHO-tracked markers assessed →</a></div></div>
+    <div class="kpi"><div class="lab">WHO compendium markers ≥${RES_PCT}%</div><div class="val">${D.markers.filter(m=>m.assessed&&m.who&&m.est>=RES_PCT).length}</div><div class="foot"><a onclick="showTab('resistance')" style="cursor:pointer;color:#2a6fb0;text-decoration:underline">of ${D.markers.filter(m=>m.assessed&&m.who).length} compendium markers assessed →</a></div></div>
 </div>`;
   // --- restored original summary elements (below the stoplight) ---
   const hasSites=D.sites&&D.sites.length;
@@ -494,7 +504,7 @@ R.summary=()=>{
 R.resistance=()=>{
   const cm=(CAP.covered_markers||[]).filter(k=>D.markers.find(m=>m.key===k&&m.assessed));
   let html=`<h2 class="sec">Genetic alterations associated with antimalarial drug resistance</h2>
-    <div class="sec-desc">Gene, amino-acid change, associated drug, and WHO-tracked status — with prevalence among QC-pass infections (95% Wilson CI). Markers are labelled by WHO evidence class (WHO-tracked confirmed / candidate / potential, from the WHO compendium) or as panel background / research loci that WHO does not track. The ≥${RES_PCT}% action flag is applied to WHO-confirmed markers. Filter, sort, or click a row to map it.</div>`;
+    <div class="sec-desc">Gene, amino-acid change, associated drug and WHO class — with prevalence among QC-pass infections (95% Wilson CI). Classes are the <a href="${WHO_URL}" target="_blank" rel="noopener">WHO compendium</a>&rsquo;s own: <b>Validated marker</b>, <b>Candidate marker</b> and <b>Potential marker</b> where WHO lists the alteration on its own, <b>Haplotype component</b> where WHO lists the codon only inside a multi-codon haplotype, and <b>Not in WHO compendium</b> for panel background or research loci. The ≥${RES_PCT}% action flag is applied to Validated markers. Filter, sort, or click a row to map it.</div>`;
   // marker toggles
   html+=classLegend();
   const grp=[]; const seen={};
@@ -523,7 +533,7 @@ R.resistance=()=>{
   // table
   html+=`<div class="card" style="margin-top:16px"><h3>Marker table <span class="scopechip" id="mtperiod"></span></h3><div class="hint" id="dltbl"></div>
     <div class="controls">
-      <label>Show: <select id="mtfilter"><option value="all">All markers</option><option value="who">WHO-tracked (any class)</option><option value="confirmed">WHO-tracked — confirmed only</option><option value="candidate">WHO candidate only</option><option value="potential">WHO potential only</option><option value="background">Panel / background only</option><option value="research">Research only</option><option value="tes">Flagged — WHO criteria indicates TES</option><option value="action">≥${RES_PCT}% prevalence (any class)</option></select></label>
+      <label>Show: <select id="mtfilter"><option value="all">All markers</option><option value="who">In WHO compendium (any class)</option><option value="validated">Validated markers only</option><option value="candidate">Candidate markers only</option><option value="potential">Potential markers only</option><option value="haplotype">Haplotype components only</option><option value="background">Panel / background only</option><option value="research">Research only</option><option value="tes">Flagged — WHO criteria indicates TES</option><option value="action">≥${RES_PCT}% prevalence (any class)</option></select></label>
       <label>Min prevalence: <input type="number" id="mtminprev" min="0" max="100" step="0.5" value="0" style="width:64px;font-size:12.5px;padding:3px 6px;border:1px solid var(--line);border-radius:6px"> %</label>
       <label>Sort: <select id="mtsort"><option value="gene">Gene order</option><option value="desc">Prevalence high→low</option><option value="asc">Prevalence low→high</option></select></label>
     </div>
@@ -586,7 +596,7 @@ function wireResistance(){
     // prevalence-based filters/sorts follow the selected period, not the pooled value
     const pv=m=>{const st=mkStat(m.key); return st?st.est:null;};
     if(mtf.value==='who') rows=rows.filter(m=>m.who);
-    else if(mtf.value==='tes') rows=rows.filter(m=>m.cls==='confirmed'&&(pv(m)??-1)>=RES_PCT);
+    else if(mtf.value==='tes') rows=rows.filter(m=>m.cls==='validated'&&(pv(m)??-1)>=RES_PCT);
     else if(mtf.value==='action') rows=rows.filter(m=>(pv(m)??-1)>=RES_PCT);
     else if(mtf.value!=='all') rows=rows.filter(m=>m.cls===mtf.value);
     const minp=parseFloat(mtp.value)||0; if(minp>0) rows=rows.filter(m=>(pv(m)??-1)>=minp);
@@ -685,7 +695,7 @@ R.trends=()=>{
     </div>
     <div class="grid two" style="margin-top:4px">
       <div class="card"><h3 id="trtitle">Prevalence over time</h3>
-        <div class="hint">Shaded band = 95% Wilson CI. Faint grey lines are the other WHO-tracked markers for context. Hover a point for n.</div>
+        <div class="hint">Shaded band = 95% Wilson CI. Faint grey lines are the other WHO compendium markers for context. Hover a point for n.</div>
         <div id="trchart"></div></div>
       <div class="card" tabindex="0" id="trmapcard"><h3>Map by period <span class="sub" id="trmaplab"></span></h3>
         <div class="hint">Step with the arrows (or ←/→ keys when this card is focused) to flicker between consecutive periods &mdash; colour bins are fixed across all periods, so a colour change is a real change. Click a region to scope the chart and table to it.</div>
@@ -755,7 +765,7 @@ function wireTrends(){
       rows+=`<tr${i===idx?' class="region-sel"':''}><td>${esc(fs[i].label)}</td>`
         +(p?`<td class="num">${nf(p.n)}</td><td class="num">${nf(p.x)}</td><td class="num">${pct(p.est)}</td><td class="num ci-txt">${ci(p.lo,p.hi)}</td>`
            +`<td class="num">${dv==null?'—':(dv>0?'+':'')+dv.toFixed(1)+' pp'}</td>`
-           +`<td>${(m.cls==='confirmed'&&p.est>=RES_PCT)?`<span class="pill action">≥${RES_PCT}%</span>`:''}</td>`
+           +`<td>${(m.cls==='validated'&&p.est>=RES_PCT)?`<span class="pill action">≥${RES_PCT}%</span>`:''}</td>`
           :`<td class="num hint" colspan="5">not assessed</td><td></td>`)+`</tr>`;});
     $('#trtable').innerHTML=rows+`</tbody></table></div>`;
     $('#trtbltitle').textContent=`${m.gene||''} ${m.aa||''} by period — ${scope?scope:'national'}`;
@@ -821,14 +831,14 @@ R.methods=()=>{
     </div>
     <div class="card" style="margin-top:16px"><h3>Thresholds &amp; sources</h3>
       <ul style="font-size:13px;color:var(--ink2);margin:6px 0 0 18px;line-height:1.7">
-        <li>Resistance markers &amp; WHO-tracked status: <a href="${who}" target="_blank" rel="noopener">WHO Compendium of molecular markers for antimalarial drug resistance</a>.</li>
+        <li>Marker list &amp; classes: <a href="${who}" target="_blank" rel="noopener">WHO Compendium of molecular markers for antimalarial drug resistance</a>. Every class shown in this report is read from that compendium; each class label links to it.</li>
         <li>Resistance action flag: ≥${RES_PCT}% — aligns with the WHO therapeutic-efficacy-study / treatment-failure (≥10%) trigger for changing first-line policy.</li>
-        <li>Marker classes follow the WHO compendium: <b>WHO-tracked</b> (highest evidence class), <b>WHO candidate</b>, <b>WHO potential</b> (includes codons listed only inside WHO haplotypes). Loci the assay panel types that WHO does not track are labelled <b>Panel / background</b> (e.g. Pfarps10, Pffd, Pfmdr2, Pfexo, Pfmdr1 Y184F) or <b>Research</b> (e.g. Pfaat1, Pfcarl, Pfubp1, Pfap2-mu). All are counted; only WHO-confirmed markers carry the action flag.</li>
+        <li>Marker classes use the WHO compendium&rsquo;s own names: <b>Validated marker</b>, <b>Candidate marker</b> and <b>Potential marker</b> (with WHO&rsquo;s evidence qualifiers &mdash; e.g. &ldquo;Validated marker (Epi., Lab. &amp; Clin.)&rdquo; &mdash; shown on each row&rsquo;s tooltip). Where WHO lists a codon only inside a multi-codon haplotype, the row is labelled <b>Haplotype component</b> and names that haplotype, because WHO does not assign the single codon a class of its own. Loci absent from the compendium are labelled <b>Not in WHO compendium</b> (panel background, e.g. Pfarps10, Pffd, Pfmdr2, Pfexo, Pfmdr1 Y184F; or research, e.g. Pfaat1, Pfcarl, Pfubp1, Pfap2-mu). All are counted; only Validated markers carry the ≥${RES_PCT}% action flag.</li>
         <li>Time periods: the Trends tab and the Resistance period filter group collection years into frames with a usable denominator — a year reaching n&ge;${TR?TR.min_frame_n:100} QC-pass samples stands alone, sparser runs are merged. Every frame is summed from per-year counts, so the frames always add up to the pooled figure; the pooled view remains the default everywhere. Prevalence by period is subject to the same min-sample suppression as the pooled view, and a marker with no calls in a period reads "not assessed" rather than 0%.</li>
         <li>Trend caveat: these cohorts were not sampled uniformly over time (districts enter and leave the sampling frame), so part of any national change over time reflects <i>where</i> samples came from, not only parasite population change. The samples-per-period chart is shown alongside every trend for that reason; scope a region to remove the composition effect.</li>
         <li>Admin-2 boundaries: geoBoundaries (SEN ADM2). Admin-3 shown when available; collection dates assumed available (contingency messaging if absent).</li>
       </ul></div>
-    <div class="callout ${REAL?'':'amber'}" style="margin-top:14px"><b>Data status.</b> ${REAL?esc(M.data_source||'Real data.')+`. Prevalence = carriers ÷ QC-pass infections typed at the locus. Thresholds &amp; WHO-tracked status are the published WHO criteria.`:`Design mock-up (${M.version}) with synthetic prevalence values. Thresholds, WHO-tracked status, and marker lists are real; the numbers are fabricated for layout review.`}</div>`;
+    <div class="callout ${REAL?'':'amber'}" style="margin-top:14px"><b>Data status.</b> ${REAL?esc(M.data_source||'Real data.')+`. Prevalence = carriers ÷ QC-pass infections typed at the locus. Thresholds and marker classes are the published WHO criteria.`:`Design mock-up (${M.version}) with synthetic prevalence values. Thresholds, WHO classes, and marker lists are real; the numbers are fabricated for layout review.`}</div>`;
 };
 
 /* render + wire */

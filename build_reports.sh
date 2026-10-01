@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 # Build the Senegal malaria surveillance mock-ups. Run from the repo root.
-#   ./build_reports.sh [VERSION]   (default v0.10)
+#   ./build_reports.sh [VERSION]   (default v0.11)
 # Chain:  scripts/build_maps.py (geojson->map json) -> scripts/gen_reports.py (->build/data_*.json)
 #         -> inject into templates/report_v05.template.html -> reports/*.html
 set -euo pipefail
 cd "$(dirname "$0")"
-VER="${1:-v0.10}"
+VER="${1:-v0.11}"
 python3 scripts/gen_reports.py "$VER"   # reference/sen_admin2_map.json -> build/data_*.json (version stamped from $VER)
 python3 - "$VER" <<'PY'
 import sys

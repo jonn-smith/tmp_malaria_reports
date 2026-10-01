@@ -5,7 +5,8 @@ mock-ups: WGS, MAD4HATTER, NOMADS (ONT), COMBINED.
 v0.5 redesign (colleague feedback):
   - Prevalence only (NO incidence).
   - NO drug-resistance phenotype prediction. Show gene + AA change + associated drug +
-    WHO-tracked status + the WHO criterion only. Never the word "validated" -> "WHO-tracked".
+    the WHO compendium class + criterion only. Class names are WHO's own (Validated /
+    Candidate / Potential marker); the word "validated" is used only inside those terms.
   - Include NON-WHO (research) markers, clearly labelled.
   - 3 nav categories: Resistance markers / Diagnostics (HRP2/3) / Transmission (+ Summary, Export, Panel, Methods).
   - Diagnostics (HRP2/3) data is KEPT but rendered greyed-out + "not validated" (template).
@@ -17,7 +18,7 @@ v0.5 redesign (colleague feedback):
   - Export views: WHO Malaria Threats Map, Africa CDC, DHIS2 (DHIS2 schema real; others representative).
 Synthetic data throughout.
 """
-import json, math, random, sys, unicodedata, gzip, base64, zlib
+import json, math, random, re, sys, unicodedata, gzip, base64, zlib
 
 def fmt_years(ys):
     """Compress a set of years to a compact string: contiguous runs use en-dashes,
@@ -34,7 +35,7 @@ def fmt_years(ys):
 random.seed(505)
 def _na(x):  # accent- & case-insensitive key for name lookups (geoBoundaries names are un-accented)
     return ''.join(c for c in unicodedata.normalize('NFD', str(x)) if unicodedata.category(c) != 'Mn').lower().strip()
-VERSION = sys.argv[1] if len(sys.argv) > 1 else 'v0.10'   # single source of truth; build_reports.sh passes it
+VERSION = sys.argv[1] if len(sys.argv) > 1 else 'v0.11'   # single source of truth; build_reports.sh passes it
 
 Z = 1.959963985
 def wilson(x, n):
@@ -62,8 +63,8 @@ EPI = {d['name']:{'s':southness(d['lat']),'pop':base_pop(d['name'],southness(d['
 # class: 'confirmed'  = WHO compendium highest evidence class (Epi.+Lab.+Clin.)
 #        'candidate'  = WHO compendium candidate marker
 #        'potential'  = WHO compendium potential marker / listed haplotype component
-#        'background' = assay-panel background / partner-drug locus, not WHO-tracked
-#        'research'   = published research association, not WHO-tracked
+#        'background' = assay-panel background / partner-drug locus, absent from the compendium
+#        'research'   = published research association, absent from the compendium
 # Sources: WHO "Compendium of molecular markers for antimalarial drug resistance"
 # (reference/who_combined.json, 117 entries) for the WHO classes; the codons actually
 # typed come from the sr-malaria `sample` genotype columns (WGS) and the MAD4HATTER v4
@@ -117,7 +118,7 @@ MARKERS = [
  ('mdr1_S1034C','Pfmdr1','PF3D7_0523000','S1034C','Amodiaquine / lumefantrine','potential','mdr1',0.6,'Component of the WHO-listed Pfmdr1 potential haplotype (S1034C + N1042D + D1246Y)'),
  ('mdr1_N1042D','Pfmdr1','PF3D7_0523000','N1042D','Amodiaquine / lumefantrine','potential','mdr1',0.6,'Component of the WHO-listed Pfmdr1 potential haplotype (S1034C + N1042D + D1246Y)'),
  ('mdr1_D1246Y','Pfmdr1','PF3D7_0523000','D1246Y','Amodiaquine / lumefantrine','potential','mdr1',1.5,'Component of the WHO-listed Pfmdr1 potential haplotype (S1034C + N1042D + D1246Y)'),
- ('mdr1_Y184F','Pfmdr1','PF3D7_0523000','Y184F','Lumefantrine / amodiaquine','background','mdr1',35.0,'Partner-drug response modulator on the assay panel; not WHO-tracked'),
+ ('mdr1_Y184F','Pfmdr1','PF3D7_0523000','Y184F','Lumefantrine / amodiaquine','background','mdr1',35.0,'Partner-drug response modulator on the assay panel; not listed in the WHO compendium'),
  # --- Pfdhfr / Pfdhps: antifolates (SP, IPTp / SMC / PMC) ---
  ('dhfr_N51I','Pfdhfr','PF3D7_0417200','N51I','Pyrimethamine / SP','potential','dhfr',58.0,'WHO-listed antifolate (pyrimethamine) marker'),
  ('dhfr_C59R','Pfdhfr','PF3D7_0417200','C59R','Pyrimethamine / SP','potential','dhfr',55.0,'WHO-listed antifolate (pyrimethamine) marker'),
@@ -138,28 +139,29 @@ MARKERS = [
  ('coronin_G50E','Pfcoronin','PF3D7_1251200','G50E','Artemisinin (ACT)','potential','coronin',1.2,'WHO potential artemisinin marker (laboratory evidence)'),
  ('coronin_R100K','Pfcoronin','PF3D7_1251200','R100K','Artemisinin (ACT)','potential','coronin',1.0,'WHO potential artemisinin marker (laboratory evidence)'),
  ('coronin_E107V','Pfcoronin','PF3D7_1251200','E107V','Artemisinin (ACT)','potential','coronin',0.9,'WHO potential artemisinin marker (laboratory evidence)'),
- ('coronin_P76S','Pfcoronin','PF3D7_1251200','P76S','Artemisinin (research)','research','coronin',0.8,'Research association; not WHO-tracked'),
- # --- assay-panel background / partner loci (counted, labelled as not WHO-tracked) ---
- ('arps10_V127M','Pfarps10','PF3D7_1460900','V127M','Artemisinin (genetic background)','background','arps10',4.0,'Panel background locus: artemisinin-resistance genetic background; not WHO-tracked'),
- ('arps10_D128H','Pfarps10','PF3D7_1460900','D128H','Artemisinin (genetic background)','background','arps10',3.0,'Panel background locus: artemisinin-resistance genetic background; not WHO-tracked'),
- ('fd_D193Y','Pffd','PF3D7_1318100','D193Y','Artemisinin (genetic background)','background','fd',3.5,'Panel background locus (ferredoxin): artemisinin-resistance genetic background; not WHO-tracked'),
- ('mdr2_T484I','Pfmdr2','PF3D7_1447900','T484I','Artemisinin (genetic background)','background','mdr2',5.0,'Panel background locus: artemisinin-resistance genetic background; not WHO-tracked'),
- ('exo_E415G','Pfexo','PF3D7_1362500','E415G','Piperaquine (background)','background','exo',2.5,'Panel background locus (exonuclease): piperaquine-resistance background; not WHO-tracked'),
- ('atg18_T38I','Pfatg18','PF3D7_1012900','T38I','Artemisinin (research)','research','atg18',2.0,'Research association; not WHO-tracked'),
- ('aat1_S258L','Pfaat1','PF3D7_0629500','S258L','Chloroquine (research)','research','aat1',9.0,'Research association (amino-acid transporter 1, chloroquine); not WHO-tracked'),
- ('aat1_F313S','Pfaat1','PF3D7_0629500','F313S','Chloroquine (research)','research','aat1',3.0,'Research association (amino-acid transporter 1, chloroquine); not WHO-tracked'),
- ('aat1_Q454E','Pfaat1','PF3D7_0629500','Q454E','Chloroquine (research)','research','aat1',2.0,'Research association (amino-acid transporter 1, chloroquine); not WHO-tracked'),
- ('aat1_K541N','Pfaat1','PF3D7_0629500','K541N','Chloroquine (research)','research','aat1',1.5,'Research association (amino-acid transporter 1, chloroquine); not WHO-tracked'),
- ('carl_I1139K','Pfcarl','PF3D7_0321900','I1139K','Ganaplacide / KAF156 (research)','research','carl',0.5,'Research association (cyclic-amine resistance locus, investigational drug); not WHO-tracked'),
- ('carl_L830V','Pfcarl','PF3D7_0321900','L830V','Ganaplacide / KAF156 (research)','research','carl',0.4,'Research association (cyclic-amine resistance locus, investigational drug); not WHO-tracked'),
- ('carl_S1076N','Pfcarl','PF3D7_0321900','S1076N','Ganaplacide / KAF156 (research)','research','carl',0.4,'Research association (cyclic-amine resistance locus, investigational drug); not WHO-tracked'),
- ('carl_V1103L','Pfcarl','PF3D7_0321900','V1103L','Ganaplacide / KAF156 (research)','research','carl',0.3,'Research association (cyclic-amine resistance locus, investigational drug); not WHO-tracked'),
- ('ubp1_D1525E','Pfubp1','PF3D7_0104300','D1525E','ACT (research)','research','ubp1',0.9,'Research association; not WHO-tracked'),
- ('ubp1_V3275F','Pfubp1','PF3D7_0104300','V3275F','ACT (research)','research','ubp1',0.7,'Research association; not WHO-tracked'),
- ('ap2mu_I592T','Pfap2-mu','PF3D7_1218300','I592T','ACT (research)','research','ap2mu',1.5,'Research association; not WHO-tracked'),
+ ('coronin_P76S','Pfcoronin','PF3D7_1251200','P76S','Artemisinin (research)','research','coronin',0.8,'Research association; not listed in the WHO compendium'),
+ # --- assay-panel background / partner loci (counted; labelled as absent from the compendium) ---
+ ('arps10_V127M','Pfarps10','PF3D7_1460900','V127M','Artemisinin (genetic background)','background','arps10',4.0,'Panel background locus: artemisinin-resistance genetic background; not listed in the WHO compendium'),
+ ('arps10_D128H','Pfarps10','PF3D7_1460900','D128H','Artemisinin (genetic background)','background','arps10',3.0,'Panel background locus: artemisinin-resistance genetic background; not listed in the WHO compendium'),
+ ('fd_D193Y','Pffd','PF3D7_1318100','D193Y','Artemisinin (genetic background)','background','fd',3.5,'Panel background locus (ferredoxin): artemisinin-resistance genetic background; not listed in the WHO compendium'),
+ ('mdr2_T484I','Pfmdr2','PF3D7_1447900','T484I','Artemisinin (genetic background)','background','mdr2',5.0,'Panel background locus: artemisinin-resistance genetic background; not listed in the WHO compendium'),
+ ('exo_E415G','Pfexo','PF3D7_1362500','E415G','Piperaquine (background)','background','exo',2.5,'Panel background locus (exonuclease): piperaquine-resistance background; not listed in the WHO compendium'),
+ ('atg18_T38I','Pfatg18','PF3D7_1012900','T38I','Artemisinin (research)','research','atg18',2.0,'Research association; not listed in the WHO compendium'),
+ ('aat1_S258L','Pfaat1','PF3D7_0629500','S258L','Chloroquine (research)','research','aat1',9.0,'Research association (amino-acid transporter 1, chloroquine); not listed in the WHO compendium'),
+ ('aat1_F313S','Pfaat1','PF3D7_0629500','F313S','Chloroquine (research)','research','aat1',3.0,'Research association (amino-acid transporter 1, chloroquine); not listed in the WHO compendium'),
+ ('aat1_Q454E','Pfaat1','PF3D7_0629500','Q454E','Chloroquine (research)','research','aat1',2.0,'Research association (amino-acid transporter 1, chloroquine); not listed in the WHO compendium'),
+ ('aat1_K541N','Pfaat1','PF3D7_0629500','K541N','Chloroquine (research)','research','aat1',1.5,'Research association (amino-acid transporter 1, chloroquine); not listed in the WHO compendium'),
+ ('carl_I1139K','Pfcarl','PF3D7_0321900','I1139K','Ganaplacide / KAF156 (research)','research','carl',0.5,'Research association (cyclic-amine resistance locus, investigational drug); not listed in the WHO compendium'),
+ ('carl_L830V','Pfcarl','PF3D7_0321900','L830V','Ganaplacide / KAF156 (research)','research','carl',0.4,'Research association (cyclic-amine resistance locus, investigational drug); not listed in the WHO compendium'),
+ ('carl_S1076N','Pfcarl','PF3D7_0321900','S1076N','Ganaplacide / KAF156 (research)','research','carl',0.4,'Research association (cyclic-amine resistance locus, investigational drug); not listed in the WHO compendium'),
+ ('carl_V1103L','Pfcarl','PF3D7_0321900','V1103L','Ganaplacide / KAF156 (research)','research','carl',0.3,'Research association (cyclic-amine resistance locus, investigational drug); not listed in the WHO compendium'),
+ ('ubp1_D1525E','Pfubp1','PF3D7_0104300','D1525E','ACT (research)','research','ubp1',0.9,'Research association; not listed in the WHO compendium'),
+ ('ubp1_V3275F','Pfubp1','PF3D7_0104300','V3275F','ACT (research)','research','ubp1',0.7,'Research association; not listed in the WHO compendium'),
+ ('ap2mu_I592T','Pfap2-mu','PF3D7_1218300','I592T','ACT (research)','research','ap2mu',1.5,'Research association; not listed in the WHO compendium'),
 ]
-CLS_LABEL = {'confirmed':'WHO-tracked','candidate':'WHO candidate','potential':'WHO potential',
-             'background':'Panel / background','research':'Research'}
+CLS_LABEL = {'validated':'Validated marker','candidate':'Candidate marker','potential':'Potential marker',
+             'haplotype':'Haplotype component','background':'Not in WHO compendium (panel locus)',
+             'research':'Not in WHO compendium (research)'}
 MK = {m[0]:dict(gene=m[1],gene_id=m[2],aa=m[3],drug=m[4],cls=m[5],who=(m[5] in ('confirmed','candidate','potential')),
                 tok=m[6],mean=m[7],crit=m[8]) for m in MARKERS}
 
@@ -200,19 +202,19 @@ ASSAYS = {
    genes={'k13','crt','mdr1','mdr2','dhfr','dhps','coronin','ubp1','ap2mu','arps10','exo','aat1','carl','atg18'},
    cnv=True, hrp=True, species=False,
    div=dict(coi=True,poly=True,mono=True,rh=True,cotx=True,coi_method='24-SNP barcode heterozygosity'),
-   note='Whole-genome short-read sequencing; this report shows the prevalence of WHO-tracked and research drug-resistance markers from per-sample genotype calls.'),
+   note='Whole-genome short-read sequencing; this report shows the prevalence of drug-resistance markers from the WHO compendium plus panel background and research loci, called from per-sample genotypes.'),
  'MAD4HATTER': dict(full='MAD4HATTER v4 amplicon panel (Illumina)', platform='Illumina (v4, pools 1A+1B+2)',
    turnaround='1–2 weeks', color='#1baf7a', n_range=(30,260), years=[str(y) for y in range(2020,2025)], n_depts=38, qc=0.87,
    genes={'k13','crt','mdr1','mdr2','dhfr','dhps','cytb','coronin','ubp1','arps10','fd','exo'},
    cnv=True, hrp=True, species=True,
    div=dict(coi=True,poly=True,mono=True,rh=True,cotx=True,coi_method='naive COI (max distinct microhaplotype alleles per locus)'),
-   note='v4 amplicon panel (resistance pools); this report shows the prevalence of WHO-tracked drug-resistance markers from resistance-marker (resmarker) calls. Also types Pfcoronin, Pfubp1 and the panel background loci (Pfarps10, Pffd, Pfmdr2, Pfexo); it does not type Pfap2-mu, Pfaat1, Pfcarl or Pfatg18.'),
+   note='v4 amplicon panel (resistance pools); this report shows the prevalence of drug-resistance markers from the WHO compendium, called from resistance-marker (resmarker) output. Also types Pfcoronin, Pfubp1 and the panel background loci (Pfarps10, Pffd, Pfmdr2, Pfexo); it does not type Pfap2-mu, Pfaat1, Pfcarl or Pfatg18.'),
  'NOMADS': dict(full='NOMADS targeted panel (Oxford Nanopore)', platform='ONT MinION (nomads16)',
    turnaround='1–3 days', color='#2a78d6', n_range=(40,160), years=[str(y) for y in range(2022,2025)], n_depts=19, qc=0.84,
    genes={'k13','crt','mdr1','dhfr','dhps'},
    cnv=False, hrp=True, species=False,
    div=dict(coi=True,poly=True,mono=True,rh=False,cotx=False,coi_method='msp2 allele counting (coarse)'),
-   note='Targeted ONT amplicon panel (nomads16); this report shows the prevalence of the core Pfcrt / Pfk13 / Pfdhfr / Pfdhps / Pfmdr1 markers. The panel carries no atovaquone or Pfcoronin markers and none of the dedicated background loci (Pfarps10, Pffd, Pfmdr2, Pfexo), though Pfmdr1 Y184F is typed.'),
+   note='Targeted ONT amplicon panel (nomads16); this report shows the prevalence of the core Pfcrt / Pfk13 / Pfdhfr / Pfdhps / Pfmdr1 markers listed in the WHO compendium. The panel carries no atovaquone or Pfcoronin markers and none of the dedicated background loci (Pfarps10, Pffd, Pfmdr2, Pfexo), though Pfmdr1 Y184F is typed.'),
 }
 PIPELINE_LINKS = {
  'WGS':[('Malaria Plasmodium Illumina Whole Genome — featured workspace (Terra)','https://app.terra.bio/#workspaces/malaria-featured-workspaces/Malaria_Plasmodium_Illumina_Whole_Genome'),
@@ -231,6 +233,86 @@ PIPELINE_LINKS = {
         ('MalariaGEN Pf7 Data Resource (Terra)','https://app.terra.bio/#workspaces/malaria-featured-workspaces/MalariaGEN_Pf7_Data_Resource'),
         ('MalariaGEN Pf8 Data Resource (Terra)','https://app.terra.bio/#workspaces/gates-malaria/MalariaGEN_Pf8_Data_Resource')],
 }
+
+# ---- WHO compendium classification (derived from the source file, not hand-typed) ----
+WHO_URL = 'https://www.who.int/publications/m/item/compendium-of-molecular-markers-for-antimalarial-drug-resistance'
+_WHO_GENE_TOK = {'pfk13':'k13','pfcrt':'crt','pfdhfr':'dhfr','pfdhps':'dhps','pfcytb':'cytb',
+                 'pfmdr1':'mdr1','pfcoronin':'coronin','pfpm2/3':'pm23','pfgch1':'gch1'}
+_WHO_RANK = {'Validated':3,'Candidate':2,'Potential':1}
+
+def _alt_components(alt):
+    """Split a compendium alteration cell into individual amino-acid changes.
+    Handles '+' haplotypes, parenthesised wild-type runs, and slash forms
+    ('S108N/T' -> S108N, S108T)."""
+    out = []
+    for part in re.split(r'[+&]', alt.replace('(', ' ').replace(')', ' ')):
+        t = part.strip()
+        if not t: continue
+        m = re.match(r'^([A-Z]?)(\d+)([A-Za-z*](?:/[A-Za-z*])*)$', t)
+        if not m: continue
+        ref, pos, alts = m.groups()
+        for a in alts.split('/'):
+            out.append((int(pos), a.upper()))
+    return out
+
+def _who_index():
+    """gene token -> list of (components, who_class_string, raw_alt). A
+    'Pfdhfr & Pfdhps' row is split so each gene gets only its own alterations."""
+    idx = {}
+    for r in json.load(open(_os.path.join(ROOT, 'reference', 'who_combined.json'))):
+        genes = [g.strip() for g in r['gene'].split('&')]
+        alts  = [a.strip() for a in r['alt'].split('&')]
+        if len(genes) > 1 and len(alts) != len(genes): continue
+        total = len(_alt_components(r['alt']))          # components across the whole entry
+        for gi, g in enumerate(genes):
+            tok = _WHO_GENE_TOK.get(g.lower())
+            if not tok: continue
+            a = alts[gi] if len(genes) > 1 else r['alt']
+            comps = _alt_components(a)
+            if comps: idx.setdefault(tok, []).append((comps, r['cls'], r['alt'].strip(), total))
+    return idx
+
+WHO_IDX = _who_index()
+
+def who_classify(tok, aa):
+    """Return (class_key, who_class_string, how) for a gene token + AA change.
+    A marker WHO lists on its own gets WHO's class for that entry. A marker that
+    only ever appears inside a listed multi-codon haplotype is reported as a
+    haplotype component -- inheriting the haplotype's class would claim a WHO
+    status for the single codon that WHO does not give it."""
+    m = re.match(r'^([A-Z])(\d+)([A-Za-z*])$', aa)
+    if not m: return (None, None, None)
+    pos, alt = int(m.group(2)), m.group(3).upper()
+    best_single = best_hap = None
+    for comps, cls, raw, total in WHO_IDX.get(tok, []):
+        if (pos, alt) not in comps: continue
+        rank = _WHO_RANK.get(cls.split()[0], 0)
+        if total == 1:
+            if not best_single or rank > best_single[0]: best_single = (rank, cls, raw)
+        else:
+            if not best_hap or rank > best_hap[0]: best_hap = (rank, cls, raw)
+    if best_single:
+        return (best_single[1].split()[0].lower(), best_single[1], 'listed individually')
+    if best_hap:
+        return ('haplotype', best_hap[1], 'component of the WHO-listed haplotype ' + best_hap[2])
+    return (None, None, None)
+
+# Classes come from the WHO compendium, not from the table above: who_classify() reads
+# reference/who_combined.json, so the labels in the report are WHO's own and traceable.
+# The catalogue's own class field is only a fallback for loci WHO does not list.
+_CLS_PREFIX = re.compile(r'^(WHO-confirmed|WHO candidate|WHO potential|WHO-listed|Component of the WHO-listed)\s*')
+for _k, _m in MK.items():
+    _cls, _who, _how = who_classify(_m['tok'], _m['aa'])
+    _desc = _CLS_PREFIX.sub('', _m['crit']).strip()
+    if _cls:
+        _m['cls'] = _cls; _m['who_cls'] = _who; _m['who_how'] = _how; _m['who'] = True
+        _m['crit'] = f"WHO Compendium: {_who} \u2014 {_how}" + (f". {_desc[0].upper()}{_desc[1:]}" if _desc else '')
+    else:
+        assert _m['cls'] in ('background', 'research'), f"{_k}: claimed a WHO class but is not in the compendium"
+        _m['who_cls'] = None; _m['who_how'] = None; _m['who'] = False
+        _m['crit'] = _desc
+del _k, _m, _cls, _who, _how, _desc
+
 MARKER_PCT = 10.0
 MIN_FRAME_N = 100     # a year with >= this many QC-pass samples becomes its own trend frame
 HRP_PCT    = 5.0
@@ -311,17 +393,18 @@ def assemble_report(name, spec, units):
     natmarkers=[]
     for k,m in MK.items():
         base=dict(key=k,gene=m['gene'],gene_id=m['gene_id'],aa=m['aa'],drug=m['drug'],who=m['who'],
-                  cls=m['cls'],category=CLS_LABEL[m['cls']],crit=m['crit'])
+                  cls=m['cls'],category=CLS_LABEL[m['cls']],crit=m['crit'],
+                  who_cls=m.get('who_cls'),who_how=m.get('who_how'))
         if m['tok'] not in spec['genes'] or natn.get(k,0)==0: base['assessed']=False; natmarkers.append(base); continue
         est,lo,hi=wilson(natx[k],natn[k])
-        base.update(assessed=True,x=natx[k],n=natn[k],est=est,lo=lo,hi=hi,action=(m['cls']=='confirmed' and est>=MARKER_PCT))
+        base.update(assessed=True,x=natx[k],n=natn[k],est=est,lo=lo,hi=hi,action=(m['cls']=='validated' and est>=MARKER_PCT))
         natmarkers.append(base)
-    res_hits=[m for m in natmarkers if m.get('assessed') and m.get('cls')=='confirmed' and m['est']>=MARKER_PCT]
-    res_watch=[m for m in natmarkers if m.get('assessed') and m.get('cls')=='confirmed' and 5.0<=m['est']<MARKER_PCT]
+    res_hits=[m for m in natmarkers if m.get('assessed') and m.get('cls')=='validated' and m['est']>=MARKER_PCT]
+    res_watch=[m for m in natmarkers if m.get('assessed') and m.get('cls')=='validated' and 5.0<=m['est']<MARKER_PCT]
     stoplight=[
       dict(cat='Resistance Markers',status=('red' if res_hits else 'amber' if res_watch else 'green'),
            findings=([f"{m['gene']} {m['aa']} = {m['est']}% (≥{int(MARKER_PCT)}% — WHO criteria indicates TES)" for m in res_hits]
-                     +[f"{m['gene']} {m['aa']} = {m['est']}% (watch, 5–10%)" for m in res_watch]) or ['No WHO-tracked marker ≥ threshold']),
+                     +[f"{m['gene']} {m['aa']} = {m['est']}% (watch, 5–10%)" for m in res_watch]) or ['No WHO Validated marker at or above the action threshold']),
     ]
     trends=build_trends(covered, units)
     tabs=['summary','resistance']+(['trends'] if trends else [])+['export','methods']
@@ -336,7 +419,7 @@ def assemble_report(name, spec, units):
               admin_available=True,dates_available=bool(allyears),period=period,years=sorted(allyears),
               links=PIPELINE_LINKS.get(name,[]),
               generated='2026-09-23',version=VERSION,real=False,data_source='Synthetic design mock-up (illustrative values)',
-              marker_action_pct=MARKER_PCT,min_samples=MIN_SAMPLES,
+              marker_action_pct=MARKER_PCT,min_samples=MIN_SAMPLES,who_url=WHO_URL,
               n_units_sampled=len(chosen_names),n_units_total=len(DEPTS),n_collected=tot_col,n_qc=tot_qc,
               qc_rate=round(100*tot_qc/tot_col,1) if tot_col else 0)
     caps=dict(tabs=tabs,genes=sorted(spec['genes']),covered_markers=covered)
@@ -441,17 +524,18 @@ def build_combined():
     for k,m in MK.items():
         contrib=[a for a in ASSAYS if m['tok'] in ASSAYS[a]['genes']]
         base=dict(key=k,gene=m['gene'],gene_id=m['gene_id'],aa=m['aa'],drug=m['drug'],who=m['who'],
-                  cls=m['cls'],category=CLS_LABEL[m['cls']],crit=m['crit'])
+                  cls=m['cls'],category=CLS_LABEL[m['cls']],crit=m['crit'],
+                  who_cls=m.get('who_cls'),who_how=m.get('who_how'))
         if not contrib: base['assessed']=False; natmarkers.append(base); continue
         x=sum(next((mm['x'] for mm in reports[a]['markers'] if mm['key']==k and mm.get('assessed')),0) for a in contrib)
         n=sum(next((mm['n'] for mm in reports[a]['markers'] if mm['key']==k and mm.get('assessed')),0) for a in contrib)
-        est,lo,hi=wilson(x,n); base.update(assessed=True,x=x,n=n,est=est,lo=lo,hi=hi,action=(m['cls']=='confirmed' and est>=MARKER_PCT),assays=contrib)
+        est,lo,hi=wilson(x,n); base.update(assessed=True,x=x,n=n,est=est,lo=lo,hi=hi,action=(m['cls']=='validated' and est>=MARKER_PCT),assays=contrib)
         natmarkers.append(base)
-    res_hits=[m for m in natmarkers if m.get('assessed') and m.get('cls')=='confirmed' and m['est']>=MARKER_PCT]
-    res_watch=[m for m in natmarkers if m.get('assessed') and m.get('cls')=='confirmed' and 5.0<=m['est']<MARKER_PCT]
+    res_hits=[m for m in natmarkers if m.get('assessed') and m.get('cls')=='validated' and m['est']>=MARKER_PCT]
+    res_watch=[m for m in natmarkers if m.get('assessed') and m.get('cls')=='validated' and 5.0<=m['est']<MARKER_PCT]
     stoplight=[dict(cat='Resistance Markers',status=('red' if res_hits else 'amber' if res_watch else 'green'),
                     findings=([f"{m['gene']} {m['aa']} = {m['est']}% (≥{int(MARKER_PCT)}% — WHO criteria indicates TES)" for m in res_hits]
-                              +[f"{m['gene']} {m['aa']} = {m['est']}% (watch)" for m in res_watch]) or ['No WHO-tracked marker ≥ threshold'])]
+                              +[f"{m['gene']} {m['aa']} = {m['est']}% (watch)" for m in res_watch]) or ['No WHO Validated marker at or above the action threshold'])]
     tot_qc=sum(reports[a]['meta']['n_qc'] for a in ASSAYS); tot_col=sum(reports[a]['meta']['n_collected'] for a in ASSAYS)
     meta=dict(assay='COMBINED',assay_full='Combined multi-assay (WGS + MAD4HATTER + NOMADS)',
               platform='Illumina WGS + Illumina amplicon + ONT',color='#006dae',
@@ -461,7 +545,7 @@ def build_combined():
               years=sorted(set().union(*([set(u.get('years',[])) for u in units if u.get('sampled')] or [set()]))),
               links=PIPELINE_LINKS.get('COMBINED',[]),
               generated='2026-09-23',version=VERSION,real=False,data_source='Synthetic design mock-up (illustrative values)',
-              marker_action_pct=MARKER_PCT,min_samples=MIN_SAMPLES,
+              marker_action_pct=MARKER_PCT,min_samples=MIN_SAMPLES,who_url=WHO_URL,
               n_units_sampled=sum(1 for u in units if u['sampled']),n_units_total=len(DEPTS),
               n_collected=tot_col,n_qc=tot_qc,qc_rate=round(100*tot_qc/tot_col,1),by_assay={a:reports[a]['meta']['n_qc'] for a in ASSAYS})
     ctrends=build_trends(covered, units)
@@ -505,7 +589,7 @@ def _mmm_yyyy(d):
 # export view metadata: key -> (button label, csv filename, on-screen title)
 VIEW_META = {
  'who':      ('WHO Threat Maps', 'who_threat_map.csv', 'WHO Malaria Threats Map',
-             'WHO Malaria Threats Map layout: one row per admin-2 × marker (samples tested, mutant present, percent, WHO-tracked status). Representative of the schema.'),
+             'WHO Malaria Threats Map layout: one row per admin-2 × marker (samples tested, mutant present, percent, WHO class). Representative of the schema.'),
  'afcdc':    ('Africa CDC', 'afcdc_mutation_haplotype.csv', 'Africa CDC — Mutation / Haplotype data sheet',
              'Africa CDC Mutation/Haplotype data sheet: one row per sample × observed mutant alteration (Gene symbol · Gene Alteration · Haplotype). Columns not captured in the sequencing data (host subject ID, haplotype, travel history, destinations, endemicity, study type) are left blank.'),
  'afcdc_mc': ('AF-CDC Marker-Centric', 'afcdc_marker_centric.csv', 'AF-CDC Marker-Centric — per sample × codon (wildtype / mutation counts)',
@@ -712,7 +796,18 @@ assert abs(wilson(10,100)[1]-5.52)<0.05
 for name in ('WGS','MAD4HATTER','NOMADS','COMBINED'):
     r=reports[name]; m=r['meta']
     assert 'incidence' not in json.dumps(r).lower(), f'{name}: incidence leaked'
-    assert 'validated' not in json.dumps(r['markers']).lower(), f'{name}: "validated" in markers'
+    # "validated" may appear only inside WHO's defined class name. Walk display strings
+    # (the internal 'cls' key is a machine value, never rendered).
+    def _walk(o, key=None):
+        if isinstance(o, dict):
+            for k, v in o.items(): _walk(v, k)
+        elif isinstance(o, list):
+            for v in o: _walk(v)
+        elif isinstance(o, str) and key != 'cls':
+            for mo in re.finditer(r'validated', o, re.I):
+                assert o[mo.start():mo.start()+len('Validated marker')] == 'Validated marker', \
+                    f'{name}: "validated" outside WHO\'s defined term, in {key!r}: {o[:120]!r}'
+    _walk(r)
     assert 'diagnostics' not in r['capabilities']['tabs'] and 'transmission' not in r['capabilities']['tabs']
     assert 'diagnostics' not in r and 'transmission' not in r
     assert m['marker_action_pct']==10.0

@@ -1,6 +1,6 @@
 # Replicating the real-data reports
 
-How to regenerate `senegal_malaria_surveillance_{WGS,MAD4HATTER}_v0.10-real.html` in a fresh
+How to regenerate `senegal_malaria_surveillance_{WGS,MAD4HATTER}_v0.11-real.html` in a fresh
 checkout. These outputs embed real per-sample data, so they are **not** committed.
 
 ## 1. Environment
@@ -53,8 +53,8 @@ Sample IDs carry an Illumina `_S##_L001` suffix that the loader strips.
 #   arg2 = MAD resmarker dir   (pass "" to skip MAD)
 #   arg3 = MAD site metadata csv
 #   arg4 = MAD allele dir      ("" = skip COI; markers still built)
-# -> reports/senegal_malaria_surveillance_WGS_v0.10-real.html
-# -> reports/senegal_malaria_surveillance_MAD4HATTER_v0.10-real.html
+# -> reports/senegal_malaria_surveillance_WGS_v0.11-real.html
+# -> reports/senegal_malaria_surveillance_MAD4HATTER_v0.11-real.html
 ```
 
 Under the hood: `load_wgs.py` / `load_mad.py` build a per-sample intermediate, aggregate to
