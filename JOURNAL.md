@@ -532,3 +532,13 @@ Jonn's two batches, all implemented and jsdom-verified on all 6 reports (0 error
 15. Text blocks span the full card width (`.sec-desc` max-width removed), so the summary prose no longer sits narrower than the cards beneath it.
 
 Also removed the code the summary rewrite orphaned (periodFlags/periodRange and mkRow's summary-only sublines) rather than leaving two paths for the same view.
+
+## 2026-10-01T09:10:00Z — Summary table: single years only, flat rows, no aggregate
+
+Jonn: stop grouping years, no marker grouping, one Year column holding a single year, and no aggregated (all-years) rows in the summary table. Rewrote `summaryTable()`: rows are now one per WHO Validated marker x single collection year, each row self-describing (Year · Gene · AA change · Drug · WHO Classification · n tested · Prevalence · 95% CI · Flag), sorted newest year first then by prevalence. Removed the shaded "All years (pooled)" row and the colspan marker-grouping row; the scope bar now reads "Per-year summary" and the description states that all-years values live on the Resistance Markers tab.
+
+Marker selection no longer depends on a pooled figure either: a marker is listed if it reaches the threshold in at least one year on a usable denominator (n>=min_samples), which keeps the aggregate out of the selection logic as well.
+
+Small-n honesty: years below the min-sample threshold show n and "suppressed (n<5)" instead of a percentage — on the real WGS cohort that is 2005, 2007, 2013, 2015 and 2017, several of which have n=1-4 nationally and would otherwise print figures like 100%. Years in which a marker has no calls are omitted and the caption says so.
+
+Verify (jsdom): WGS-real 36 rows over 18 distinct years, every row begins with a 4-digit year, no "All years" row, 9 suppressed rows; MAD-real 4 rows (2020, 2023). 0 errors; earlier checks (WHO terminology rule, no TES, multi-marker trends, period filter, geometry) still pass.

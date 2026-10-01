@@ -434,25 +434,32 @@ function mkRow(m,summary,stat){
 /* Summary view: WHO Validated markers at/above the threshold, one row per marker and
    period, each marker led by its pooled (all years, all areas) row. */
 function summaryTable(){
-  const rows=D.markers.filter(m=>m.assessed&&m.cls==='validated'&&m.est>=RES_PCT);
-  if(!rows.length) return `<div class="hint" style="margin-top:6px">No WHO Validated marker is at or above the ${RES_PCT}% threshold.</div>`;
-  const fs=TR?TR.frames:[];
-  let h=`<div class="scroll"><table><thead><tr><th>Gene</th><th>AA change</th><th>Associated drug</th><th>WHO Classification</th><th>Period</th><th class="num">n tested</th><th class="num">Prevalence</th><th class="num">95% CI</th><th>Flag</th></tr></thead><tbody>`;
-  rows.forEach(m=>{
-    const mi=trIdx(m.key);
-    const cell=`<td><i>${esc(m.gene)}</i></td><td>${esc(m.aa)}</td><td>${esc(m.drug)}</td>`
-      +`<td><a class="pill ${clsPill(m)}" href="${WHO_URL}" target="_blank" rel="noopener" style="text-decoration:none" title="${esc((CLSABBR[m.cls]||'')+' = '+clsLabel(m)+(m.who_cls?' — '+m.who_cls:''))}">${esc(CLSABBR[m.cls]||clsLabel(m))}</a></td>`;
-    h+=`<tr style="font-weight:600;background:var(--panel)">${cell}<td>All years (pooled)</td>`
-      +`<td class="num">${nf(m.n)}</td><td class="num">${pct(m.est)}</td><td class="num ci-txt">${ci(m.lo,m.hi)}</td>`
-      +`<td>${m.action?`<span class="pill action">≥${RES_PCT}%</span>`:''}</td></tr>`;
-    if(mi>=0) fs.forEach(f=>{const t=trNat(f.years,mi);
-      const w=t.d?wilsonJS(t.x,t.d):null;
-      h+=`<tr><td colspan="4" style="color:var(--muted);font-size:11.5px">${esc(m.gene+' '+m.aa)}</td><td>${esc(f.label)}</td>`
-        +(w?`<td class="num">${nf(t.d)}</td><td class="num">${pct(w.est)}</td><td class="num ci-txt">${ci(w.lo,w.hi)}</td>`
-             +`<td>${w.est>=RES_PCT?`<span class="pill action">≥${RES_PCT}%</span>`:''}</td>`
-           :`<td class="num hint" colspan="4">not assessed in this period</td>`)+`</tr>`;});
+  /* One row per WHO Validated marker and single collection year. No year grouping, no
+     all-years row, no marker grouping: every row stands on its own. A marker is listed
+     if it reaches the threshold in at least one year. */
+  if(!TR) return `<div class="hint" style="margin-top:6px">No per-year data in this dataset.</div>`;
+  const vals=D.markers.filter(m=>m.assessed&&m.cls==='validated');
+  const out=[];
+  vals.forEach(m=>{
+    const mi=trIdx(m.key); if(mi<0) return;
+    const yrs=[];
+    TR.years.forEach(y=>{const t=trNat([y],mi); if(!t.d) return;
+      yrs.push({y,n:t.d,w:wilsonJS(t.x,t.d)});});
+    if(!yrs.some(r=>r.n>=MINN&&r.w.est>=RES_PCT)) return;    // never reaches the threshold on a usable n
+    yrs.forEach(r=>out.push(Object.assign({m},r)));
   });
-  return h+`</tbody></table></div><div class="tcap">Pooled rows (shaded) cover all years and all sampled areas; period rows sum to them. Classes are the WHO compendium's own — see the <a onclick="showTab('trends')" style="cursor:pointer;color:#2a6fb0;text-decoration:underline">Trends</a> tab for full series.</div>`;
+  if(!out.length) return `<div class="hint" style="margin-top:6px">No WHO Validated marker reaches ${RES_PCT}% in any single year.</div>`;
+  out.sort((a,b)=> (b.y.localeCompare(a.y)) || (b.w.est-a.w.est));
+  let h=`<div class="scroll"><table><thead><tr><th>Year</th><th>Gene</th><th>AA change</th><th>Associated drug</th><th>WHO Classification</th><th class="num">n tested</th><th class="num">Prevalence</th><th class="num">95% CI</th><th>Flag</th></tr></thead><tbody>`;
+  out.forEach(r=>{const m=r.m, small=r.n<MINN;
+    h+=`<tr><td>${esc(r.y)}</td><td><i>${esc(m.gene)}</i></td><td>${esc(m.aa)}</td><td>${esc(m.drug)}</td>`
+      +`<td><a class="pill ${clsPill(m)}" href="${WHO_URL}" target="_blank" rel="noopener" style="text-decoration:none" title="${esc((CLSABBR[m.cls]||'')+' = '+clsLabel(m)+(m.who_cls?' \u2014 '+m.who_cls:''))}">${esc(CLSABBR[m.cls]||clsLabel(m))}</a></td>`
+      +`<td class="num">${nf(r.n)}</td>`
+      +(small?`<td class="num hint" colspan="2">suppressed (n&lt;${MINN})</td><td></td>`
+             :`<td class="num">${pct(r.w.est)}</td><td class="num ci-txt">${ci(r.w.lo,r.w.hi)}</td>`
+              +`<td>${r.w.est>=RES_PCT?`<span class="pill action">\u2265${RES_PCT}%</span>`:''}</td>`)
+      +`</tr>`;});
+  return h+`</tbody></table></div><div class="tcap">One row per marker and single collection year, newest first; years in which a marker has no calls are omitted, and years with fewer than ${MINN} samples are suppressed rather than shown as a percentage. See the <a onclick="showTab('trends')" style="cursor:pointer;color:#2a6fb0;text-decoration:underline">Trends</a> tab for the full series and the <a onclick="showTab('resistance')" style="cursor:pointer;color:#2a6fb0;text-decoration:underline">Resistance Markers</a> tab for all-years figures.</div>`;
 }
 function markerTable(id,summary){
   const rows=D.markers.filter(m=>m.assessed&&(!summary||(m.who&&m.est>=RES_PCT)));
@@ -464,7 +471,7 @@ function markerTable(id,summary){
 
 R.summary=()=>{
   let html=`<h2 class="sec">Summary</h2>
-    <div class="sec-desc">WHO <b>Validated markers</b> found at ≥${RES_PCT}% in the population, broken out by collection period. The pooled row for each marker covers all years and all sampled areas; the rows beneath it give the same figure per period.</div>
+    <div class="sec-desc">WHO <b>Validated markers</b> that reach ≥${RES_PCT}% in at least one collection year, reported <b>one year at a time</b> — no year grouping and no all-years figure here. All-years values are on the Resistance Markers tab.</div>
     ${classLegend()}
     <div class="stoplight">`;
   const jump={'Resistance Markers':'resistance'};
@@ -472,8 +479,8 @@ R.summary=()=>{
     const st=s.status, word={red:'Concern',amber:'Watch',green:'No flag',grey:'Not assessed'}[st];
     html+=`<div class="light ${st}" onclick="showTab('${jump[s.cat]||'summary'}')">
       <div class="cat"><span class="dot"></span>${esc(s.cat)}</div>
-      <div class="scopebar"><span><b>Pooled summary</b></span>
-        <span>· all years <b>${esc(M.period)}</b></span>
+      <div class="scopebar"><span><b>Per-year summary</b></span>
+        <span>· years <b>${esc(M.period)}</b></span>
         <span>· all <b>${M.n_units_sampled}</b> sampled admin-2 area${M.n_units_sampled===1?'':'s'}${D.sites&&D.sites.length?` (${D.sites.length} collection sites)`:''}</span>
         <span>· <b>${nf(M.n_qc)}</b> QC pass samples</span></div>
       <div>${summaryTable()}</div></div>`;
