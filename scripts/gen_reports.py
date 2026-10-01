@@ -314,7 +314,7 @@ for _k, _m in MK.items():
 del _k, _m, _cls, _who, _how, _desc
 
 MARKER_PCT = 10.0
-MIN_FRAME_N = 100     # a year with >= this many QC-pass samples becomes its own trend frame
+MIN_FRAME_N = 100     # a year with >= this many QC pass samples becomes its own trend frame
 HRP_PCT    = 5.0
 MIN_SAMPLES = 5
 MONTHS = [f'2024-{m:02d}' for m in range(1,13)]
@@ -379,7 +379,7 @@ def build_trends(covered, units):
 def assemble_report(name, spec, units):
     """Assemble the template DATA blob from per-admin-2 unit records.
     Shared by the synthetic generator (build_assay) and real-data loaders
-    (load_wgs.py, ...). Each unit dict: name, sampled(bool), n(QC-pass denom),
+    (load_wgs.py, ...). Each unit dict: name, sampled(bool), n(QC pass denom),
     n_col?(collected), date_min?/date_max?, mk{k:pct}, mkx{k:mutant_ct},
     mkn{k:genotyped_ct}, hrp2/hrp3(pct) + hrp2x/hrp3x/hrpn(cts), div{coi,poly,mono,rh,cotx}."""
     covered=[k for k in MK if MK[k]['tok'] in spec['genes']]
@@ -403,7 +403,7 @@ def assemble_report(name, spec, units):
     res_watch=[m for m in natmarkers if m.get('assessed') and m.get('cls')=='validated' and 5.0<=m['est']<MARKER_PCT]
     stoplight=[
       dict(cat='Resistance Markers',status=('red' if res_hits else 'amber' if res_watch else 'green'),
-           findings=([f"{m['gene']} {m['aa']} = {m['est']}% (≥{int(MARKER_PCT)}% — WHO criteria indicates TES)" for m in res_hits]
+           findings=([f"{m['gene']} {m['aa']} = {m['est']}% (≥{int(MARKER_PCT)}%)" for m in res_hits]
                      +[f"{m['gene']} {m['aa']} = {m['est']}% (watch, 5–10%)" for m in res_watch]) or ['No WHO Validated marker at or above the action threshold']),
     ]
     trends=build_trends(covered, units)
@@ -421,6 +421,7 @@ def assemble_report(name, spec, units):
               generated='2026-09-23',version=VERSION,real=False,data_source='Synthetic design mock-up (illustrative values)',
               marker_action_pct=MARKER_PCT,min_samples=MIN_SAMPLES,who_url=WHO_URL,
               n_units_sampled=len(chosen_names),n_units_total=len(DEPTS),n_collected=tot_col,n_qc=tot_qc,
+              n_called=tot_qc,   # loaders override: QC pass samples with >=1 marker genotype call
               qc_rate=round(100*tot_qc/tot_col,1) if tot_col else 0)
     caps=dict(tabs=tabs,genes=sorted(spec['genes']),covered_markers=covered)
     # v0.8: COI (transmission) and HRP2/3 (diagnostics) sections removed from the report;
@@ -534,7 +535,7 @@ def build_combined():
     res_hits=[m for m in natmarkers if m.get('assessed') and m.get('cls')=='validated' and m['est']>=MARKER_PCT]
     res_watch=[m for m in natmarkers if m.get('assessed') and m.get('cls')=='validated' and 5.0<=m['est']<MARKER_PCT]
     stoplight=[dict(cat='Resistance Markers',status=('red' if res_hits else 'amber' if res_watch else 'green'),
-                    findings=([f"{m['gene']} {m['aa']} = {m['est']}% (≥{int(MARKER_PCT)}% — WHO criteria indicates TES)" for m in res_hits]
+                    findings=([f"{m['gene']} {m['aa']} = {m['est']}% (≥{int(MARKER_PCT)}%)" for m in res_hits]
                               +[f"{m['gene']} {m['aa']} = {m['est']}% (watch)" for m in res_watch]) or ['No WHO Validated marker at or above the action threshold'])]
     tot_qc=sum(reports[a]['meta']['n_qc'] for a in ASSAYS); tot_col=sum(reports[a]['meta']['n_collected'] for a in ASSAYS)
     meta=dict(assay='COMBINED',assay_full='Combined multi-assay (WGS + MAD4HATTER + NOMADS)',
@@ -592,8 +593,6 @@ VIEW_META = {
              'WHO Malaria Threats Map layout: one row per admin-2 × marker (samples tested, mutant present, percent, WHO class). Representative of the schema.'),
  'afcdc':    ('Africa CDC', 'afcdc_mutation_haplotype.csv', 'Africa CDC — Mutation / Haplotype data sheet',
              'Africa CDC Mutation/Haplotype data sheet: one row per sample × observed mutant alteration (Gene symbol · Gene Alteration · Haplotype). Columns not captured in the sequencing data (host subject ID, haplotype, travel history, destinations, endemicity, study type) are left blank.'),
- 'afcdc_mc': ('AF-CDC Marker-Centric', 'afcdc_marker_centric.csv', 'AF-CDC Marker-Centric — per sample × codon (wildtype / mutation counts)',
-             'AF-CDC Marker-Centric: one row per sample × codon with wildtype/mutation allele calls — includes wild-type calls, so this view carries the denominator (how many samples were typed at each codon).'),
  'pha4ge':   ('PHA4GE', 'pha4ge_malaria_standard.csv', 'PHA4GE Malaria Community Standard (human sample) — one row per sample × observed alteration',
              'PHA4GE Malaria Community Standard (human sample): the 210-field per-specimen schema, one row per sample × observed alteration. Only fields the genomic data supports are populated (sample ID, geography, collection date, organism/host, assay/instrument, MOI, gene/alteration); all other fields (accessions, host demographics, sequencing kit, etc.) are left blank.'),
  'dhis2':    ('DHIS2', 'dhis2_datavalueset.csv', 'DHIS2 dataValueSet',
@@ -697,8 +696,8 @@ def add_export(rep):
                'geo_loc_name(county/region)': r['District'], 'geo_loc_name(city)': r['Facility name'],
                'sequencing_assay_type': r['Assay used'], 'gene_name': r['Gene name'], 'gene_symbol': r['Gene name'],
                'gene_alteration': r['Codon']} for r in afc if r['Mutation count'] > 0]
-    _pack_export(rep, {'who': who, 'afcdc': afc_mut, 'afcdc_mc': afc, 'pha4ge': pha4ge, 'dhis2': dhis},
-        order=['who', 'afcdc', 'afcdc_mc', 'pha4ge', 'dhis2'],
+    _pack_export(rep, {'who': who, 'afcdc': afc_mut, 'pha4ge': pha4ge, 'dhis2': dhis},
+        order=['who', 'dhis2', 'afcdc', 'pha4ge'],
         note='Africa CDC (Mutation/Haplotype) lists one row per sample × observed mutant alteration; AF-CDC Marker-Centric gives per sample × codon wildtype/mutation counts; PHA4GE follows the Malaria Community Standard (human sample); DHIS2 follows the dataValueSet schema. Values are synthetic; WHO Malaria Threats Map layout is representative.')
 for a in reports: add_export(reports[a])
 
@@ -777,8 +776,8 @@ def real_export(rep, samples, assay_name, max_afcdc=500):
                         'Destination of most recent travel(state/province/territory)': '',
                         'Destination of most recent travel(country)': '', 'Endemicity': '', 'Assay used': assay_name})
     pha4ge = build_pha4ge(samples, mkdefs, assay_name, rep['meta'].get('platform', ''))
-    _pack_export(rep, {'who': who, 'afcdc': afc_mut, 'afcdc_mc': afc_mc, 'pha4ge': pha4ge, 'dhis2': dhis},
-        order=['who', 'afcdc', 'afcdc_mc', 'pha4ge', 'dhis2'],
+    _pack_export(rep, {'who': who, 'afcdc': afc_mut, 'pha4ge': pha4ge, 'dhis2': dhis},
+        order=['who', 'dhis2', 'afcdc', 'pha4ge'],
         note=('All values are real measurements or fields derived from them (prevalence = carriers ÷ typed; '
               '95% Wilson CIs). WHO Threats-Map and DHIS2 rows are per admin-2 × marker. Africa CDC (Mutation/Haplotype) '
               'lists one row per sample × observed mutant alteration; AF-CDC Marker-Centric gives per sample × codon '

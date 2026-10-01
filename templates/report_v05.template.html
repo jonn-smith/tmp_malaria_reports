@@ -27,8 +27,6 @@ header.top{color:#fff;padding:22px 0 18px;background:linear-gradient(120deg,#003
 .sub{font-size:12.5px;opacity:.92}
 .tagline{margin-top:12px;display:flex;gap:22px;flex-wrap:wrap;font-size:12px;opacity:.95}
 .tagline b{font-weight:600}
-.whatis{margin-top:14px;padding:11px 14px;border:1px solid rgba(255,255,255,.45);background:rgba(255,255,255,.14);border-radius:9px;font-size:12.5px;line-height:1.5;max-width:110ch}
-.whatis b{font-weight:700}
 .badge{display:inline-block;background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.3);padding:2px 9px;border-radius:20px;font-size:11.5px}
 nav.tabs{position:sticky;top:0;z-index:20;background:var(--surface);border-bottom:1px solid var(--line);box-shadow:0 1px 4px rgba(0,0,0,.04)}
 nav.tabs .wrap{display:flex;gap:2px;padding-top:0;padding-bottom:0;overflow-x:auto;align-items:center}
@@ -37,7 +35,7 @@ nav.tabs .wrap{display:flex;gap:2px;padding-top:0;padding-bottom:0;overflow-x:au
 .tabsep{color:var(--line);padding:0 2px}
 .tab-page{display:none;padding-top:22px}.tab-page.active{display:block}
 h2.sec{font-size:18px;font-weight:600;margin:6px 0 4px}
-.sec-desc{color:var(--ink2);font-size:13.5px;margin-bottom:14px;max-width:82ch}
+.sec-desc{color:var(--ink2);font-size:13.5px;margin-bottom:14px}
 .grid{display:grid;gap:16px}.two{grid-template-columns:1fr 1fr}.three{grid-template-columns:repeat(3,1fr)}
 @media(max-width:860px){.two,.three{grid-template-columns:1fr}}
 .card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:18px}
@@ -151,7 +149,6 @@ a{color:var(--accent)}
     <div><h1>Malaria Molecular Surveillance — Senegal <span class="assaychip" id="assaychip"></span></h1>
       <div class="sub" id="h-sub"></div></div></div>
   <div class="tagline" id="h-tags"></div>
-  <div class="whatis" id="h-whatis"></div>
 </div></header>
 <nav class="tabs"><div class="wrap" id="tabbar"></div></nav>
 <div class="wrap" id="pages"></div>
@@ -239,7 +236,7 @@ function dotLegend(nFn,color){const m=D.map, mx=Math.max(1,...m.depts.map(dp=>nF
   const vals=[mx,Math.max(1,Math.round(mx/2)),Math.max(1,Math.round(mx/6))];
   const R=v=>3+22*Math.sqrt(v/mx), maxR=R(mx), cy=18+maxR, labY=cy+maxR+15;
   let x=12+maxR, s=`<svg viewBox="0 0 360 ${labY+8}" width="360">`;
-  s+=`<text x="2" y="12" font-size="11" fill="var(--ink2)">Circle area ∝ QC-pass samples</text>`;
+  s+=`<text x="2" y="12" font-size="11" fill="var(--ink2)">Circle area ∝ QC pass samples</text>`;
   vals.forEach(v=>{const r=R(v);
     s+=`<circle cx="${x}" cy="${cy}" r="${r.toFixed(1)}" fill="${color}" fill-opacity="0.55" stroke="#fff" stroke-width="1"/>`;
     s+=`<text x="${x}" y="${labY}" font-size="11.5" fill="var(--ink)" text-anchor="middle" font-weight="600" style="paint-order:stroke;stroke:#fff;stroke-width:3px">${v}</text>`;
@@ -253,7 +250,7 @@ function siteLegend(color){const S=D.sites||[], mx=Math.max(1,...S.map(t=>t.n||0
   const vals=[...new Set([mx,Math.max(1,Math.round(mx/2)),Math.max(1,Math.round(mx/6))])];
   const R=v=>3.5+16*Math.sqrt(v/mx), maxR=R(mx), cy=18+maxR, labY=cy+maxR+15;
   let x=12+maxR, s=`<svg viewBox="0 0 360 ${labY+8}" width="360">`;
-  s+=`<text x="2" y="12" font-size="11" fill="var(--ink2)">Circle = collection site; area ∝ QC-pass samples at that site</text>`;
+  s+=`<text x="2" y="12" font-size="11" fill="var(--ink2)">Circle = collection site; area ∝ QC pass samples at that site</text>`;
   vals.forEach(v=>{const r=R(v);
     s+=`<circle cx="${x}" cy="${cy}" r="${r.toFixed(1)}" fill="${color}" fill-opacity="0.55" stroke="#fff" stroke-width="1"/>`;
     s+=`<text x="${x}" y="${labY}" font-size="11.5" fill="var(--ink)" text-anchor="middle" font-weight="600" style="paint-order:stroke;stroke:#fff;stroke-width:3px">${v}</text>`;
@@ -266,7 +263,7 @@ function siteMap(valFn,breaks,cols,u){
   let s=`<svg viewBox="${m.viewBox}" width="${m.W}" role="img">`;
   m.depts.forEach(dp=>{ const u0=unit(dp.name), rn=(u0&&u0.sampled)?u0.n:0;
     const rfill=rn?binColor(rn,rbr,BLU):'#f4f6f8';
-    const rvt=rn?`${rn} QC-pass samples (region total)`:'not sampled';
+    const rvt=rn?`${rn} QC pass samples (region total)`:'not sampled';
     s+=`<path d="${dp.path}" fill="${rfill}" stroke="#fff" stroke-width="0.7" style="cursor:pointer" onclick="pickRegion(this,'${esc(dp.name)}','${rvt}',${rn})"><title>${esc(dp.name)}: ${rvt}</title></path>`; });
   S.forEach(t=>{ const colored=!!(valFn&&breaks); const v=colored?valFn(t):null; const supp=(t.n<MINN);
     const r=(3.5+16*Math.sqrt((t.n||0)/mx)).toFixed(1);
@@ -278,9 +275,9 @@ function siteMap(valFn,breaks,cols,u){
 function methodTile(){return `<table>
   <tr><td>Platform</td><td><b>${esc(M.platform)}</b></td></tr>
   <tr><td>Admin-2 units sampled</td><td>${M.n_units_sampled} / ${M.n_units_total}</td></tr>
-  <tr><td>Samples (QC-pass)</td><td>${nf(M.n_qc)} (${M.qc_rate}% pass)</td></tr>
+  <tr><td>Samples (QC pass)</td><td>${nf(M.n_qc)} (${M.qc_rate}% pass)</td></tr>
   <tr><td>Markers typed</td><td>${D.markers.filter(m=>m.assessed).length}</td></tr>`
-  +(isComb&&M.by_assay?`<tr><td>By assay (QC-pass)</td><td>${Object.entries(M.by_assay).map(([a,v])=>a+' '+nf(v)).join(' · ')}</td></tr>`:'')+`</table>`;}
+  +(isComb&&M.by_assay?`<tr><td>By assay (QC pass)</td><td>${Object.entries(M.by_assay).map(([a,v])=>a+' '+nf(v)).join(' · ')}</td></tr>`:'')+`</table>`;}
 
 const csvDL=(name,rows)=>{ if(!rows.length) return '';
   const cols=Object.keys(rows[0]); const body=[cols.join(',')].concat(rows.map(r=>cols.map(c=>{const v=(''+ (r[c]??'')).replace(/"/g,'""'); return /[",\n]/.test(v)?`"${v}"`:v;}).join(','))).join('\n');
@@ -328,9 +325,8 @@ async function downloadCSVgz(gz,name){
 $('#assaychip').textContent=M.assay;
 $('#h-sub').textContent=`${M.assay_full} · ${M.country} · ${M.admin} · ${M.period}`;
 $('#h-tags').innerHTML=[['Platform',M.platform],['Admin-2 units sampled',`${M.n_units_sampled} / ${M.n_units_total}`],
-  ['Samples (QC-pass)',nf(M.n_qc)],['Prevalence basis','share of QC-pass infections'],['Generated',M.generated]]
+  ['Samples (QC pass)',nf(M.n_qc)],['Prevalence basis','share of QC pass infections'],['Generated',M.generated]]
   .map(([k,v])=>`<span><b>${k}:</b> ${v}</span>`).join('')+` <span class="badge">${M.version}</span>`;
-$('#h-whatis').innerHTML=`<b>What this is.</b> ${esc(M.note)} Prevalence = share of QC-pass infections carrying the alteration; regions with n&lt;${M.min_samples} samples are suppressed to avoid misleading small-denominator percentages.`;
 // top banner: mock-up warning only for synthetic data; real data gets a neutral provenance line
 { const mw=$('#mockwarn');
   if(mw){ if(REAL){ mw.classList.remove('mockwarn'); mw.classList.add('realbanner');
@@ -343,9 +339,23 @@ $('#tabbar').innerHTML=TABS.map((t,i)=>{
   const sep=(t==='resistance'||t==='export'||t==='methods')?'<span class="tabsep">|</span>':'';
   return sep+`<button class="tabbtn${i?'':' active'}" data-t="${t}">${LABEL[t]}</button>`;}).join('');
 $('#pages').innerHTML=TABS.map((t,i)=>`<section id="pg-${t}" class="tab-page${i?'':' active'}"></section>`).join('');
-function showTab(t){document.querySelectorAll('.tabbtn').forEach(x=>x.classList.toggle('active',x.dataset.t===t));
-  document.querySelectorAll('.tab-page').forEach(x=>x.classList.toggle('active',x.id==='pg-'+t));window.scrollTo({top:0});}
+function renderTab(t){document.querySelectorAll('.tabbtn').forEach(x=>x.classList.toggle('active',x.dataset.t===t));
+  document.querySelectorAll('.tab-page').forEach(x=>x.classList.toggle('active',x.id==='pg-'+t));}
+/* Tab navigation goes through the URL hash rather than history.pushState: these reports
+   are opened as local file:// documents, where pushState is restricted in some browsers,
+   and a hash change records a real history entry so Back/Forward move between tabs. */
+function showTab(t){
+  if(!TABS.includes(t)) t=TABS[0];
+  renderTab(t); window.scrollTo({top:0});
+  if(location.hash.slice(1)!==t){ try{ location.hash=t; }catch(e){} }
+}
+window.addEventListener('hashchange',()=>{
+  const t=location.hash.slice(1);
+  renderTab(TABS.includes(t)?t:TABS[0]); window.scrollTo({top:0});
+});
 document.querySelectorAll('.tabbtn').forEach(b=>b.onclick=()=>showTab(b.dataset.t));
+(function initTab(){const t=location.hash.slice(1);
+  renderTab(TABS.includes(t)?t:TABS[0]);})();
 
 /* ================= RENDERERS ================= */
 const R={};
@@ -412,55 +422,49 @@ function classLegend(){
     `<span class="k"><a class="pill ${CLSPILL[c]}" href="${WHO_URL}" target="_blank" rel="noopener" style="text-decoration:none">${CLSABBR[c]}</a><span><b><a href="${WHO_URL}" target="_blank" rel="noopener" style="color:inherit">${CLSFULL[c]}</a></b> \u2014 ${esc(CLSDESC[c])}</span></span>`).join('')+`</div>`;
 }
 const clsLabel=m=>m.category||CLSFULL[m.cls]||'Not in WHO compendium';
-/* The summary table is pooled over every year and every sampled area. A pooled flag can
-   hide the fact that the marker only crosses the threshold in some periods (and vice
-   versa), so each row states which periods the flag actually holds in. */
-function periodFlags(m){
-  if(!TR||m.cls!=='validated') return null;
-  const mi=trIdx(m.key); if(mi<0) return null;
-  const hit=[],miss=[],na=[];
-  TR.frames.forEach(f=>{const t=trNat(f.years,mi);
-    if(!t.d){na.push(f.label); return;}
-    (100*t.x/t.d>=RES_PCT?hit:miss).push(f.label);});
-  return {hit,miss,na,total:TR.frames.length};
-}
-function periodRange(m){
-  if(!TR) return null;
-  const mi=trIdx(m.key); if(mi<0) return null;
-  const vs=[]; TR.frames.forEach(f=>{const t=trNat(f.years,mi); if(t.d) vs.push(100*t.x/t.d);});
-  if(vs.length<2) return null;
-  const r=v=>(Math.round(v*10)/10).toFixed(1);
-  return {lo:r(Math.min(...vs)),hi:r(Math.max(...vs)),n:vs.length};
-}
 function mkRow(m,summary,stat){
   if(stat){m=Object.assign({},m,{est:stat.est,lo:stat.lo,hi:stat.hi,x:stat.x,n:stat.n,
                                  action:(m.cls==='validated'&&stat.est>=RES_PCT)});}
   return `<tr data-k="${m.key}"${summary?'':' style="cursor:pointer" title="Click to show this marker on the map"'}><td><i>${esc(m.gene)}</i></td><td>${esc(m.aa)}</td><td>${esc(m.drug)}</td>
-      <td><a class="pill ${clsPill(m)}" href="${WHO_URL}" target="_blank" rel="noopener" onclick="event.stopPropagation()" style="text-decoration:none" title="${esc(m.who_cls?m.who_cls+' \u2014 '+(m.who_how||'')+'. Source: WHO Compendium of molecular markers for antimalarial drug resistance.':(m.crit||''))}">${esc(clsLabel(m))}</a></td>${summary?'':`<td style="font-size:11.5px;color:var(--ink2)">${esc(m.crit)}</td>`}
-      <td class="num">${pct(m.est)}${(()=>{if(!summary) return '';
-        const r=periodRange(m); return r?`<div class="sub2">by period: ${r.lo}–${r.hi}%</div>`:'';})()}</td>
+      <td><a class="pill ${clsPill(m)}" href="${WHO_URL}" target="_blank" rel="noopener" onclick="event.stopPropagation()" style="text-decoration:none" title="${esc((CLSABBR[m.cls]||'')+' = '+clsLabel(m)+(m.who_cls?' \u2014 '+m.who_cls+' ('+(m.who_how||'')+')':'')+'. Source: WHO Compendium of molecular markers for antimalarial drug resistance.')}">${esc(CLSABBR[m.cls]||clsLabel(m))}</a></td>${summary?'':`<td style="font-size:11.5px;color:var(--ink2)">${esc(m.crit)}</td>`}
+      <td class="num">${pct(m.est)}</td>
       <td class="num ci-txt">${ci(m.lo,m.hi)}</td>
-      <td>${m.action?`<span class="pill action">≥${RES_PCT}% — WHO criteria indicates TES</span>`:''}${(()=>{
-        if(!summary) return '';
-        const pf=periodFlags(m);
-        if(!pf) return m.who?`<div class="sub2">no TES flag — ${esc(clsLabel(m))} class; the ≥${RES_PCT}% flag applies to WHO <b>Validated markers</b> only</div>`:'';
-        const assessed=pf.hit.length+pf.miss.length;
-        if(!assessed) return `<div class="sub2">not assessed in any period</div>`;
-        if(pf.hit.length===assessed) return `<div class="sub2">holds in <b>${assessed===1?'the only period':assessed===2?'both periods':'all '+assessed+' periods'}</b> (${esc(pf.hit.join(', '))})</div>`;
-        if(!pf.hit.length) return `<div class="sub2">pooled only — <b>no single period</b> reaches ${RES_PCT}% (${esc(pf.miss.join(', '))})</div>`;
-        return `<div class="sub2">holds in <b>${pf.hit.length} of ${assessed} periods</b>: ${esc(pf.hit.join(', '))} · below ${RES_PCT}% in ${esc(pf.miss.join(', '))}</div>`;})()}</td></tr>`;
+      <td>${m.action?`<span class="pill action">≥${RES_PCT}%</span>`:''}</td></tr>`;
+}
+/* Summary view: WHO Validated markers at/above the threshold, one row per marker and
+   period, each marker led by its pooled (all years, all areas) row. */
+function summaryTable(){
+  const rows=D.markers.filter(m=>m.assessed&&m.cls==='validated'&&m.est>=RES_PCT);
+  if(!rows.length) return `<div class="hint" style="margin-top:6px">No WHO Validated marker is at or above the ${RES_PCT}% threshold.</div>`;
+  const fs=TR?TR.frames:[];
+  let h=`<div class="scroll"><table><thead><tr><th>Gene</th><th>AA change</th><th>Associated drug</th><th>WHO Classification</th><th>Period</th><th class="num">n tested</th><th class="num">Prevalence</th><th class="num">95% CI</th><th>Flag</th></tr></thead><tbody>`;
+  rows.forEach(m=>{
+    const mi=trIdx(m.key);
+    const cell=`<td><i>${esc(m.gene)}</i></td><td>${esc(m.aa)}</td><td>${esc(m.drug)}</td>`
+      +`<td><a class="pill ${clsPill(m)}" href="${WHO_URL}" target="_blank" rel="noopener" style="text-decoration:none" title="${esc((CLSABBR[m.cls]||'')+' = '+clsLabel(m)+(m.who_cls?' — '+m.who_cls:''))}">${esc(CLSABBR[m.cls]||clsLabel(m))}</a></td>`;
+    h+=`<tr style="font-weight:600;background:var(--panel)">${cell}<td>All years (pooled)</td>`
+      +`<td class="num">${nf(m.n)}</td><td class="num">${pct(m.est)}</td><td class="num ci-txt">${ci(m.lo,m.hi)}</td>`
+      +`<td>${m.action?`<span class="pill action">≥${RES_PCT}%</span>`:''}</td></tr>`;
+    if(mi>=0) fs.forEach(f=>{const t=trNat(f.years,mi);
+      const w=t.d?wilsonJS(t.x,t.d):null;
+      h+=`<tr><td colspan="4" style="color:var(--muted);font-size:11.5px">${esc(m.gene+' '+m.aa)}</td><td>${esc(f.label)}</td>`
+        +(w?`<td class="num">${nf(t.d)}</td><td class="num">${pct(w.est)}</td><td class="num ci-txt">${ci(w.lo,w.hi)}</td>`
+             +`<td>${w.est>=RES_PCT?`<span class="pill action">≥${RES_PCT}%</span>`:''}</td>`
+           :`<td class="num hint" colspan="4">not assessed in this period</td>`)+`</tr>`;});
+  });
+  return h+`</tbody></table></div><div class="tcap">Pooled rows (shaded) cover all years and all sampled areas; period rows sum to them. Classes are the WHO compendium's own — see the <a onclick="showTab('trends')" style="cursor:pointer;color:#2a6fb0;text-decoration:underline">Trends</a> tab for full series.</div>`;
 }
 function markerTable(id,summary){
   const rows=D.markers.filter(m=>m.assessed&&(!summary||(m.who&&m.est>=RES_PCT)));
-  if(summary&&!rows.length) return `<div class="hint" style="margin-top:6px">No marker listed in the WHO compendium is at or above the ${RES_PCT}% action threshold.</div>`;
-  return `<div class="scroll"><table${id?` id="${id}"`:''}><thead><tr><th>Gene</th><th>AA change</th><th>Associated drug</th><th>Status</th>${summary?'':'<th>WHO criterion</th>'}<th class="num">Prevalence${summary?' (all years, all areas)':''}</th><th class="num">95% CI</th><th>${summary?`TES flag${TR?' · periods it holds in':''}`:'Flag'}</th></tr></thead><tbody>`+
+  if(summary&&!rows.length) return `<div class="hint" style="margin-top:6px">No marker listed in the WHO compendium is at or above the ${RES_PCT}% threshold.</div>`;
+  return `<div class="scroll"><table${id?` id="${id}"`:''}><thead><tr><th>Gene</th><th>AA change</th><th>Associated drug</th><th>WHO Classification</th>${summary?'':'<th>WHO criterion</th>'}<th class="num">Prevalence${summary?' (all years, all areas)':''}</th><th class="num">95% CI</th><th>Flag</th></tr></thead><tbody>`+
     rows.map(m=>mkRow(m,summary)).join('')
     +`</tbody></table></div>`+(summary&&TR?`<div class="tcap">Every figure in this table pools all years and all sampled areas. The per-period notes show where each flag actually holds — see the <a onclick="showTab('trends')" style="cursor:pointer;color:#2a6fb0;text-decoration:underline">Trends</a> tab for the full series, or filter by period on <a onclick="showTab('resistance')" style="cursor:pointer;color:#2a6fb0;text-decoration:underline">Resistance Markers</a>.</div>`:'');
 }
 
 R.summary=()=>{
   let html=`<h2 class="sec">Summary</h2>
-    <div class="sec-desc">WHO drug resistance markers discovered at ≥${RES_PCT}% in the population (WHO therapeutic-efficacy-study trigger), <b>pooled across all years and all sampled areas</b>. Each row also states which collection periods its flag holds in. Click to jump to details.</div>
+    <div class="sec-desc">WHO <b>Validated markers</b> found at ≥${RES_PCT}% in the population, broken out by collection period. The pooled row for each marker covers all years and all sampled areas; the rows beneath it give the same figure per period.</div>
     ${classLegend()}
     <div class="stoplight">`;
   const jump={'Resistance Markers':'resistance'};
@@ -471,12 +475,12 @@ R.summary=()=>{
       <div class="scopebar"><span><b>Pooled summary</b></span>
         <span>· all years <b>${esc(M.period)}</b></span>
         <span>· all <b>${M.n_units_sampled}</b> sampled admin-2 area${M.n_units_sampled===1?'':'s'}${D.sites&&D.sites.length?` (${D.sites.length} collection sites)`:''}</span>
-        <span>· <b>${nf(M.n_qc)}</b> QC-pass samples</span></div>
-      <div>${markerTable(null,true)}</div></div>`;
+        <span>· <b>${nf(M.n_qc)}</b> QC pass samples</span></div>
+      <div>${summaryTable()}</div></div>`;
   });
   html+=`</div>`;
   html+=`<div class="kpis" style="margin-top:18px">
-    <div class="kpi"><div class="lab">Samples analysed (QC-pass)</div><div class="val">${nf(M.n_qc)}</div><div class="foot">${M.n_units_sampled}/${M.n_units_total} admin-2 units · ${M.qc_rate}% pass</div></div>
+    <div class="kpi"><div class="lab">Samples analysed (QC pass)</div><div class="val">${nf(M.n_qc)}</div><div class="foot">${M.n_units_sampled}/${M.n_units_total} admin-2 units · ${M.qc_rate}% pass${(M.n_called!=null&&M.n_called!==M.n_qc)?` · ${nf(M.n_called)} with ≥1 marker call`:''}</div></div>
     <div class="kpi"><div class="lab">WHO compendium markers ≥${RES_PCT}%</div><div class="val">${D.markers.filter(m=>m.assessed&&m.who&&m.est>=RES_PCT).length}</div><div class="foot"><a onclick="showTab('resistance')" style="cursor:pointer;color:#2a6fb0;text-decoration:underline">of ${D.markers.filter(m=>m.assessed&&m.who).length} compendium markers assessed →</a></div></div>
 </div>`;
   // --- restored original summary elements (below the stoplight) ---
@@ -485,16 +489,16 @@ R.summary=()=>{
     ? `All samples collected ${/,/.test(M.period)?'in':'over'} ${M.period}`
     : 'All samples collected';
   const sampMap = hasSites
-    ? `<div class="hint">One point per collection <b>site</b> at its real coordinates — finer than admin-2 (${D.sites.length} sites). Circle size ∝ QC-pass samples. Regions shaded by total QC-pass samples. Click a site to pin its count, or a region for its total.</div>
-       ${siteMap(null,null,M.color)}<div class="hint" style="margin:8px 0 0">Region shading — total QC-pass samples per admin-2 unit:</div>${binnedLegend(nBreaks(Math.max(1,...D.map.depts.map(dp=>{const u0=unit(dp.name);return (u0&&u0.sampled)?u0.n:0;}))),BLU,'',null,false)}${siteLegend(M.color)}<div class="readout">Click a site or region…</div>`
-    : `<div class="hint">Circle size ∝ QC-pass samples per admin-2 unit. Click a region to pin its sample count; hover for the number.</div>
+    ? `<div class="hint">One point per collection <b>site</b> at its real coordinates — finer than admin-2 (${D.sites.length} sites). Circle size ∝ QC pass samples. Regions shaded by total QC pass samples. Click a site to pin its count, or a region for its total.</div>
+       ${siteMap(null,null,M.color)}<div class="hint" style="margin:8px 0 0">Region shading — total QC pass samples per admin-2 unit:</div>${binnedLegend(nBreaks(Math.max(1,...D.map.depts.map(dp=>{const u0=unit(dp.name);return (u0&&u0.sampled)?u0.n:0;}))),BLU,'',null,false)}${siteLegend(M.color)}<div class="readout">Click a site or region…</div>`
+    : `<div class="hint">Circle size ∝ QC pass samples per admin-2 unit. Click a region to pin its sample count; hover for the number.</div>
        ${dotmap(u=>u&&u.sampled?u.n:0,M.color)}${dotLegend(u=>u&&u.sampled?u.n:0,M.color)}<div class="readout">Click a region…</div>`;
   html+=`<div class="grid two" style="margin-top:16px">
     <div class="card"><h3>${esc(sampTitle)}</h3>${sampMap}</div>
     <div class="card"><h3>${isComb?'Method / assays at a glance':'Method at a glance'}</h3>${methodTile()}</div></div>`;
   html+=`<div class="card" style="margin-top:16px"><h3>Locations (Admin Level 2) by sample count</h3>
     <div class="hint">Sampled units, most samples first — the denominator behind each unit's prevalence (small n ⇒ interpret cautiously).</div>
-    <div class="scroll"><table><thead><tr><th>Location (Admin Level 2)</th><th class="num"># samples (QC-pass)</th><th class="num">Collection window</th></tr></thead><tbody>`+
+    <div class="scroll"><table><thead><tr><th>Location (Admin Level 2)</th><th class="num"># samples (QC pass)</th><th class="num">Collection window</th></tr></thead><tbody>`+
     [...D.units].filter(u=>u.sampled).sort((a,b)=>b.n-a.n).slice(0,12).map(u=>`<tr><td>${esc(u.name)}</td><td class="num">${nf(u.n)}</td><td class="num">${esc(fmtYears(u.years||[u.date_min,u.date_max])||'—')}</td></tr>`).join('')
     +`<tr style="font-weight:700;border-top:2px solid var(--line)"><td>TOTAL</td><td class="num">${nf(M.n_qc)}</td><td class="num">${esc(M.period)}</td></tr>`
     +`</tbody></table></div></div>`;
@@ -504,7 +508,7 @@ R.summary=()=>{
 R.resistance=()=>{
   const cm=(CAP.covered_markers||[]).filter(k=>D.markers.find(m=>m.key===k&&m.assessed));
   let html=`<h2 class="sec">Genetic alterations associated with antimalarial drug resistance</h2>
-    <div class="sec-desc">Gene, amino-acid change, associated drug and WHO class — with prevalence among QC-pass infections (95% Wilson CI). Classes are the <a href="${WHO_URL}" target="_blank" rel="noopener">WHO compendium</a>&rsquo;s own: <b>Validated marker</b>, <b>Candidate marker</b> and <b>Potential marker</b> where WHO lists the alteration on its own, <b>Haplotype component</b> where WHO lists the codon only inside a multi-codon haplotype, and <b>Not in WHO compendium</b> for panel background or research loci. The ≥${RES_PCT}% action flag is applied to Validated markers. Filter, sort, or click a row to map it.</div>`;
+    <div class="sec-desc">Gene, amino-acid change, associated drug and WHO class — with prevalence among QC pass infections (95% Wilson CI). Classes are the <a href="${WHO_URL}" target="_blank" rel="noopener">WHO compendium</a>&rsquo;s own: <b>Validated marker</b>, <b>Candidate marker</b> and <b>Potential marker</b> where WHO lists the alteration on its own, <b>Haplotype component</b> where WHO lists the codon only inside a multi-codon haplotype, and <b>Not in WHO compendium</b> for panel background or research loci. The ≥${RES_PCT}% action flag is applied to Validated markers. Filter, sort, or click a row to map it.</div>`;
   // marker toggles
   html+=classLegend();
   const grp=[]; const seen={};
@@ -533,11 +537,11 @@ R.resistance=()=>{
   // table
   html+=`<div class="card" style="margin-top:16px"><h3>Marker table <span class="scopechip" id="mtperiod"></span></h3><div class="hint" id="dltbl"></div>
     <div class="controls">
-      <label>Show: <select id="mtfilter"><option value="all">All markers</option><option value="who">In WHO compendium (any class)</option><option value="validated">Validated markers only</option><option value="candidate">Candidate markers only</option><option value="potential">Potential markers only</option><option value="haplotype">Haplotype components only</option><option value="background">Panel / background only</option><option value="research">Research only</option><option value="tes">Flagged — WHO criteria indicates TES</option><option value="action">≥${RES_PCT}% prevalence (any class)</option></select></label>
+      <label>Filter: <select id="mtfilter"><option value="all">All markers</option><option value="who">In WHO compendium (any class)</option><option value="validated">Validated markers only</option><option value="candidate">Candidate markers only</option><option value="potential">Potential markers only</option><option value="haplotype">Haplotype components only</option><option value="background">Panel / background only</option><option value="research">Research only</option><option value="action">≥${RES_PCT}% prevalence (any class)</option></select></label>
       <label>Min prevalence: <input type="number" id="mtminprev" min="0" max="100" step="0.5" value="0" style="width:64px;font-size:12.5px;padding:3px 6px;border:1px solid var(--line);border-radius:6px"> %</label>
       <label>Sort: <select id="mtsort"><option value="gene">Gene order</option><option value="desc">Prevalence high→low</option><option value="asc">Prevalence low→high</option></select></label>
     </div>
-    ${markerTable('mtable')}<div class="tcap">WHO thresholds &amp; marker lists are real; prevalence values are ${REAL?'observed from the sequenced samples':'synthetic'}. "WHO criteria indicates TES" = WHO therapeutic-efficacy-study / treatment-failure trigger (≥${RES_PCT}%).</div></div>`;
+    ${markerTable('mtable')}<div class="tcap">WHO thresholds &amp; marker lists are real; prevalence values are ${REAL?'observed from the sequenced samples':'synthetic'}. The ≥${RES_PCT}% flag marks WHO Validated markers at or above the WHO treatment-failure threshold.</div></div>`;
   return html;
 };
 function wireResistance(){
@@ -559,7 +563,7 @@ function wireResistance(){
     const note=$('#yrnote');
     if(note){const lab=YSEL?(selLabel||'selection'):'all years (pooled)';
       const tot=src.reduce((a,o)=>a+unitNsel(o),0), supp=src.filter(o=>unitNsel(o)<MINN).length;
-      note.innerHTML=`Showing <b>${esc(lab)}</b>: ${nf(tot)} QC-pass samples across ${src.length} sampled admin-2 unit${src.length===1?'':'s'}`
+      note.innerHTML=`Showing <b>${esc(lab)}</b>: ${nf(tot)} QC pass samples across ${src.length} sampled admin-2 unit${src.length===1?'':'s'}`
         +(supp?` \u00b7 ${supp} unit${supp===1?'':'s'} suppressed at n&lt;${MINN}`:'')
         +(YSEL?` \u00b7 <a onclick="document.getElementById('yrsel').value='';document.getElementById('yrsel').dispatchEvent(new Event('change'))" style="cursor:pointer;color:#2a6fb0;text-decoration:underline">reset to pooled</a>`:'');}
   };
@@ -596,7 +600,6 @@ function wireResistance(){
     // prevalence-based filters/sorts follow the selected period, not the pooled value
     const pv=m=>{const st=mkStat(m.key); return st?st.est:null;};
     if(mtf.value==='who') rows=rows.filter(m=>m.who);
-    else if(mtf.value==='tes') rows=rows.filter(m=>m.cls==='validated'&&(pv(m)??-1)>=RES_PCT);
     else if(mtf.value==='action') rows=rows.filter(m=>(pv(m)??-1)>=RES_PCT);
     else if(mtf.value!=='all') rows=rows.filter(m=>m.cls===mtf.value);
     const minp=parseFloat(mtp.value)||0; if(minp>0) rows=rows.filter(m=>(pv(m)??-1)>=minp);
@@ -684,11 +687,11 @@ R.trends=()=>{
   const dflt=(D.markers.filter(m=>m.assessed&&m.action).sort((a,b)=>b.est-a.est)[0]
             ||D.markers.filter(m=>m.assessed&&m.who).sort((a,b)=>b.est-a.est)[0]||{}).key||cm[0];
   return `<h2 class="sec">Trends over time</h2>
-    <div class="sec-desc">Prevalence by collection period, from the same QC-pass samples as the pooled view &mdash; every frame is summed from per-year counts, so the periods always add up to the pooled figure. Sparse years are merged into periods with a usable denominator (a year reaching n&ge;${TR.min_frame_n} stands alone); switch to single years to see the raw series.</div>
+    <div class="sec-desc">Prevalence by collection period, from the same QC pass samples as the pooled view &mdash; every frame is summed from per-year counts, so the periods always add up to the pooled figure. Sparse years are merged into periods with a usable denominator (a year reaching n&ge;${TR.min_frame_n} stands alone); switch to single years to see the raw series.</div>
     ${classLegend()}
     <div class="controls">
-      <label>Marker: <select id="trmk">${cm.map(k=>{const m=D.markers.find(x=>x.key===k);
-        return `<option value="${k}"${k===dflt?' selected':''}>${esc(markerLabel(m))}</option>`;}).join('')}</select></label>
+      <label>Markers (select one or more): <select id="trmk" multiple size="6">${cm.map(k=>{const m=D.markers.find(x=>x.key===k);
+        return `<option value="${k}"${k===dflt?' selected':''}>${esc(markerLabel(m))} [${esc(CLSABBR[m.cls]||'')}]</option>`;}).join('')}</select></label>
       <label>Granularity: <select id="trgran"><option value="frames">Periods (${TR.frames.length})</option><option value="years">Single years (${TR.years.length})</option></select></label>
       <label>Min samples/region: <b id="trminlab">${MINN}</b> <input type="range" id="trmin" min="1" max="30" value="${MINN}"></label>
       <span id="trscope"></span>
@@ -717,6 +720,8 @@ function wireTrends(){
   if(!TR) return;
   const mkSel=$('#trmk'), gran=$('#trgran'), mn=$('#trmin');
   if(!mkSel) return;
+  const TRCOL=['#2a78d6','#d03b3b','#1baf7a','#9a5b16','#6f42c1','#0b7285','#c2185b','#5b6067'];
+  const picked=()=>{const v=[...mkSel.selectedOptions].map(o=>o.value); return v.length?v:[mkSel.options[0].value];};
   let idx=0, diff=false, timer=null, scope=null;     // scope=null -> national
   const frames=()=>trFrames(gran.value);
   const stat=(years,mi)=>scope?trUnit(scope,years,mi):trNat(years,mi);
@@ -728,15 +733,20 @@ function wireTrends(){
     const mx=Math.max(2,...vs); return mx<=10?[0,1,2,5,10,20,100]:[0,2,5,10,20,50,100];
   };
   const draw=()=>{
-    const key=mkSel.value, mi=trIdx(key), fs=frames();
+    const keys=picked(), key=keys[0], mi=trIdx(key), fs=frames();
     if(idx>=fs.length) idx=fs.length-1; if(idx<0) idx=0;
     const f=fs[idx], prev=idx>0?fs[idx-1]:null;
     const m=D.markers.find(x=>x.key===key)||{};
-    const ser=[{pts:series(mi),color:'var(--s1)',band:true}];
-    if(!scope) D.markers.filter(x=>x.assessed&&x.who&&x.key!==key).slice(0,24).forEach(x=>{
+    const single=keys.length===1;
+    const ser=keys.map((k,i)=>({pts:series(trIdx(k)),color:TRCOL[i%TRCOL.length],band:single,
+                                label:markerLabel(D.markers.find(x=>x.key===k)||{})}));
+    if(single&&!scope) D.markers.filter(x=>x.assessed&&x.who&&x.key!==key).slice(0,24).forEach(x=>{
       const j=trIdx(x.key); if(j>=0) ser.push({pts:series(j),faint:true});});
-    $('#trtitle').textContent=`${m.gene||''} ${m.aa||''} — ${scope?scope:'national'} prevalence over time`;
-    $('#trchart').innerHTML=trendChart(fs,ser);
+    $('#trtitle').innerHTML=single
+      ? `${esc((m.gene||'')+' '+(m.aa||''))} — ${esc(scope?scope:'national')} prevalence over time`
+      : `${keys.length} markers — ${esc(scope?scope:'national')} prevalence over time`;
+    $('#trchart').innerHTML=trendChart(fs,ser)
+      +(single?'':`<div class="legend">`+ser.filter(x=>!x.faint).map(x=>`<span class="k"><span class="sw" style="background:${x.color}"></span>${esc(x.label)}</span>`).join('')+`</div>`);
     const br=diff?DIVBR:binsFor(mi), cols=diff?DIVC:RED;
     const val=u=>{ if(!u) return null;
       const t=trUnit(u.name,f.years,mi); if(!t.d||t.n<MINN) return null;
@@ -750,7 +760,8 @@ function wireTrends(){
     $('#trframe').textContent=f.label;
     const fn=f.years.reduce((a,y)=>a+(TR.year_n[y]||0),0);
     $('#trframen').textContent=`n=${nf(fn)} · frame ${idx+1}/${fs.length}`;
-    $('#trmaplab').textContent=diff?(prev?`Δ ${f.label} vs ${prev.label} (percentage points)`:'(no previous period)'):'';
+    $('#trmaplab').textContent=(single?'':`— ${(m.gene||'')+' '+(m.aa||'')} `)
+      +(diff?(prev?`Δ ${f.label} vs ${prev.label} (percentage points)`:'(no previous period)'):'');
     $('#trprev').disabled=idx===0; $('#trnext').disabled=idx===fs.length-1;
     $('#trdiff').classList.toggle('on',diff);
     $('#trscope').innerHTML=scope?`<span class="scopechip">scope: ${esc(scope)}</span> <button class="lnk" id="trclear">national</button>`:`<span class="scopechip">scope: national</span>`;
@@ -759,20 +770,34 @@ function wireTrends(){
         v:(scope?x.years.reduce((a,y)=>a+trUnit(scope,[y],0).n,0):x.years.reduce((a,y)=>a+(TR.year_n[y]||0),0)),
         color:i===idx?'var(--accent)':'var(--s1)'})),{w:520});
     const sr=series(mi);
-    let rows=`<div class="scroll"><table><thead><tr><th>Period</th><th class="num">n tested</th><th class="num">carrying</th><th class="num">Prevalence</th><th class="num">95% CI</th><th class="num">Δ vs prev</th><th>Flag</th></tr></thead><tbody>`;
-    sr.forEach((p,i)=>{const pr=i>0?sr[i-1]:null;
-      const dv=(p&&pr)?(p.est-pr.est):null;
-      rows+=`<tr${i===idx?' class="region-sel"':''}><td>${esc(fs[i].label)}</td>`
-        +(p?`<td class="num">${nf(p.n)}</td><td class="num">${nf(p.x)}</td><td class="num">${pct(p.est)}</td><td class="num ci-txt">${ci(p.lo,p.hi)}</td>`
-           +`<td class="num">${dv==null?'—':(dv>0?'+':'')+dv.toFixed(1)+' pp'}</td>`
-           +`<td>${(m.cls==='validated'&&p.est>=RES_PCT)?`<span class="pill action">≥${RES_PCT}%</span>`:''}</td>`
-          :`<td class="num hint" colspan="5">not assessed</td><td></td>`)+`</tr>`;});
-    $('#trtable').innerHTML=rows+`</tbody></table></div>`;
-    $('#trtbltitle').textContent=`${m.gene||''} ${m.aa||''} by period — ${scope?scope:'national'}`;
-    $('#trdl').innerHTML=csvDL(`trend_${key}_${scope?scope.replace(/\W+/g,'_'):'national'}.csv`,
-      fs.map((x,i)=>({period:x.label,years:x.years.join(' '),scope:scope||'national',marker:`${m.gene} ${m.aa}`,
-        n_tested:(sr[i]?sr[i].n:''),carrying:(sr[i]?sr[i].x:''),prevalence_pct:(sr[i]?sr[i].est:''),
-        ci_low:(sr[i]?sr[i].lo:''),ci_high:(sr[i]?sr[i].hi:'')})));
+    let rows;
+    if(single){
+      rows=`<div class="scroll"><table><thead><tr><th>Period</th><th class="num">n tested</th><th class="num">carrying</th><th class="num">Prevalence</th><th class="num">95% CI</th><th class="num">Δ vs prev</th><th>Flag</th></tr></thead><tbody>`;
+      sr.forEach((p,i)=>{const pr=i>0?sr[i-1]:null;
+        const dv=(p&&pr)?(p.est-pr.est):null;
+        rows+=`<tr${i===idx?' class="region-sel"':''}><td>${esc(fs[i].label)}</td>`
+          +(p?`<td class="num">${nf(p.n)}</td><td class="num">${nf(p.x)}</td><td class="num">${pct(p.est)}</td><td class="num ci-txt">${ci(p.lo,p.hi)}</td>`
+             +`<td class="num">${dv==null?'—':(dv>0?'+':'')+dv.toFixed(1)+' pp'}</td>`
+             +`<td>${(m.cls==='validated'&&p.est>=RES_PCT)?`<span class="pill action">≥${RES_PCT}%</span>`:''}</td>`
+            :`<td class="num hint" colspan="5">not assessed</td><td></td>`)+`</tr>`;});
+      rows+=`</tbody></table></div>`;
+    } else {
+      const cols=keys.map(k=>({k,lab:markerLabel(D.markers.find(x=>x.key===k)||{}),s:series(trIdx(k))}));
+      rows=`<div class="scroll"><table><thead><tr><th>Period</th>`+cols.map(c=>`<th class="num">${esc(c.lab)}</th>`).join('')+`</tr></thead><tbody>`;
+      fs.forEach((fr,i)=>{rows+=`<tr${i===idx?' class="region-sel"':''}><td>${esc(fr.label)}</td>`
+        +cols.map(c=>{const q=c.s[i]; return `<td class="num">${q?pct(q.est)+` <span class="ci-txt">(${q.x}/${q.n})</span>`:'<span class="hint">n/a</span>'}</td>`;}).join('')+`</tr>`;});
+      rows+=`</tbody></table></div>`;
+    }
+    $('#trtable').innerHTML=rows;
+    $('#trtbltitle').textContent=single?`${m.gene||''} ${m.aa||''} by period — ${scope?scope:'national'}`
+                                      :`${keys.length} markers by period — ${scope?scope:'national'}`;
+    const dlrows=[];
+    keys.forEach(k=>{const mm=D.markers.find(x=>x.key===k)||{}, ss=series(trIdx(k));
+      fs.forEach((x,i)=>dlrows.push({period:x.label,years:x.years.join(' '),scope:scope||'national',
+        marker:`${mm.gene} ${mm.aa}`,who_class:mm.category||'',
+        n_tested:(ss[i]?ss[i].n:''),carrying:(ss[i]?ss[i].x:''),prevalence_pct:(ss[i]?ss[i].est:''),
+        ci_low:(ss[i]?ss[i].lo:''),ci_high:(ss[i]?ss[i].hi:'')}));});
+    $('#trdl').innerHTML=csvDL(`trend_${scope?scope.replace(/\W+/g,'_'):'national'}.csv`,dlrows);
   };
   const step=d=>{const fs=frames(); idx=Math.max(0,Math.min(fs.length-1,idx+d)); draw();};
   $('#trprev').onclick=()=>step(-1); $('#trnext').onclick=()=>step(1);
@@ -798,7 +823,7 @@ R.export=()=>{
   const e=D.export, order=e.order||Object.keys(e.views||{});
   let html=`<h2 class="sec">Export \u2014 dashboard-ready views</h2>
     <div class="sec-desc">The same data formatted for downstream dashboards. Switch views; download each as CSV.</div>
-    <div class="controls">`+order.map((k,i)=>`<button class="btn${i?'':' on'}" data-x="${k}">${esc(e.views[k].label||k)}</button>`).join('')+`</div>
+    <div class="controls"><label>Output type: <select id="expsel">`+order.map(k=>`<option value="${k}">${esc(e.views[k].label||k)}</option>`).join('')+`</select></label></div>
     <div id="exportview"></div>`;
   return html;
 };
@@ -815,8 +840,7 @@ function wireExport(){
     $('#exportview').innerHTML=h;
     const b=$('#dlbtn'); if(b) b.onclick=()=>downloadCSVgz(v.gz,v.name||(key+'.csv'));
   };
-  document.querySelectorAll('#pg-export .controls .btn').forEach(b=>b.onclick=()=>{
-    document.querySelectorAll('#pg-export .controls .btn').forEach(x=>x.classList.remove('on'));b.classList.add('on');render(b.dataset.x);});
+  const xs=$('#expsel'); if(xs) xs.onchange=()=>render(xs.value);
   render(order[0]);
 }
 
@@ -825,20 +849,20 @@ R.methods=()=>{
   return `<h2 class="sec">Methods &amp; notes</h2>
     <div class="grid two">
     <div class="card"><h3>Assay &amp; scope</h3><p style="font-size:13.5px;color:var(--ink2)">${esc(M.assay_full)}. ${esc(M.note)} Marker genes typed: ${(CAP.genes||[]).join(', ')||'—'}.</p></div>
-    <div class="card"><h3>Statistics &amp; suppression</h3><p style="font-size:13.5px;color:var(--ink2)">Prevalence = carriers ÷ QC-pass infections typed at the locus; 95% CIs by the Wilson score method. Regions with fewer than the min-sample threshold (default ${M.min_samples}, adjustable) are suppressed so a single positive sample is never shown as "100%". Prevalence only — population case-rates are not reported.</p></div></div>
+    <div class="card"><h3>Statistics &amp; suppression</h3><p style="font-size:13.5px;color:var(--ink2)">Prevalence = carriers ÷ QC pass infections typed at the locus; 95% CIs by the Wilson score method. Regions with fewer than the min-sample threshold (default ${M.min_samples}, adjustable) are suppressed so a single positive sample is never shown as "100%". Prevalence only — population case-rates are not reported.</p></div></div>
     <div class="grid" style="margin-top:16px">
       <div class="card"><h3>Pipelines &amp; data sources</h3><ul style="font-size:13px;color:var(--ink2);margin:6px 0 0 18px;line-height:1.9">${(M.links||[]).map(l=>`<li><a href="${l[1]}" target="_blank" rel="noopener">${esc(l[0])}</a></li>`).join('')||'<li>\u2014</li>'}</ul></div>
     </div>
     <div class="card" style="margin-top:16px"><h3>Thresholds &amp; sources</h3>
       <ul style="font-size:13px;color:var(--ink2);margin:6px 0 0 18px;line-height:1.7">
         <li>Marker list &amp; classes: <a href="${who}" target="_blank" rel="noopener">WHO Compendium of molecular markers for antimalarial drug resistance</a>. Every class shown in this report is read from that compendium; each class label links to it.</li>
-        <li>Resistance action flag: ≥${RES_PCT}% — aligns with the WHO therapeutic-efficacy-study / treatment-failure (≥10%) trigger for changing first-line policy.</li>
+        <li>Resistance action flag: ≥${RES_PCT}% — aligns with WHO's ≥10% treatment-failure threshold for changing first-line policy.</li>
         <li>Marker classes use the WHO compendium&rsquo;s own names: <b>Validated marker</b>, <b>Candidate marker</b> and <b>Potential marker</b> (with WHO&rsquo;s evidence qualifiers &mdash; e.g. &ldquo;Validated marker (Epi., Lab. &amp; Clin.)&rdquo; &mdash; shown on each row&rsquo;s tooltip). Where WHO lists a codon only inside a multi-codon haplotype, the row is labelled <b>Haplotype component</b> and names that haplotype, because WHO does not assign the single codon a class of its own. Loci absent from the compendium are labelled <b>Not in WHO compendium</b> (panel background, e.g. Pfarps10, Pffd, Pfmdr2, Pfexo, Pfmdr1 Y184F; or research, e.g. Pfaat1, Pfcarl, Pfubp1, Pfap2-mu). All are counted; only Validated markers carry the ≥${RES_PCT}% action flag.</li>
-        <li>Time periods: the Trends tab and the Resistance period filter group collection years into frames with a usable denominator — a year reaching n&ge;${TR?TR.min_frame_n:100} QC-pass samples stands alone, sparser runs are merged. Every frame is summed from per-year counts, so the frames always add up to the pooled figure; the pooled view remains the default everywhere. Prevalence by period is subject to the same min-sample suppression as the pooled view, and a marker with no calls in a period reads "not assessed" rather than 0%.</li>
+        <li>Time periods: the Trends tab and the Resistance period filter group collection years into frames with a usable denominator — a year reaching n&ge;${TR?TR.min_frame_n:100} QC pass samples stands alone, sparser runs are merged. Every frame is summed from per-year counts, so the frames always add up to the pooled figure; the pooled view remains the default everywhere. Prevalence by period is subject to the same min-sample suppression as the pooled view, and a marker with no calls in a period reads "not assessed" rather than 0%.</li>
         <li>Trend caveat: these cohorts were not sampled uniformly over time (districts enter and leave the sampling frame), so part of any national change over time reflects <i>where</i> samples came from, not only parasite population change. The samples-per-period chart is shown alongside every trend for that reason; scope a region to remove the composition effect.</li>
         <li>Admin-2 boundaries: geoBoundaries (SEN ADM2). Admin-3 shown when available; collection dates assumed available (contingency messaging if absent).</li>
       </ul></div>
-    <div class="callout ${REAL?'':'amber'}" style="margin-top:14px"><b>Data status.</b> ${REAL?esc(M.data_source||'Real data.')+`. Prevalence = carriers ÷ QC-pass infections typed at the locus. Thresholds and marker classes are the published WHO criteria.`:`Design mock-up (${M.version}) with synthetic prevalence values. Thresholds, WHO classes, and marker lists are real; the numbers are fabricated for layout review.`}</div>`;
+    <div class="callout ${REAL?'':'amber'}" style="margin-top:14px"><b>Data status.</b> ${REAL?esc(M.data_source||'Real data.')+`. Prevalence = carriers ÷ QC pass infections typed at the locus. Thresholds and marker classes are the published WHO criteria.`:`Design mock-up (${M.version}) with synthetic prevalence values. Thresholds, WHO classes, and marker lists are real; the numbers are fabricated for layout review.`}</div>`;
 };
 
 /* render + wire */

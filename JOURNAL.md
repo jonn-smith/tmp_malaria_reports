@@ -511,3 +511,24 @@ Verified (jsdom, 3 reports): filter output matches `markers.filter(assessed && a
 **Enforcement of the naming rule.** The old self-check asserted "validated" never appears; that rule is reversed, so it is replaced by a walk over every displayed string asserting each occurrence of /validated/i is part of "Validated marker" (the internal `cls` key is skipped as a machine value). A jsdom check does the same over rendered text: 0 violations in all 4 reports, and "WHO-tracked" is gone from rendered output entirely.
 
 **Verify.** All 6 built at v0.11; jsdom 0 errors; 0 "validated"-outside-WHO-term; class labels render as Validated/Candidate/Potential marker, Haplotype component, Not in WHO compendium (panel locus/research); filter options renamed accordingly (validated/candidate/potential/haplotype/background/research); pill click leaves the map selector untouched; trends stepper, period filter pooled-restore, JS/Python Wilson agreement and 0 SVG geometry overflow all still pass. Note: scratch check9's `noValidatedWord` assertion is now obsolete by design, not a regression.
+
+## 2026-10-01T08:30:00Z — v0.11 feedback round: 15 edits (header, labels, exports, multi-marker trends, summary by period, back button)
+
+Jonn's two batches, all implemented and jsdom-verified on all 6 reports (0 errors):
+1. Header "What this is" block removed (markup, JS, CSS).
+2. **Samples (QC pass) verified.** 2,161 is internally consistent — sum of per-unit n, per-site n and per-year n all equal it, and the build asserts the last. But 110 of those QC pass samples carry no marker genotype call at all, so prevalences rest on 2,051. Added `n_called` (loaders count samples with >=1 call) and the KPI foot now reads "… · 2,051 with ≥1 marker call" so the headline cannot be read as the marker denominator. MAD: 883 = 883, no gap.
+3. "QC-pass" -> "QC pass" throughout.
+4. Marker-table class cells now show the same abbreviation pill as the legend (VAL/CAN/POT/HAP/BKG/RES); full label + WHO's exact class string moved to the tooltip.
+5. Marker table "Show:" -> "Filter:".
+6. Trends takes **multiple markers**: multi-select, one coloured line per marker (CI band only when a single marker is selected, else it would be unreadable), inline colour legend, map/stepper follows the first selection and names it, table switches to period-rows x marker-columns, CSV covers every selected marker.
+7. "AF-CDC Marker-Centric" export removed.
+8. Export views are a dropdown ordered WHO Threat Maps, DHIS2, Africa CDC, PHA4GE.
+9. TES labels and the TES filter removed; the flag now reads "≥10%" and the Methods/threshold text refers to WHO's ≥10% treatment-failure threshold without the TES acronym. Zero occurrences of "TES" remain in rendered text.
+10. Status column -> "WHO Classification".
+11. Summary table rebuilt as **one row per marker x period**, each marker led by a shaded "All years (pooled)" row (keeping the pooled view Jonn asked for earlier). WGS: 2 markers x (1 pooled + 6 periods) = 14 rows.
+12. "Click to jump to details." removed.
+13. **Browser Back/Forward now move between tabs.** First implementation used history.pushState, which threw `targetURL.path.join is not a function` under jsdom's about:blank — a hint of the real risk, since these reports are opened as local file:// documents where pushState is restricted in some browsers and a throw there would abort the whole inline script. Switched to hash navigation (`location.hash` + `hashchange`), which records real history entries and works everywhere; verified identical behaviour under about:blank, file:// and https:// with 0 errors.
+14. Summary markers restricted to WHO **Validated** class only (plus the ≥10% criterion).
+15. Text blocks span the full card width (`.sec-desc` max-width removed), so the summary prose no longer sits narrower than the cards beneath it.
+
+Also removed the code the summary rewrite orphaned (periodFlags/periodRange and mkRow's summary-only sublines) rather than leaving two paths for the same view.
