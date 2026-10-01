@@ -76,7 +76,8 @@ th{font-weight:600;color:var(--ink2);font-size:11.5px;text-transform:uppercase;l
 td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
 tr:hover td{background:#fafbfc} .ci-txt{color:var(--muted);font-variant-numeric:tabular-nums}
 .scroll{overflow-x:auto}
-caption{caption-side:bottom;text-align:left;color:var(--muted);font-size:11.5px;padding-top:8px}
+caption,.tcap{caption-side:bottom;text-align:left;color:var(--muted);font-size:11.5px;padding-top:8px}
+.tcap{display:block}
 .legend{display:flex;gap:12px;flex-wrap:wrap;font-size:12px;color:var(--ink2);margin:8px 0 2px;align-items:center}
 .legend .k{display:inline-flex;align-items:center;gap:5px}
 .legend .sw{width:13px;height:13px;border-radius:3px;display:inline-block;border:1px solid rgba(0,0,0,.08)}
@@ -112,6 +113,11 @@ button.step.on{background:var(--accent);color:#fff;border-color:var(--accent)}
 .scopechip{font-size:11.5px;background:#e3eefb;color:#1c5cab;border-radius:20px;padding:2px 10px;font-weight:600}
 /* a filtered (non-pooled) view gets a different colour so it cannot be mistaken for the pooled one */
 .scopechip.filtered{background:#fdf0e2;color:#9a5b16;border:1px solid #eccfa6}
+.sub2{font-size:10.5px;color:var(--muted);font-weight:400;margin-top:3px;line-height:1.35;white-space:normal}
+.sub2 b{color:var(--ink2);font-weight:600}
+.scopebar{display:flex;gap:8px;flex-wrap:wrap;align-items:baseline;font-size:12px;color:var(--ink2);
+  background:var(--panel);border:1px solid var(--grid);border-radius:8px;padding:8px 11px;margin:10px 0 4px}
+.scopebar b{color:var(--ink)}
 .yrnote{font-size:12px;color:var(--ink2);margin:6px 0 0}
 .yrnote b{color:var(--ink)}
 #trmap svg, #drmap svg{transition:none}
@@ -396,25 +402,55 @@ function classLegend(){
     `<span class="k"><span class="pill ${CLSPILL[c]}">${CLSABBR[c]}</span><span><b>${CLSFULL[c]}</b> \u2014 ${esc(CLSDESC[c])}</span></span>`).join('')+`</div>`;
 }
 const clsLabel=m=>m.category||(m.who?'WHO-tracked':'Research');
+/* The summary table is pooled over every year and every sampled area. A pooled flag can
+   hide the fact that the marker only crosses the threshold in some periods (and vice
+   versa), so each row states which periods the flag actually holds in. */
+function periodFlags(m){
+  if(!TR||m.cls!=='confirmed') return null;
+  const mi=trIdx(m.key); if(mi<0) return null;
+  const hit=[],miss=[],na=[];
+  TR.frames.forEach(f=>{const t=trNat(f.years,mi);
+    if(!t.d){na.push(f.label); return;}
+    (100*t.x/t.d>=RES_PCT?hit:miss).push(f.label);});
+  return {hit,miss,na,total:TR.frames.length};
+}
+function periodRange(m){
+  if(!TR) return null;
+  const mi=trIdx(m.key); if(mi<0) return null;
+  const vs=[]; TR.frames.forEach(f=>{const t=trNat(f.years,mi); if(t.d) vs.push(100*t.x/t.d);});
+  if(vs.length<2) return null;
+  const r=v=>(Math.round(v*10)/10).toFixed(1);
+  return {lo:r(Math.min(...vs)),hi:r(Math.max(...vs)),n:vs.length};
+}
 function mkRow(m,summary,stat){
   if(stat){m=Object.assign({},m,{est:stat.est,lo:stat.lo,hi:stat.hi,x:stat.x,n:stat.n,
                                  action:(m.cls==='confirmed'&&stat.est>=RES_PCT)});}
   return `<tr data-k="${m.key}"${summary?'':' style="cursor:pointer" title="Click to show this marker on the map"'}><td><i>${esc(m.gene)}</i></td><td>${esc(m.aa)}</td><td>${esc(m.drug)}</td>
       <td><span class="pill ${clsPill(m)}" title="${esc(m.crit||'')}">${esc(clsLabel(m))}</span></td>${summary?'':`<td style="font-size:11.5px;color:var(--ink2)">${esc(m.crit)}</td>`}
-      <td class="num">${pct(m.est)}</td><td class="num ci-txt">${ci(m.lo,m.hi)}</td>
-      <td>${m.action?`<span class="pill action">≥${RES_PCT}% — WHO criteria indicates TES</span>`:''}</td></tr>`;
+      <td class="num">${pct(m.est)}${(()=>{if(!summary) return '';
+        const r=periodRange(m); return r?`<div class="sub2">by period: ${r.lo}–${r.hi}%</div>`:'';})()}</td>
+      <td class="num ci-txt">${ci(m.lo,m.hi)}</td>
+      <td>${m.action?`<span class="pill action">≥${RES_PCT}% — WHO criteria indicates TES</span>`:''}${(()=>{
+        if(!summary) return '';
+        const pf=periodFlags(m);
+        if(!pf) return m.who?`<div class="sub2">no TES flag — ${esc(clsLabel(m))} class; the flag applies to WHO-tracked (confirmed) markers only</div>`:'';
+        const assessed=pf.hit.length+pf.miss.length;
+        if(!assessed) return `<div class="sub2">not assessed in any period</div>`;
+        if(pf.hit.length===assessed) return `<div class="sub2">holds in <b>${assessed===1?'the only period':assessed===2?'both periods':'all '+assessed+' periods'}</b> (${esc(pf.hit.join(', '))})</div>`;
+        if(!pf.hit.length) return `<div class="sub2">pooled only — <b>no single period</b> reaches ${RES_PCT}% (${esc(pf.miss.join(', '))})</div>`;
+        return `<div class="sub2">holds in <b>${pf.hit.length} of ${assessed} periods</b>: ${esc(pf.hit.join(', '))} · below ${RES_PCT}% in ${esc(pf.miss.join(', '))}</div>`;})()}</td></tr>`;
 }
 function markerTable(id,summary){
   const rows=D.markers.filter(m=>m.assessed&&(!summary||(m.who&&m.est>=RES_PCT)));
   if(summary&&!rows.length) return `<div class="hint" style="margin-top:6px">No WHO-tracked marker is at or above the ${RES_PCT}% action threshold.</div>`;
-  return `<div class="scroll"><table${id?` id="${id}"`:''}><thead><tr><th>Gene</th><th>AA change</th><th>Associated drug</th><th>Status</th>${summary?'':'<th>WHO criterion</th>'}<th class="num">Prevalence</th><th class="num">95% CI</th><th>Flag</th></tr></thead><tbody>`+
+  return `<div class="scroll"><table${id?` id="${id}"`:''}><thead><tr><th>Gene</th><th>AA change</th><th>Associated drug</th><th>Status</th>${summary?'':'<th>WHO criterion</th>'}<th class="num">Prevalence${summary?' (all years, all areas)':''}</th><th class="num">95% CI</th><th>${summary?`TES flag${TR?' · periods it holds in':''}`:'Flag'}</th></tr></thead><tbody>`+
     rows.map(m=>mkRow(m,summary)).join('')
-    +`</tbody></table></div>`;
+    +`</tbody></table></div>`+(summary&&TR?`<div class="tcap">Every figure in this table pools all years and all sampled areas. The per-period notes show where each flag actually holds — see the <a onclick="showTab('trends')" style="cursor:pointer;color:#2a6fb0;text-decoration:underline">Trends</a> tab for the full series, or filter by period on <a onclick="showTab('resistance')" style="cursor:pointer;color:#2a6fb0;text-decoration:underline">Resistance Markers</a>.</div>`:'');
 }
 
 R.summary=()=>{
   let html=`<h2 class="sec">Summary</h2>
-    <div class="sec-desc">WHO drug resistance markers discovered at ≥${RES_PCT}% in the population (WHO therapeutic-efficacy-study trigger), aggregated across all years. Click to jump to details.</div>
+    <div class="sec-desc">WHO drug resistance markers discovered at ≥${RES_PCT}% in the population (WHO therapeutic-efficacy-study trigger), <b>pooled across all years and all sampled areas</b>. Each row also states which collection periods its flag holds in. Click to jump to details.</div>
     ${classLegend()}
     <div class="stoplight">`;
   const jump={'Resistance Markers':'resistance'};
@@ -422,7 +458,11 @@ R.summary=()=>{
     const st=s.status, word={red:'Concern',amber:'Watch',green:'No flag',grey:'Not assessed'}[st];
     html+=`<div class="light ${st}" onclick="showTab('${jump[s.cat]||'summary'}')">
       <div class="cat"><span class="dot"></span>${esc(s.cat)}</div>
-      <div style="margin-top:10px">${markerTable(null,true)}</div></div>`;
+      <div class="scopebar"><span><b>Pooled summary</b></span>
+        <span>· all years <b>${esc(M.period)}</b></span>
+        <span>· all <b>${M.n_units_sampled}</b> sampled admin-2 area${M.n_units_sampled===1?'':'s'}${D.sites&&D.sites.length?` (${D.sites.length} collection sites)`:''}</span>
+        <span>· <b>${nf(M.n_qc)}</b> QC-pass samples</span></div>
+      <div>${markerTable(null,true)}</div></div>`;
   });
   html+=`</div>`;
   html+=`<div class="kpis" style="margin-top:18px">
@@ -487,7 +527,7 @@ R.resistance=()=>{
       <label>Min prevalence: <input type="number" id="mtminprev" min="0" max="100" step="0.5" value="0" style="width:64px;font-size:12.5px;padding:3px 6px;border:1px solid var(--line);border-radius:6px"> %</label>
       <label>Sort: <select id="mtsort"><option value="gene">Gene order</option><option value="desc">Prevalence high→low</option><option value="asc">Prevalence low→high</option></select></label>
     </div>
-    ${markerTable('mtable')}<caption>WHO thresholds &amp; marker lists are real; prevalence values are ${REAL?'observed from the sequenced samples':'synthetic'}. "WHO criteria indicates TES" = WHO therapeutic-efficacy-study / treatment-failure trigger (≥${RES_PCT}%).</caption></div>`;
+    ${markerTable('mtable')}<div class="tcap">WHO thresholds &amp; marker lists are real; prevalence values are ${REAL?'observed from the sequenced samples':'synthetic'}. "WHO criteria indicates TES" = WHO therapeutic-efficacy-study / treatment-failure trigger (≥${RES_PCT}%).</div></div>`;
   return html;
 };
 function wireResistance(){
