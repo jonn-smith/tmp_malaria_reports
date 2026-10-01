@@ -110,6 +110,8 @@ button.step:hover:not(:disabled){background:var(--panel)}
 button.step:disabled{opacity:.4;cursor:default}
 button.step.on{background:var(--accent);color:#fff;border-color:var(--accent)}
 .scopechip{font-size:11.5px;background:#e3eefb;color:#1c5cab;border-radius:20px;padding:2px 10px;font-weight:600}
+/* a filtered (non-pooled) view gets a different colour so it cannot be mistaken for the pooled one */
+.scopechip.filtered{background:#fdf0e2;color:#9a5b16;border:1px solid #eccfa6}
 .yrnote{font-size:12px;color:var(--ink2);margin:6px 0 0}
 .yrnote b{color:var(--ink)}
 #trmap svg, #drmap svg{transition:none}
@@ -467,7 +469,7 @@ R.resistance=()=>{
     +`</div></div>`).join('')+`</div>`;
   // map + controls (detail page = admin-2 choropleth only, no circles)
   const hasSites=false;
-  html+=`<div class="grid two"><div class="card"><h3>Prevalence by ${hasSites?'site':'admin-2'} <select id="drsel">${cm.map(k=>{const m=D.markers.find(x=>x.key===k);return `<option value="${k}">${esc(markerLabel(m))}</option>`;}).join('')}</select></h3>
+  html+=`<div class="grid two"><div class="card"><h3>Prevalence by ${hasSites?'site':'admin-2'} <select id="drsel">${cm.map(k=>{const m=D.markers.find(x=>x.key===k);return `<option value="${k}">${esc(markerLabel(m))}</option>`;}).join('')}</select> <span class="scopechip" id="drperiod"></span></h3>
       <div class="controls">
         ${TR?`<label>Period: <select id="yrsel"><option value="">All years (pooled)</option>${
           TR.frames.map(f=>`<option value="f:${f.key}">${esc(f.label)} (n=${f.years.reduce((a,y)=>a+(TR.year_n[y]||0),0)})</option>`).join('')}${
@@ -477,9 +479,9 @@ R.resistance=()=>{
       <div class="yrnote" id="yrnote"></div>
       <div class="hint">Click a ${hasSites?'site':'region'} to pin its value; hover for the number. ${hasSites?'Small-n sites are greyed':'Hatched = n below threshold'} (suppressed).</div>
       <div id="drmap"></div><div id="drlegend"></div><div class="readout">Click a region…</div></div>
-    <div class="card"><h3>Samples per ${hasSites?'site':'admin-2 unit'}</h3><div class="hint">Denominator behind each ${hasSites?'site':'region'}'s prevalence — small n means an unstable %.</div><div id="drbars"></div></div></div>`;
+    <div class="card"><h3>Samples per ${hasSites?'site':'admin-2 unit'} <span class="scopechip" id="drbarperiod"></span></h3><div class="hint">Denominator behind each ${hasSites?'site':'region'}'s prevalence — small n means an unstable %.</div><div id="drbars"></div></div></div>`;
   // table
-  html+=`<div class="card" style="margin-top:16px"><h3>Marker table</h3><div class="hint" id="dltbl"></div>
+  html+=`<div class="card" style="margin-top:16px"><h3>Marker table <span class="scopechip" id="mtperiod"></span></h3><div class="hint" id="dltbl"></div>
     <div class="controls">
       <label>Show: <select id="mtfilter"><option value="all">All markers</option><option value="who">WHO-tracked (any class)</option><option value="confirmed">WHO-tracked — confirmed only</option><option value="candidate">WHO candidate only</option><option value="potential">WHO potential only</option><option value="background">Panel / background only</option><option value="research">Research only</option><option value="tes">Flagged — WHO criteria indicates TES</option><option value="action">≥${RES_PCT}% prevalence (any class)</option></select></label>
       <label>Min prevalence: <input type="number" id="mtminprev" min="0" max="100" step="0.5" value="0" style="width:64px;font-size:12.5px;padding:3px 6px;border:1px solid var(--line);border-radius:6px"> %</label>
@@ -501,6 +503,9 @@ function wireResistance(){
     const rows=src.slice().sort((a,b)=>unitNsel(b)-unitNsel(a)).slice(0,20)
       .map(o=>({label:o.name,v:unitNsel(o),color:(unitNsel(o)<MINN?'#c9ccd1':'var(--s1)')}));
     $('#drbars').innerHTML=bars(rows,{thr:MINN,unit2:'',w:560});
+    const plab=YSEL?`${selLabel||'selected period'} only`:'all years (pooled)';
+    ['#drperiod','#mtperiod','#drbarperiod'].forEach(id=>{const el=$(id);
+      if(el){el.textContent=plab; el.classList.toggle('filtered',!!YSEL);}});
     const note=$('#yrnote');
     if(note){const lab=YSEL?(selLabel||'selection'):'all years (pooled)';
       const tot=src.reduce((a,o)=>a+unitNsel(o),0), supp=src.filter(o=>unitNsel(o)<MINN).length;
