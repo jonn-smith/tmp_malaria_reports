@@ -132,12 +132,19 @@ def load(rm_dir, meta_csv, ad_dir=None):
     by = {}
     for s in samples:
         a = by.setdefault(s['district'], {'n': 0, 'n_col': 0, 'years': set(), 'mkx': {}, 'mkn': {},
-                                          'coi': [], 'poly': 0, 'poly_n': 0})
+                                          'coi': [], 'poly': 0, 'poly_n': 0, 'by_year': {}})
         a['n'] += 1; a['n_col'] += 1
         if s['date']: a['years'].add(s['date'])
+        # per-year atoms (same samples as the pooled counts). MAD years come from the
+        # sample ID, so this is a two-point comparison, not a dense series.
+        yslot = a['by_year'].setdefault(s['date'], {'n': 0, 'x': {}, 'd': {}}) if s['date'] else None
+        if yslot is not None: yslot['n'] += 1
         for k, (wt, mt) in s['calls'].items():
             a['mkn'][k] = a['mkn'].get(k, 0) + 1
-            if mt: a['mkx'][k] = a['mkx'].get(k, 0) + 1
+            if yslot is not None: yslot['d'][k] = yslot['d'].get(k, 0) + 1
+            if mt:
+                a['mkx'][k] = a['mkx'].get(k, 0) + 1
+                if yslot is not None: yslot['x'][k] = yslot['x'].get(k, 0) + 1
         if s.get('coi') is not None:
             a['coi'].append(s['coi']); a['poly_n'] += 1; a['poly'] += 1 if s.get('poly') else 0
     units = []
@@ -152,13 +159,14 @@ def load(rm_dir, meta_csv, ad_dir=None):
                       'mkx': a['mkx'], 'mkn': a['mkn'],
                       'div': {'coi': (round(sum(a['coi'])/len(a['coi']), 2) if a['coi'] else None),
                               'poly': poly_pct, 'mono': (100-poly_pct) if poly_pct is not None else None,
-                              'rh': None, 'cotx': None}})
+                              'rh': None, 'cotx': None},
+                      'by_year': a['by_year']})
     ns = sum(1 for u in units if u.get('sampled'))
     sys.stderr.write(f"[load_mad] runs={files} samples={len(samples)} depts sampled={ns}/{len(units)} "
                      f"sites={len(set(s['site'] for s in samples))} dropped={drop}\n")
     rep = G.assemble_report('MAD4HATTER', G.ASSAYS['MAD4HATTER'], units)
     rep['meta']['real'] = True
-    rep['meta']['version'] = 'v0.9-real'   # gen_reports reads sys.argv on import; set explicitly
+    rep['meta']['version'] = 'v0.10-real'   # gen_reports reads sys.argv on import; set explicitly
     rep['meta']['data_source'] = 'MAD4HATTER v4 amplicon · UCSF mad4hatter outputs (runs 1–10)'
     G.real_export(rep, samples, 'Amplicon sequencing')
     rep['sites'] = G.sites_from_samples(samples)

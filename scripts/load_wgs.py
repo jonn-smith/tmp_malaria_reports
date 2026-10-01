@@ -107,12 +107,16 @@ def load(sample_tsv):
             if not dept:
                 drop['no_dept'] += 1; unmatched.add((row.get('District') or '').strip()); continue
             a = by_dept.setdefault(dept, {'n_col':0,'n':0,'years':set(),'mkx':{},'mkn':{},
-                                          'h2x':0,'h3x':0,'hrpn':0,'coi':[],'poly':0,'poly_n':0})
+                                          'h2x':0,'h3x':0,'hrpn':0,'coi':[],'poly':0,'poly_n':0,
+                                          'by_year':{}})
             a['n_col'] += 1
             if not qc_pass(row): continue
             a['n'] += 1
             y = year_of(row)
             if y: a['years'].add(y)
+            # per-year atoms for the Trends tab / year filter (same rows as the pooled counts)
+            yslot = a['by_year'].setdefault(y, {'n':0,'x':{},'d':{}}) if y else None
+            if yslot is not None: yslot['n'] += 1
             def _f(v):
                 try: return float(v)
                 except (TypeError, ValueError): return None
@@ -123,8 +127,10 @@ def load(sample_tsv):
                 g = (row.get(col) or '').strip().lower()
                 if g in ('hom_ref','hom_var','het'):
                     a['mkn'][k] = a['mkn'].get(k, 0) + 1
+                    if yslot is not None: yslot['d'][k] = yslot['d'].get(k, 0) + 1
                     if g in ('hom_var','het'):                      # carriage of the mutant
                         a['mkx'][k] = a['mkx'].get(k, 0) + 1
+                        if yslot is not None: yslot['x'][k] = yslot['x'].get(k, 0) + 1
                     srec['calls'][k] = (1,0) if g=='hom_ref' else (0,1) if g=='hom_var' else (1,1)
             h2 = (row.get('hrp2') or '').strip(); h3 = (row.get('hrp3') or '').strip()
             if h2 in ('+','-') or h3 in ('+','-'):
@@ -152,6 +158,7 @@ def load(sample_tsv):
                'div': {'coi': round(sum(a['coi'])/len(a['coi']), 2) if a['coi'] else None,
                        'poly': poly_pct, 'mono': (100-poly_pct) if poly_pct is not None else None,
                        'rh': None, 'cotx': None}}       # rh/cotx pending hmmIBD
+        if a['by_year']: rec['by_year'] = a['by_year']
         if a['hrpn']:
             rec['hrp2'] = round(100*a['h2x']/a['hrpn'], 1); rec['hrp3'] = round(100*a['h3x']/a['hrpn'], 1)
             rec['hrp2x'] = a['h2x']; rec['hrp3x'] = a['h3x']; rec['hrpn'] = a['hrpn']
@@ -163,7 +170,7 @@ def load(sample_tsv):
                      + (f" (unmatched districts: {sorted(x for x in unmatched if x)})" if unmatched else "") + "\n")
     rep = G.assemble_report('WGS', G.ASSAYS['WGS'], units)
     rep['meta']['real'] = True
-    rep['meta']['version'] = 'v0.9-real'   # gen_reports reads sys.argv on import; set explicitly
+    rep['meta']['version'] = 'v0.10-real'   # gen_reports reads sys.argv on import; set explicitly
     rep['meta']['data_source'] = 'Illumina WGS · broad-firecloud-dsde-methods/sr-malaria (Senegal joint call)'
     G.real_export(rep, samples, 'Whole genome sequencing')   # real-only export (no fabrication)
     rep['sites'] = G.sites_from_samples(samples)             # site-level points (finer than admin-2)

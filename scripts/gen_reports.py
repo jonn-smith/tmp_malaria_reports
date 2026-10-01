@@ -34,7 +34,7 @@ def fmt_years(ys):
 random.seed(505)
 def _na(x):  # accent- & case-insensitive key for name lookups (geoBoundaries names are un-accented)
     return ''.join(c for c in unicodedata.normalize('NFD', str(x)) if unicodedata.category(c) != 'Mn').lower().strip()
-VERSION = sys.argv[1] if len(sys.argv) > 1 else 'v0.9'   # single source of truth; build_reports.sh passes it
+VERSION = sys.argv[1] if len(sys.argv) > 1 else 'v0.10'   # single source of truth; build_reports.sh passes it
 
 Z = 1.959963985
 def wilson(x, n):
@@ -163,6 +163,10 @@ CLS_LABEL = {'confirmed':'WHO-tracked','candidate':'WHO candidate','potential':'
 MK = {m[0]:dict(gene=m[1],gene_id=m[2],aa=m[3],drug=m[4],cls=m[5],who=(m[5] in ('confirmed','candidate','potential')),
                 tok=m[6],mean=m[7],crit=m[8]) for m in MARKERS}
 
+# synthetic-only: fixed per-marker drift so the mock-up trend charts show something
+# (sign and magnitude are arbitrary illustration, not an epidemiological claim)
+TREND_SLOPE={k:((zlib.crc32(k.encode())%13)-5)/8.0 for k in MK}
+
 def dept_prev(key,s):
     m=MK[key]['mean']
     if MK[key]['tok'] in ('dhfr','dhps','crt','mdr1') and key not in ('dhps_K540E','dhps_A581G'):
@@ -192,19 +196,19 @@ def hrp_dept(s):
 #     (+ hrp2/3 deletions, pm2/3 CNV, msp2/ama1/csp diversity — none shown in v0.8).
 ASSAYS = {
  'WGS': dict(full='Whole-genome sequencing (Illumina)', platform='Illumina NovaSeq (deep WGS)',
-   turnaround='3–6 weeks', color='#4a3aa7', n_range=(15,60), n_depts=11, qc=0.82,
+   turnaround='3–6 weeks', color='#4a3aa7', n_range=(15,60), years=[str(y) for y in range(2017,2025)], n_depts=11, qc=0.82,
    genes={'k13','crt','mdr1','mdr2','dhfr','dhps','coronin','ubp1','ap2mu','arps10','exo','aat1','carl','atg18'},
    cnv=True, hrp=True, species=False,
    div=dict(coi=True,poly=True,mono=True,rh=True,cotx=True,coi_method='24-SNP barcode heterozygosity'),
    note='Whole-genome short-read sequencing; this report shows the prevalence of WHO-tracked and research drug-resistance markers from per-sample genotype calls.'),
  'MAD4HATTER': dict(full='MAD4HATTER v4 amplicon panel (Illumina)', platform='Illumina (v4, pools 1A+1B+2)',
-   turnaround='1–2 weeks', color='#1baf7a', n_range=(30,260), n_depts=38, qc=0.87,
+   turnaround='1–2 weeks', color='#1baf7a', n_range=(30,260), years=[str(y) for y in range(2020,2025)], n_depts=38, qc=0.87,
    genes={'k13','crt','mdr1','mdr2','dhfr','dhps','cytb','coronin','ubp1','arps10','fd','exo'},
    cnv=True, hrp=True, species=True,
    div=dict(coi=True,poly=True,mono=True,rh=True,cotx=True,coi_method='naive COI (max distinct microhaplotype alleles per locus)'),
    note='v4 amplicon panel (resistance pools); this report shows the prevalence of WHO-tracked drug-resistance markers from resistance-marker (resmarker) calls. Also types Pfcoronin, Pfubp1 and the panel background loci (Pfarps10, Pffd, Pfmdr2, Pfexo); it does not type Pfap2-mu, Pfaat1, Pfcarl or Pfatg18.'),
  'NOMADS': dict(full='NOMADS targeted panel (Oxford Nanopore)', platform='ONT MinION (nomads16)',
-   turnaround='1–3 days', color='#2a78d6', n_range=(40,160), n_depts=19, qc=0.84,
+   turnaround='1–3 days', color='#2a78d6', n_range=(40,160), years=[str(y) for y in range(2022,2025)], n_depts=19, qc=0.84,
    genes={'k13','crt','mdr1','dhfr','dhps'},
    cnv=False, hrp=True, species=False,
    div=dict(coi=True,poly=True,mono=True,rh=False,cotx=False,coi_method='msp2 allele counting (coarse)'),
@@ -228,9 +232,67 @@ PIPELINE_LINKS = {
         ('MalariaGEN Pf8 Data Resource (Terra)','https://app.terra.bio/#workspaces/gates-malaria/MalariaGEN_Pf8_Data_Resource')],
 }
 MARKER_PCT = 10.0
+MIN_FRAME_N = 100     # a year with >= this many QC-pass samples becomes its own trend frame
 HRP_PCT    = 5.0
 MIN_SAMPLES = 5
 MONTHS = [f'2024-{m:02d}' for m in range(1,13)]
+
+def make_frames(year_counts, min_n=MIN_FRAME_N):
+    """Group consecutive years into display frames with a usable denominator.
+    A year that reaches min_n on its own stands alone; sparse runs are merged until
+    they reach min_n; a trailing remainder joins the previous frame. Real cohorts are
+    very uneven (the Senegal WGS set has 1-32 samples/year before 2019, then 614/542/
+    115/674), so fixed 5-year bins would bury the dense years inside sparse ones."""
+    ys = sorted(year_counts)
+    frames = []; pend = []; pn = 0
+    for y in ys:
+        n = year_counts[y]
+        if n >= min_n:
+            if pend: frames.append(pend); pend = []; pn = 0
+            frames.append([y]); continue
+        pend.append(y); pn += n
+        if pn >= min_n: frames.append(pend); pend = []; pn = 0
+    if pend:
+        if frames: frames[-1] = frames[-1] + pend
+        else: frames.append(pend)
+    return [{'key': f[0] if len(f) == 1 else f[0] + '-' + f[-1],
+             'label': fmt_years(f), 'years': f} for f in frames]
+
+def build_trends(covered, units):
+    """Per-unit, per-year marker atoms (the only time-resolved store; frames and
+    national totals are summed from these, client-side and in the self-checks, so a
+    frame can never disagree with the years it contains).
+    Each unit may carry by_year = {year: {'n':int, 'x':{mk:ct}, 'd':{mk:ct}}}."""
+    has = any(u.get('by_year') for u in units)
+    if not has: return None
+    mk = list(covered)
+    year_counts = {}
+    uout = {}
+    for u in units:
+        by = u.get('by_year') or {}
+        if not by: continue
+        rec = {}
+        for y, v in sorted(by.items()):
+            n = int(v.get('n', 0))
+            if n <= 0: continue
+            rec[y] = {'n': n,
+                      'x': [int((v.get('x') or {}).get(k, 0)) for k in mk],
+                      'd': [int((v.get('d') or {}).get(k, 0)) for k in mk]}
+            year_counts[y] = year_counts.get(y, 0) + n
+        if rec: uout[u['name']] = rec
+    if not uout: return None
+    years = sorted(year_counts)
+    nat = {}
+    for y in years:
+        xs = [0]*len(mk); ds = [0]*len(mk)
+        for rec in uout.values():
+            if y not in rec: continue
+            for i in range(len(mk)):
+                xs[i] += rec[y]['x'][i]; ds[i] += rec[y]['d'][i]
+        nat[y] = {'n': year_counts[y], 'x': xs, 'd': ds}
+    return {'mk': mk, 'years': years, 'year_n': year_counts,
+            'frames': make_frames(year_counts), 'nat': nat, 'units': uout,
+            'min_frame_n': MIN_FRAME_N}
 
 def assemble_report(name, spec, units):
     """Assemble the template DATA blob from per-admin-2 unit records.
@@ -261,7 +323,8 @@ def assemble_report(name, spec, units):
            findings=([f"{m['gene']} {m['aa']} = {m['est']}% (≥{int(MARKER_PCT)}% — WHO criteria indicates TES)" for m in res_hits]
                      +[f"{m['gene']} {m['aa']} = {m['est']}% (watch, 5–10%)" for m in res_watch]) or ['No WHO-tracked marker ≥ threshold']),
     ]
-    tabs=['summary','resistance','export','methods']
+    trends=build_trends(covered, units)
+    tabs=['summary','resistance']+(['trends'] if trends else [])+['export','methods']
     for u in sampled:
         if not u.get('years'):
             u['years']=sorted({str(d)[:4] for d in (u.get('date_min'),u.get('date_max')) if d and str(d)[:4].isdigit()})
@@ -279,10 +342,19 @@ def assemble_report(name, spec, units):
     caps=dict(tabs=tabs,genes=sorted(spec['genes']),covered_markers=covered)
     # v0.8: COI (transmission) and HRP2/3 (diagnostics) sections removed from the report;
     # per-unit hrp/div inputs are accepted from loaders but not emitted.
-    drop=('hrp2','hrp3','hrp2x','hrp3x','hrpn','div','coi','poly','mono')
+    drop=('hrp2','hrp3','hrp2x','hrp3x','hrpn','div','coi','poly','mono','by_year')
     units=[{k:v for k,v in u.items() if k not in drop} for u in units]
-    return dict(meta=meta,capabilities=caps,map=MAP,units=units,markers=natmarkers,
-                stoplight=stoplight,marker_defs={k:MK[k] for k in MK})
+    rep_=dict(meta=meta,capabilities=caps,map=MAP,units=units,markers=natmarkers,
+              stoplight=stoplight,marker_defs={k:MK[k] for k in MK})
+    if trends:
+        rep_['trends']=trends
+        # pooled numbers must equal the sum over years, or the pooled view and the
+        # trend view would tell different stories for the same cohort.
+        for i,k in enumerate(trends['mk']):
+            sx=sum(v['x'][i] for v in trends['nat'].values()); sd=sum(v['d'][i] for v in trends['nat'].values())
+            assert sx==natx[k] and sd==natn[k], f'{name} {k}: pooled {natx[k]}/{natn[k]} != per-year {sx}/{sd}'
+        assert sum(v['n'] for v in trends['nat'].values())==tot_qc, f'{name}: per-year n != pooled n_qc'
+    return rep_
 
 def build_assay(name, spec):
     random.seed(zlib.crc32(name.encode()))   # stable across runs (hash() is PYTHONHASHSEED-salted)
@@ -298,10 +370,30 @@ def build_assay(name, spec):
             lo,hi=spec['n_range']; n=int(lo+(hi-lo)*(0.3+0.7*random.random())); nqc=int(n*spec['qc']*(0.94+0.06*random.random()))
             rec.update(n=nqc,n_col=n,sampled=True)
             mi=random.randint(0,10); rec['date_min']=MONTHS[mi]; rec['date_max']=MONTHS[min(11,mi+random.randint(0,2))]
-            rec['mk']={}; rec['mkx']={}; rec['mkn']={}
-            for k in covered:
-                x=cnt(dept_prev(k,s),nqc); rec['mk'][k]=round(100*x/nqc,1) if nqc else 0.0
-                rec['mkx'][k]=x; rec['mkn'][k]=nqc
+            # time-resolved synthetic draws: each unit samples a recent run of years,
+            # markers drift linearly over the span (sign fixed per marker), and the
+            # pooled counts below are summed from the years so the two always agree.
+            yrs_all=spec['years']; start=random.randint(0,max(0,len(yrs_all)-2))
+            uyears=yrs_all[start:]
+            w=[0.4+random.random() for _ in uyears]; tw=sum(w)
+            alloc=[max(1,int(round(nqc*x/tw))) for x in w]
+            alloc[-1]+=nqc-sum(alloc)
+            if alloc[-1]<1: alloc[-1]=1
+            nqc=sum(alloc)
+            rec['n']=nqc; rec['n_col']=int(round(nqc/spec['qc']))
+            rec['date_min']=uyears[0]; rec['date_max']=uyears[-1]; rec['years']=list(uyears)
+            rec['by_year']={}
+            rec['mkx']={k:0 for k in covered}; rec['mkn']={k:0 for k in covered}
+            for yi,(yy,ny) in enumerate(zip(uyears,alloc)):
+                t=(yi/(len(uyears)-1)) if len(uyears)>1 else 1.0
+                xs={}; ds={}
+                for k in covered:
+                    slope=TREND_SLOPE[k]
+                    p=max(0.0,min(100.0,dept_prev(k,s)*(1+slope*(t-0.5))))
+                    xs[k]=cnt(p,ny); ds[k]=ny
+                    rec['mkx'][k]+=xs[k]; rec['mkn'][k]+=ny
+                rec['by_year'][yy]={'n':ny,'x':xs,'d':ds}
+            rec['mk']={k:(round(100*rec['mkx'][k]/rec['mkn'][k],1) if rec['mkn'][k] else 0.0) for k in covered}
             h2,h3=hrp_dept(s); rec['hrp2']=h2; rec['hrp3']=h3
             rec['hrp2x']=cnt(h2,nqc); rec['hrp3x']=cnt(h3,nqc); rec['hrpn']=nqc
             coi=round(1.3+1.6*s+0.25*random.random(),2)
@@ -331,6 +423,18 @@ def build_combined():
             for r in samp:
                 for k,v in r.get('mk',{}).items(): mk.setdefault(k,[]).append(v)
             rec['mk']={k:round(sum(v)/len(v),1) for k,v in mk.items()}
+            # per-year atoms: sum the contributing assays' own trend atoms for this unit
+            by={}
+            for a in ASSAYS:
+                tr=reports[a].get('trends')
+                if not tr or d['name'] not in tr['units']: continue
+                for yy,v in tr['units'][d['name']].items():
+                    slot=by.setdefault(yy,{'n':0,'x':{},'d':{}})
+                    slot['n']+=v['n']
+                    for i,k in enumerate(tr['mk']):
+                        slot['x'][k]=slot['x'].get(k,0)+v['x'][i]
+                        slot['d'][k]=slot['d'].get(k,0)+v['d'][i]
+            if by: rec['by_year']=by
         units.append(rec)
     genes=set().union(*[ASSAYS[a]['genes'] for a in ASSAYS]); covered=[k for k in MK if MK[k]['tok'] in genes]
     natmarkers=[]
@@ -360,11 +464,14 @@ def build_combined():
               marker_action_pct=MARKER_PCT,min_samples=MIN_SAMPLES,
               n_units_sampled=sum(1 for u in units if u['sampled']),n_units_total=len(DEPTS),
               n_collected=tot_col,n_qc=tot_qc,qc_rate=round(100*tot_qc/tot_col,1),by_assay={a:reports[a]['meta']['n_qc'] for a in ASSAYS})
-    caps=dict(tabs=['summary','resistance','export','methods'],
+    ctrends=build_trends(covered, units)
+    caps=dict(tabs=['summary','resistance']+(['trends'] if ctrends else [])+['export','methods'],
               genes=sorted(genes),covered_markers=covered,
               assays=list(ASSAYS.keys()),assay_colors={a:ASSAYS[a]['color'] for a in ASSAYS})
-    return dict(meta=meta,capabilities=caps,map=MAP,units=units,markers=natmarkers,
-                stoplight=stoplight,marker_defs={k:MK[k] for k in MK})
+    out=dict(meta=meta,capabilities=caps,map=MAP,units=[{k:v for k,v in u.items() if k!='by_year'} for u in units],
+             markers=natmarkers,stoplight=stoplight,marker_defs={k:MK[k] for k in MK})
+    if ctrends: out['trends']=ctrends
+    return out
 reports['COMBINED']=build_combined()
 
 # Senegal admin-2 (department) -> admin-1 (region), best-effort for the Africa CDC "Region" column.
@@ -613,5 +720,13 @@ for name in ('WGS','MAD4HATTER','NOMADS','COMBINED'):
     print(f"{name:11s} units={m['n_units_sampled']:2d}/{m['n_units_total']} n={m['n_qc']:5d} "
           f"markers={sum(1 for mk in r['markers'] if mk.get('assessed'))} (nonWHO={len(nonwho)}) "
           f"tabs={','.join(r['capabilities']['tabs'])}")
+for name in ('WGS','MAD4HATTER','NOMADS','COMBINED'):
+    tr=reports[name].get('trends')
+    assert tr, f'{name}: no trends block'
+    assert [y for f in tr['frames'] for y in f['years']]==tr['years'], f'{name}: frames do not partition years in order'
+    for f in tr['frames']:
+        assert sum(tr['year_n'][y] for y in f['years'])>0, f'{name} {f["key"]}: empty frame'
+    print(f"{name:11s} trends: {len(tr['years'])} years -> {len(tr['frames'])} frames "
+          f"[{', '.join(f['label']+'(n='+str(sum(tr['year_n'][y] for y in f['years']))+')' for f in tr['frames'])}]")
 print("stoplight (WGS):", [(s['cat'],s['status']) for s in reports['WGS']['stoplight']])
 print("ALL CHECKS PASS")

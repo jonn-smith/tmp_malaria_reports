@@ -100,6 +100,19 @@ button.lnk{background:none;border:none;color:#2a6fb0;font-size:11.5px;cursor:poi
 .clslegend{display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:5px 18px;font-size:12px;color:var(--ink2);margin:0 0 14px}
 .clslegend .k{display:flex;gap:7px;align-items:baseline}
 .clslegend .k .pill{flex:none}
+/* trends: stepper + scope chips */
+.stepbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:2px 0 8px}
+.stepbar .frame{font-size:14px;font-weight:600;min-width:9ch;text-align:center;font-variant-numeric:tabular-nums}
+.stepbar .sub{font-size:11.5px;color:var(--muted)}
+button.step{font-family:inherit;font-size:14px;line-height:1;padding:5px 11px;border:1px solid var(--line);
+  border-radius:7px;background:#fff;cursor:pointer;color:var(--ink)}
+button.step:hover:not(:disabled){background:var(--panel)}
+button.step:disabled{opacity:.4;cursor:default}
+button.step.on{background:var(--accent);color:#fff;border-color:var(--accent)}
+.scopechip{font-size:11.5px;background:#e3eefb;color:#1c5cab;border-radius:20px;padding:2px 10px;font-weight:600}
+.yrnote{font-size:12px;color:var(--ink2);margin:6px 0 0}
+.yrnote b{color:var(--ink)}
+#trmap svg, #drmap svg{transition:none}
 .readout{font-size:12.5px;color:var(--ink2);min-height:1.4em;margin-top:4px}
 .readout b{color:var(--ink)}
 .greyed{opacity:.45;filter:grayscale(1)}
@@ -312,7 +325,7 @@ $('#h-whatis').innerHTML=`<b>What this is.</b> ${esc(M.note)} Prevalence = share
   if(mw){ if(REAL){ mw.classList.remove('mockwarn'); mw.classList.add('realbanner');
       mw.innerHTML=esc(M.data_source||''); }
     else { mw.innerHTML=`MOCK-UP ${M.version} — illustrative synthetic data for design review. WHO thresholds/criteria &amp; marker lists are real; prevalence values are fabricated.`; } } }
-const LABEL={summary:'Summary',resistance:'Resistance Markers',export:'Export',methods:'Methods'};
+const LABEL={summary:'Summary',resistance:'Resistance Markers',trends:'Trends',export:'Export',methods:'Methods'};
 const CATS=new Set(['resistance']);
 const TABS=CAP.tabs.filter(t=>LABEL[t]);
 $('#tabbar').innerHTML=TABS.map((t,i)=>{
@@ -328,6 +341,41 @@ const R={};
 const markerLabel=m=>`${m.gene} ${m.aa}`;
 const RES_PCT=M.marker_action_pct;
 
+const TR=D.trends||null;
+/* Wilson score CI, same formula/constant as gen_reports.wilson(). Needed client-side
+   because year- and region-scoped slices are summed here from the per-year atoms; the
+   jsdom check asserts this reproduces the Python pooled numbers. */
+function wilsonJS(x,n){
+  if(!n) return null;
+  const Z=1.959963985, p=x/n, d=1+Z*Z/n, c=(p+Z*Z/(2*n))/d,
+        h=(Z*Math.sqrt(p*(1-p)/n+Z*Z/(4*n*n)))/d;
+  const r=v=>Math.round(v*1000)/10;
+  return {est:r(p), lo:r(Math.max(0,c-h)), hi:r(Math.min(1,c+h))};
+}
+const trIdx=k=>TR?TR.mk.indexOf(k):-1;
+function trSum(src,years,mi){let x=0,d=0,n=0;(years||[]).forEach(y=>{const v=src&&src[y];
+  if(v){x+=v.x[mi]||0; d+=v.d[mi]||0; n+=v.n||0;}});return {x,d,n};}
+const trNat =(years,mi)=>trSum(TR&&TR.nat,years,mi);
+const trUnit=(name,years,mi)=>trSum(TR&&TR.units[name],years,mi);
+function trFrames(gran){ if(!TR) return [];
+  return gran==='years'?TR.years.map(y=>({key:y,label:y,years:[y]})):TR.frames; }
+/* YSEL = year selection on the Resistance page; null means pooled (all years). */
+let YSEL=null;
+function mkStat(key){                       // national marker stat under the current selection
+  if(!YSEL){const m=D.markers.find(x=>x.key===key);
+    return (m&&m.assessed)?{x:m.x,n:m.n,est:m.est,lo:m.lo,hi:m.hi}:null;}
+  const mi=trIdx(key); if(mi<0) return null;
+  const t=trNat(YSEL,mi); if(!t.d) return null;
+  return Object.assign({x:t.x,n:t.d},wilsonJS(t.x,t.d));
+}
+function unitPrev(u,key){                   // per-unit prevalence under the current selection
+  if(!u) return null;
+  if(!YSEL) return (u.mk?(u.mk[key]??null):null);
+  const mi=trIdx(key); if(mi<0) return null;
+  const t=trUnit(u.name,YSEL,mi);
+  return t.d?Math.round(1000*t.x/t.d)/10:null;
+}
+const unitNsel=u=>!u?0:(!YSEL?(u.sampled?u.n:0):trUnit(u.name,YSEL,0).n);
 const CLSPILL={confirmed:'who',candidate:'cand',potential:'pot',background:'bg',research:'research'};
 const CLSABBR={confirmed:'WHO',candidate:'CAN',potential:'POT',background:'BKG',research:'RES'};
 const CLSFULL={confirmed:'WHO-tracked',candidate:'WHO candidate',potential:'WHO potential',
@@ -346,7 +394,9 @@ function classLegend(){
     `<span class="k"><span class="pill ${CLSPILL[c]}">${CLSABBR[c]}</span><span><b>${CLSFULL[c]}</b> \u2014 ${esc(CLSDESC[c])}</span></span>`).join('')+`</div>`;
 }
 const clsLabel=m=>m.category||(m.who?'WHO-tracked':'Research');
-function mkRow(m,summary){
+function mkRow(m,summary,stat){
+  if(stat){m=Object.assign({},m,{est:stat.est,lo:stat.lo,hi:stat.hi,x:stat.x,n:stat.n,
+                                 action:(m.cls==='confirmed'&&stat.est>=RES_PCT)});}
   return `<tr data-k="${m.key}"${summary?'':' style="cursor:pointer" title="Click to show this marker on the map"'}><td><i>${esc(m.gene)}</i></td><td>${esc(m.aa)}</td><td>${esc(m.drug)}</td>
       <td><span class="pill ${clsPill(m)}" title="${esc(m.crit||'')}">${esc(clsLabel(m))}</span></td>${summary?'':`<td style="font-size:11.5px;color:var(--ink2)">${esc(m.crit)}</td>`}
       <td class="num">${pct(m.est)}</td><td class="num ci-txt">${ci(m.lo,m.hi)}</td>
@@ -415,7 +465,13 @@ R.resistance=()=>{
   // map + controls (detail page = admin-2 choropleth only, no circles)
   const hasSites=false;
   html+=`<div class="grid two"><div class="card"><h3>Prevalence by ${hasSites?'site':'admin-2'} <select id="drsel">${cm.map(k=>{const m=D.markers.find(x=>x.key===k);return `<option value="${k}">${esc(markerLabel(m))}</option>`;}).join('')}</select></h3>
-      <div class="controls"><label>Min samples/region: <b id="minlab">${MINN}</b> <input type="range" id="minslider" min="1" max="30" value="${MINN}"></label></div>
+      <div class="controls">
+        ${TR?`<label>Period: <select id="yrsel"><option value="">All years (pooled)</option>${
+          TR.frames.map(f=>`<option value="f:${f.key}">${esc(f.label)} (n=${f.years.reduce((a,y)=>a+(TR.year_n[y]||0),0)})</option>`).join('')}${
+          TR.years.length>TR.frames.length?`<optgroup label="Single years">${TR.years.map(y=>`<option value="y:${y}">${y} (n=${TR.year_n[y]||0})</option>`).join('')}</optgroup>`:''}</select></label>`:''}
+        <label>Min samples/region: <b id="minlab">${MINN}</b> <input type="range" id="minslider" min="1" max="30" value="${MINN}"></label>
+      </div>
+      <div class="yrnote" id="yrnote"></div>
       <div class="hint">Click a ${hasSites?'site':'region'} to pin its value; hover for the number. ${hasSites?'Small-n sites are greyed':'Hatched = n below threshold'} (suppressed).</div>
       <div id="drmap"></div><div id="drlegend"></div><div class="readout">Click a region…</div></div>
     <div class="card"><h3>Samples per ${hasSites?'site':'admin-2 unit'}</h3><div class="hint">Denominator behind each ${hasSites?'site':'region'}'s prevalence — small n means an unstable %.</div><div id="drbars"></div></div></div>`;
@@ -432,18 +488,34 @@ R.resistance=()=>{
 function wireResistance(){
   const sel=$('#drsel'), slider=$('#minslider'); if(!sel) return;
   const draw=()=>{const k=sel.value;
-    const src=D.units.filter(u=>u.sampled);
-    const vals=src.filter(o=>o.mk&&o.mk[k]!=null&&o.n>=MINN).map(o=>o.mk[k]);
+    const src=D.units.filter(u=>unitNsel(u)>0);
+    const vals=src.filter(o=>unitPrev(o,k)!=null&&unitNsel(o)>=MINN).map(o=>unitPrev(o,k));
     const mx=Math.max(2,...vals); const breaks=mx<=10?[0,1,2,5,10,20,100]:[0,2,5,10,20,50,100];
     // detail pages: admin-2 CHOROPLETH only (no circles)
-    $('#drmap').innerHTML = choropleth(u=>u&&u.sampled&&u.mk?(u.mk[k]??null):null,u=>u?u.n:0,breaks,RED,'%');
+    $('#drmap').innerHTML = choropleth(u=>unitPrev(u,k),u=>unitNsel(u),breaks,RED,'%');
     $('#drlegend').innerHTML=binnedLegend(breaks,RED,'%',RES_PCT);
     // sample bars (sorted desc by n) — per admin-2
-    const rows=src.slice().sort((a,b)=>b.n-a.n).slice(0,20).map(o=>({label:o.name,v:o.n,color:(o.n<MINN?'#c9ccd1':'var(--s1)')}));
+    const rows=src.slice().sort((a,b)=>unitNsel(b)-unitNsel(a)).slice(0,20)
+      .map(o=>({label:o.name,v:unitNsel(o),color:(unitNsel(o)<MINN?'#c9ccd1':'var(--s1)')}));
     $('#drbars').innerHTML=bars(rows,{thr:MINN,unit2:'',w:560});
+    const note=$('#yrnote');
+    if(note){const lab=YSEL?(selLabel||'selection'):'all years (pooled)';
+      const tot=src.reduce((a,o)=>a+unitNsel(o),0), supp=src.filter(o=>unitNsel(o)<MINN).length;
+      note.innerHTML=`Showing <b>${esc(lab)}</b>: ${nf(tot)} QC-pass samples across ${src.length} sampled admin-2 unit${src.length===1?'':'s'}`
+        +(supp?` \u00b7 ${supp} unit${supp===1?'':'s'} suppressed at n&lt;${MINN}`:'')
+        +(YSEL?` \u00b7 <a onclick="document.getElementById('yrsel').value='';document.getElementById('yrsel').dispatchEvent(new Event('change'))" style="cursor:pointer;color:#2a6fb0;text-decoration:underline">reset to pooled</a>`:'');}
   };
+  let selLabel='';
   sel.onchange=draw;
   slider.oninput=()=>{MINN=+slider.value; $('#minlab').textContent=MINN; draw();};
+  const ysel=$('#yrsel');
+  if(ysel) ysel.onchange=()=>{
+    const v=ysel.value;
+    if(!v){YSEL=null; selLabel='';}
+    else if(v.startsWith('f:')){const f=TR.frames.find(x=>x.key===v.slice(2)); YSEL=f?f.years:null; selLabel=f?f.label:'';}
+    else {YSEL=[v.slice(2)]; selLabel=v.slice(2);}
+    draw(); rebuildTable(); refreshDL();
+  };
   // marker toggles filter table rows + selector options
   document.querySelectorAll('#mtoggles input').forEach(cb=>cb.onchange=()=>{
     const k=cb.dataset.k, on=cb.checked;
@@ -463,15 +535,28 @@ function wireResistance(){
   const toggledOff=()=>new Set([...document.querySelectorAll('#mtoggles input')].filter(cb=>!cb.checked).map(cb=>cb.dataset.k));
   const rebuildTable=()=>{
     let rows=D.markers.filter(m=>m.assessed);
+    // prevalence-based filters/sorts follow the selected period, not the pooled value
+    const pv=m=>{const st=mkStat(m.key); return st?st.est:null;};
     if(mtf.value==='who') rows=rows.filter(m=>m.who);
-    else if(mtf.value==='tes') rows=rows.filter(m=>m.action);            // WHO-confirmed marker at/above the action threshold
-    else if(mtf.value==='action') rows=rows.filter(m=>m.est>=RES_PCT);
+    else if(mtf.value==='tes') rows=rows.filter(m=>m.cls==='confirmed'&&(pv(m)??-1)>=RES_PCT);
+    else if(mtf.value==='action') rows=rows.filter(m=>(pv(m)??-1)>=RES_PCT);
     else if(mtf.value!=='all') rows=rows.filter(m=>m.cls===mtf.value);
-    const minp=parseFloat(mtp.value)||0; if(minp>0) rows=rows.filter(m=>m.est>=minp);
-    if(mts.value==='desc') rows=rows.slice().sort((a,b)=>b.est-a.est);
-    else if(mts.value==='asc') rows=rows.slice().sort((a,b)=>a.est-b.est);
+    const minp=parseFloat(mtp.value)||0; if(minp>0) rows=rows.filter(m=>(pv(m)??-1)>=minp);
+    if(mts.value==='desc') rows=rows.slice().sort((a,b)=>(pv(b)??-1)-(pv(a)??-1));
+    else if(mts.value==='asc') rows=rows.slice().sort((a,b)=>(pv(a)??999)-(pv(b)??999));
     const off=toggledOff();
-    $('#mtable tbody').innerHTML=rows.map(m=>mkRow(m,false)).join('')||`<tr><td colspan="8" class="hint">No markers match the current filter.</td></tr>`;
+    let out;
+    if(!YSEL){ out=rows.map(m=>mkRow(m,false)); }
+    else {
+      out=[];
+      rows.forEach(m=>{const st=mkStat(m.key);
+        out.push(st?mkRow(m,false,st)
+                   :`<tr data-k="${m.key}"><td><i>${esc(m.gene)}</i></td><td>${esc(m.aa)}</td><td>${esc(m.drug)}</td>`
+                    +`<td><span class="pill ${clsPill(m)}">${esc(clsLabel(m))}</span></td>`
+                    +`<td style="font-size:11.5px;color:var(--ink2)">${esc(m.crit)}</td>`
+                    +`<td class="num hint" colspan="3">not assessed in ${esc(selLabel||'this period')}</td></tr>`);});
+    }
+    $('#mtable tbody').innerHTML=out.join('')||`<tr><td colspan="8" class="hint">No markers match the current filter.</td></tr>`;
     document.querySelectorAll('#mtable tr[data-k]').forEach(r=>{if(off.has(r.dataset.k)) r.style.display='none';});
   };
   mtf.onchange=rebuildTable; mts.onchange=rebuildTable; mtp.oninput=rebuildTable;
@@ -486,12 +571,171 @@ function wireResistance(){
     const mapCard=$('#drmap').closest('.card'); if(mapCard&&mapCard.scrollIntoView) mapCard.scrollIntoView({behavior:'smooth',block:'nearest'});
   });
   // download
-  const dl=D.markers.filter(m=>m.assessed).map(m=>({gene:m.gene,aa_change:m.aa,drug:m.drug,who_tracked:m.who?'yes':'no',prevalence_pct:m.est,ci_low:m.lo,ci_high:m.hi,n:m.n,positive:m.x}));
-  $('#dltbl').innerHTML=csvDL('resistance_markers.csv',dl);
+  const mkDL=()=>D.markers.filter(m=>m.assessed).map(m=>{const st=mkStat(m.key)||{};
+    return {period:(YSEL?selLabel:'all years (pooled)'),gene:m.gene,aa_change:m.aa,drug:m.drug,
+            marker_class:m.category,prevalence_pct:(st.est??''),ci_low:(st.lo??''),ci_high:(st.hi??''),
+            n:(st.n??''),positive:(st.x??'')};});
+  const refreshDL=()=>{$('#dltbl').innerHTML=csvDL('resistance_markers.csv',mkDL());};
+  refreshDL();
   draw();
 }
 
 
+
+/* ================= TRENDS ================= */
+const DIVC=['#2166ac','#67a9cf','#d1e5f0','#fddbc7','#ef8a62','#b2182b'];   // falling -> rising
+const DIVBR=[-100,-20,-5,0,5,20,100];
+// categorical line chart with a 95% CI band for the focus series
+function trendChart(frames,series,{w=620,h=250,ymax=null}={}){
+  const padL=46,padR=14,padT=12,padB=38, iw=w-padL-padR, ih=h-padT-padB;
+  const n=frames.length;
+  const X=i=>padL+(n===1?iw/2:iw*i/(n-1));
+  let top=ymax;
+  if(top==null){ const vs=[]; series.forEach(s=>s.pts.forEach(p=>{if(p)vs.push(p.hi!=null?p.hi:p.est);}));
+    top=Math.max(5,...vs); top=top<=10?10:top<=25?25:top<=50?50:100; }
+  const Y=v=>padT+ih-ih*Math.min(v,top)/top;
+  let o=`<svg viewBox="0 0 ${w} ${h}" width="${w}" role="img">`;
+  const ticks=[0,top/4,top/2,3*top/4,top];
+  ticks.forEach(t=>{o+=`<line x1="${padL}" y1="${Y(t)}" x2="${w-padR}" y2="${Y(t)}" stroke="var(--grid)"/>`
+    +`<text x="${padL-6}" y="${Y(t)}" font-size="10" fill="var(--muted)" text-anchor="end" dominant-baseline="middle">${t%1?t.toFixed(1):t}%</text>`;});
+  if(top>=RES_PCT) o+=`<line x1="${padL}" y1="${Y(RES_PCT)}" x2="${w-padR}" y2="${Y(RES_PCT)}" stroke="var(--red)" stroke-width="1.3" stroke-dasharray="4 3"/>`
+    +`<text x="${w-padR}" y="${Y(RES_PCT)-4}" font-size="9.5" fill="var(--red)" text-anchor="end">${RES_PCT}% action threshold</text>`;
+  const every=n>8?Math.ceil(n/8):1;
+  frames.forEach((f,i)=>{ if(i%every) return;
+    o+=`<text x="${X(i)}" y="${h-padB+15}" font-size="10" fill="var(--ink2)" text-anchor="middle">${esc(f.label)}</text>`;});
+  series.filter(s=>s.faint).forEach(s=>{
+    const pts=s.pts.map((p,i)=>p?`${X(i)},${Y(p.est)}`:null).filter(Boolean);
+    if(pts.length>1) o+=`<polyline points="${pts.join(' ')}" fill="none" stroke="#c3c9d2" stroke-width="1"/>`;});
+  series.filter(s=>!s.faint).forEach(s=>{
+    const idx=s.pts.map((p,i)=>p?i:-1).filter(i=>i>=0);
+    if(s.band&&idx.length){
+      const up=idx.map(i=>`${X(i)},${Y(s.pts[i].hi)}`), dn=idx.slice().reverse().map(i=>`${X(i)},${Y(s.pts[i].lo)}`);
+      o+=`<polygon points="${up.concat(dn).join(' ')}" fill="${s.color}" fill-opacity="0.15"/>`;
+    }
+    const pts=idx.map(i=>`${X(i)},${Y(s.pts[i].est)}`);
+    if(pts.length>1) o+=`<polyline points="${pts.join(' ')}" fill="none" stroke="${s.color}" stroke-width="2"/>`;
+    idx.forEach(i=>{const p=s.pts[i];
+      o+=`<circle cx="${X(i)}" cy="${Y(p.est)}" r="${pts.length===1?4.5:3.6}" fill="${s.color}" stroke="#fff" stroke-width="1.2">`
+        +`<title>${esc(frames[i].label)}: ${p.est}% (95% CI ${p.lo}–${p.hi}%), ${p.x}/${p.n}</title></circle>`;});
+  });
+  return o+'</svg>';
+}
+R.trends=()=>{
+  if(!TR) return `<h2 class="sec">Trends over time</h2><div class="callout"><b>No time-resolved data.</b></div>`;
+  const cm=(CAP.covered_markers||[]).filter(k=>D.markers.find(m=>m.key===k&&m.assessed)&&trIdx(k)>=0);
+  const dflt=(D.markers.filter(m=>m.assessed&&m.action).sort((a,b)=>b.est-a.est)[0]
+            ||D.markers.filter(m=>m.assessed&&m.who).sort((a,b)=>b.est-a.est)[0]||{}).key||cm[0];
+  return `<h2 class="sec">Trends over time</h2>
+    <div class="sec-desc">Prevalence by collection period, from the same QC-pass samples as the pooled view &mdash; every frame is summed from per-year counts, so the periods always add up to the pooled figure. Sparse years are merged into periods with a usable denominator (a year reaching n&ge;${TR.min_frame_n} stands alone); switch to single years to see the raw series.</div>
+    ${classLegend()}
+    <div class="controls">
+      <label>Marker: <select id="trmk">${cm.map(k=>{const m=D.markers.find(x=>x.key===k);
+        return `<option value="${k}"${k===dflt?' selected':''}>${esc(markerLabel(m))}</option>`;}).join('')}</select></label>
+      <label>Granularity: <select id="trgran"><option value="frames">Periods (${TR.frames.length})</option><option value="years">Single years (${TR.years.length})</option></select></label>
+      <label>Min samples/region: <b id="trminlab">${MINN}</b> <input type="range" id="trmin" min="1" max="30" value="${MINN}"></label>
+      <span id="trscope"></span>
+    </div>
+    <div class="grid two" style="margin-top:4px">
+      <div class="card"><h3 id="trtitle">Prevalence over time</h3>
+        <div class="hint">Shaded band = 95% Wilson CI. Faint grey lines are the other WHO-tracked markers for context. Hover a point for n.</div>
+        <div id="trchart"></div></div>
+      <div class="card" tabindex="0" id="trmapcard"><h3>Map by period <span class="sub" id="trmaplab"></span></h3>
+        <div class="hint">Step with the arrows (or ←/→ keys when this card is focused) to flicker between consecutive periods &mdash; colour bins are fixed across all periods, so a colour change is a real change. Click a region to scope the chart and table to it.</div>
+        <div class="stepbar">
+          <button class="step" id="trprev" title="Previous period">◀</button>
+          <div><div class="frame" id="trframe"></div><div class="sub" id="trframen"></div></div>
+          <button class="step" id="trnext" title="Next period">▶</button>
+          <button class="step" id="trplay" title="Play / pause">▶ Play</button>
+          <button class="step" id="trdiff" title="Show change vs previous period">Δ vs previous</button>
+        </div>
+        <div id="trmap"></div><div id="trlegend"></div><div class="readout" id="trreadout">Click a region…</div></div>
+    </div>
+    <div class="grid two" style="margin-top:16px">
+      <div class="card"><h3>Samples per period</h3><div class="hint">Denominator behind each frame; the current frame is highlighted.</div><div id="trbars"></div></div>
+      <div class="card"><h3 id="trtbltitle">By period</h3><div class="hint" id="trdl"></div><div id="trtable"></div></div>
+    </div>`;
+};
+function wireTrends(){
+  if(!TR) return;
+  const mkSel=$('#trmk'), gran=$('#trgran'), mn=$('#trmin');
+  if(!mkSel) return;
+  let idx=0, diff=false, timer=null, scope=null;     // scope=null -> national
+  const frames=()=>trFrames(gran.value);
+  const stat=(years,mi)=>scope?trUnit(scope,years,mi):trNat(years,mi);
+  const series=(mi)=>frames().map(f=>{const t=stat(f.years,mi);
+    return t.d?Object.assign({x:t.x,n:t.d},wilsonJS(t.x,t.d)):null;});
+  const binsFor=mi=>{                                 // fixed across every frame
+    const vs=[]; frames().forEach(f=>D.units.forEach(u=>{const t=trUnit(u.name,f.years,mi);
+      if(t.d&&t.n>=MINN) vs.push(100*t.x/t.d);}));
+    const mx=Math.max(2,...vs); return mx<=10?[0,1,2,5,10,20,100]:[0,2,5,10,20,50,100];
+  };
+  const draw=()=>{
+    const key=mkSel.value, mi=trIdx(key), fs=frames();
+    if(idx>=fs.length) idx=fs.length-1; if(idx<0) idx=0;
+    const f=fs[idx], prev=idx>0?fs[idx-1]:null;
+    const m=D.markers.find(x=>x.key===key)||{};
+    const ser=[{pts:series(mi),color:'var(--s1)',band:true}];
+    if(!scope) D.markers.filter(x=>x.assessed&&x.who&&x.key!==key).slice(0,24).forEach(x=>{
+      const j=trIdx(x.key); if(j>=0) ser.push({pts:series(j),faint:true});});
+    $('#trtitle').textContent=`${m.gene||''} ${m.aa||''} — ${scope?scope:'national'} prevalence over time`;
+    $('#trchart').innerHTML=trendChart(fs,ser);
+    const br=diff?DIVBR:binsFor(mi), cols=diff?DIVC:RED;
+    const val=u=>{ if(!u) return null;
+      const t=trUnit(u.name,f.years,mi); if(!t.d||t.n<MINN) return null;
+      const now=100*t.x/t.d;
+      if(!diff) return now;
+      if(!prev) return null;
+      const q=trUnit(u.name,prev.years,mi); if(!q.d||q.n<MINN) return null;
+      return now-100*q.x/q.d; };
+    $('#trmap').innerHTML=choropleth(val,u=>u?trUnit(u.name,f.years,mi).n:0,br,cols,diff?' pp':'%');
+    $('#trlegend').innerHTML=binnedLegend(br,cols,diff?' pp':'%',diff?null:RES_PCT);
+    $('#trframe').textContent=f.label;
+    const fn=f.years.reduce((a,y)=>a+(TR.year_n[y]||0),0);
+    $('#trframen').textContent=`n=${nf(fn)} · frame ${idx+1}/${fs.length}`;
+    $('#trmaplab').textContent=diff?(prev?`Δ ${f.label} vs ${prev.label} (percentage points)`:'(no previous period)'):'';
+    $('#trprev').disabled=idx===0; $('#trnext').disabled=idx===fs.length-1;
+    $('#trdiff').classList.toggle('on',diff);
+    $('#trscope').innerHTML=scope?`<span class="scopechip">scope: ${esc(scope)}</span> <button class="lnk" id="trclear">national</button>`:`<span class="scopechip">scope: national</span>`;
+    const cl=$('#trclear'); if(cl) cl.onclick=()=>{scope=null; clearRegions(); draw();};
+    $('#trbars').innerHTML=bars(fs.map((x,i)=>({label:x.label,
+        v:(scope?x.years.reduce((a,y)=>a+trUnit(scope,[y],0).n,0):x.years.reduce((a,y)=>a+(TR.year_n[y]||0),0)),
+        color:i===idx?'var(--accent)':'var(--s1)'})),{w:520});
+    const sr=series(mi);
+    let rows=`<div class="scroll"><table><thead><tr><th>Period</th><th class="num">n tested</th><th class="num">carrying</th><th class="num">Prevalence</th><th class="num">95% CI</th><th class="num">Δ vs prev</th><th>Flag</th></tr></thead><tbody>`;
+    sr.forEach((p,i)=>{const pr=i>0?sr[i-1]:null;
+      const dv=(p&&pr)?(p.est-pr.est):null;
+      rows+=`<tr${i===idx?' class="region-sel"':''}><td>${esc(fs[i].label)}</td>`
+        +(p?`<td class="num">${nf(p.n)}</td><td class="num">${nf(p.x)}</td><td class="num">${pct(p.est)}</td><td class="num ci-txt">${ci(p.lo,p.hi)}</td>`
+           +`<td class="num">${dv==null?'—':(dv>0?'+':'')+dv.toFixed(1)+' pp'}</td>`
+           +`<td>${(m.cls==='confirmed'&&p.est>=RES_PCT)?`<span class="pill action">≥${RES_PCT}%</span>`:''}</td>`
+          :`<td class="num hint" colspan="5">not assessed</td><td></td>`)+`</tr>`;});
+    $('#trtable').innerHTML=rows+`</tbody></table></div>`;
+    $('#trtbltitle').textContent=`${m.gene||''} ${m.aa||''} by period — ${scope?scope:'national'}`;
+    $('#trdl').innerHTML=csvDL(`trend_${key}_${scope?scope.replace(/\W+/g,'_'):'national'}.csv`,
+      fs.map((x,i)=>({period:x.label,years:x.years.join(' '),scope:scope||'national',marker:`${m.gene} ${m.aa}`,
+        n_tested:(sr[i]?sr[i].n:''),carrying:(sr[i]?sr[i].x:''),prevalence_pct:(sr[i]?sr[i].est:''),
+        ci_low:(sr[i]?sr[i].lo:''),ci_high:(sr[i]?sr[i].hi:'')})));
+  };
+  const step=d=>{const fs=frames(); idx=Math.max(0,Math.min(fs.length-1,idx+d)); draw();};
+  $('#trprev').onclick=()=>step(-1); $('#trnext').onclick=()=>step(1);
+  $('#trdiff').onclick=()=>{diff=!diff; draw();};
+  $('#trplay').onclick=()=>{
+    if(timer){clearInterval(timer); timer=null; $('#trplay').innerHTML='▶ Play'; $('#trplay').classList.remove('on'); return;}
+    $('#trplay').innerHTML='❚❚ Pause'; $('#trplay').classList.add('on');
+    timer=setInterval(()=>{const fs=frames(); idx=(idx+1)%fs.length; draw();},1100);
+  };
+  $('#trmapcard').addEventListener('keydown',e=>{
+    if(e.key==='ArrowLeft'){e.preventDefault(); step(-1);}
+    else if(e.key==='ArrowRight'){e.preventDefault(); step(1);}});
+  $('#trmap').addEventListener('click',e=>{
+    const el=e.target.closest('path[onclick]'); if(!el) return;
+    const t=el.querySelector('title'); if(!t) return;
+    const nm=t.textContent.split(':')[0].trim();
+    scope=(scope===nm)?null:nm; draw();});
+  mkSel.onchange=()=>draw(); gran.onchange=()=>{idx=0; draw();};
+  mn.oninput=()=>{MINN=+mn.value; $('#trminlab').textContent=MINN; draw();};
+  draw();
+}
 R.export=()=>{
   const e=D.export, order=e.order||Object.keys(e.views||{});
   let html=`<h2 class="sec">Export \u2014 dashboard-ready views</h2>
@@ -532,6 +776,8 @@ R.methods=()=>{
         <li>Resistance markers &amp; WHO-tracked status: <a href="${who}" target="_blank" rel="noopener">WHO Compendium of molecular markers for antimalarial drug resistance</a>.</li>
         <li>Resistance action flag: ≥${RES_PCT}% — aligns with the WHO therapeutic-efficacy-study / treatment-failure (≥10%) trigger for changing first-line policy.</li>
         <li>Marker classes follow the WHO compendium: <b>WHO-tracked</b> (highest evidence class), <b>WHO candidate</b>, <b>WHO potential</b> (includes codons listed only inside WHO haplotypes). Loci the assay panel types that WHO does not track are labelled <b>Panel / background</b> (e.g. Pfarps10, Pffd, Pfmdr2, Pfexo, Pfmdr1 Y184F) or <b>Research</b> (e.g. Pfaat1, Pfcarl, Pfubp1, Pfap2-mu). All are counted; only WHO-confirmed markers carry the action flag.</li>
+        <li>Time periods: the Trends tab and the Resistance period filter group collection years into frames with a usable denominator — a year reaching n&ge;${TR?TR.min_frame_n:100} QC-pass samples stands alone, sparser runs are merged. Every frame is summed from per-year counts, so the frames always add up to the pooled figure; the pooled view remains the default everywhere. Prevalence by period is subject to the same min-sample suppression as the pooled view, and a marker with no calls in a period reads "not assessed" rather than 0%.</li>
+        <li>Trend caveat: these cohorts were not sampled uniformly over time (districts enter and leave the sampling frame), so part of any national change over time reflects <i>where</i> samples came from, not only parasite population change. The samples-per-period chart is shown alongside every trend for that reason; scope a region to remove the composition effect.</li>
         <li>Admin-2 boundaries: geoBoundaries (SEN ADM2). Admin-3 shown when available; collection dates assumed available (contingency messaging if absent).</li>
       </ul></div>
     <div class="callout ${REAL?'':'amber'}" style="margin-top:14px"><b>Data status.</b> ${REAL?esc(M.data_source||'Real data.')+`. Prevalence = carriers ÷ QC-pass infections typed at the locus. Thresholds &amp; WHO-tracked status are the published WHO criteria.`:`Design mock-up (${M.version}) with synthetic prevalence values. Thresholds, WHO-tracked status, and marker lists are real; the numbers are fabricated for layout review.`}</div>`;
@@ -541,6 +787,7 @@ R.methods=()=>{
 TABS.forEach(t=>{const el=$('#pg-'+t); if(R[t]) el.innerHTML=R[t]();});
 if($('#pg-resistance')) wireResistance();
 if($('#pg-export')) wireExport();
+if($('#pg-trends')) wireTrends();
 $('#footer').innerHTML=`Malaria Molecular Surveillance — ${esc(M.country)} · ${esc(M.assay_full)} · ${M.period} · ${M.version} (${REAL?'real data':'synthetic data'}).`;
 </script>
 </body>

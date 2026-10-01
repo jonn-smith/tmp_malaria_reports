@@ -9,7 +9,11 @@ focused on **resistance markers** — WHO-tracked drug-resistance amino-acid cha
 (k13, crt, mdr1, dhfr, dhps, cytb, …) with prevalence + 95% Wilson CIs, per admin-2
 choropleth, and a WHO action-threshold flag (≥10%). Research (non-WHO) markers are
 labelled. A **Summary** stoplight, an **Export** tab (dashboard-ready views), and a
-**Methods** tab (statistics, thresholds, pipeline links) round out each report.
+**Methods** tab (statistics, thresholds, pipeline links) round out each report. A
+**Trends** tab adds prevalence over time: a trend chart with 95% CI bands, a
+period-stepper choropleth you can flicker between consecutive periods, samples-per-period
+bars, and a per-period table. The Resistance tab gains a period filter; **pooled
+(all years) stays the default everywhere**.
 
 > **Scope (since v0.8):** the Diagnostics (*pfhrp2/3* deletions) and Transmission
 > (COI / diversity) sections were removed for the first release — resistance markers
@@ -18,20 +22,25 @@ labelled. A **Summary** stoplight, an **Export** tab (dashboard-ready views), an
 > **v0.9:** marker catalogue rebuilt from the WHO compendium plus the codons each
 > assay actually types — 80 markers, each labelled by evidence class (WHO-tracked /
 > candidate / potential, or panel-background / research).
+>
+> **v0.10:** time dimension — Trends tab (trend chart with CI bands, period-stepper
+> choropleth, samples-per-period bars, per-period table) and a period filter on the
+> Resistance tab. Periods are built adaptively so each frame has a usable denominator,
+> and every frame sums from per-year counts back to the pooled figure.
 
 ## Two kinds of report
 
 | Kind | Files | Data |
 |---|---|---|
-| **Synthetic mock-ups** (in this repo) | `reports/senegal_malaria_surveillance_{WGS,MAD4HATTER,NOMADS,COMBINED}_v0.9.html` | Illustrative, fabricated values (MOCK-UP banner). Real WHO thresholds / marker lists. |
-| **Real-data reports** (not committed) | `…_{WGS,MAD4HATTER}_v0.9-real.html` | Real Senegal data. **Excluded from this repo** — they embed real per-sample genotypes/coordinates; regenerate locally (below). |
+| **Synthetic mock-ups** (in this repo) | `reports/senegal_malaria_surveillance_{WGS,MAD4HATTER,NOMADS,COMBINED}_v0.10.html` | Illustrative, fabricated values (MOCK-UP banner). Real WHO thresholds / marker lists. |
+| **Real-data reports** (not committed) | `…_{WGS,MAD4HATTER}_v0.10-real.html` | Real Senegal data. **Excluded from this repo** — they embed real per-sample genotypes/coordinates; regenerate locally (below). |
 
 ## Build
 
 Synthetic mock-ups (no external data needed):
 
 ```bash
-./build_reports.sh v0.9      # writes reports/senegal_malaria_surveillance_<ASSAY>_v0.9.html
+./build_reports.sh v0.10      # writes reports/senegal_malaria_surveillance_<ASSAY>_v0.10.html
 ```
 
 Real-data reports (require the private Terra inputs, not in this repo — pass `""` to skip an assay):
@@ -41,7 +50,7 @@ Real-data reports (require the private Terra inputs, not in this repo — pass `
 # MAD  = UCSF mad4hatter outputs: <resmarker_dir> (resmarker_table.txt per run),
 #        <site_metadata.csv> (Sample_id,Country=site,Latitude,Longitude), <allele_dir> (allele_data.txt for COI)
 ./build_real_reports.sh <sample.tsv> <resmarker_dir> <site_metadata.csv> <allele_dir>
-# -> reports/senegal_malaria_surveillance_{WGS,MAD4HATTER}_v0.9-real.html  (git-ignored; embed real per-sample data)
+# -> reports/senegal_malaria_surveillance_{WGS,MAD4HATTER}_v0.10-real.html  (git-ignored; embed real per-sample data)
 ```
 
 Under the hood this runs `scripts/load_wgs.py` / `scripts/load_mad.py` and injects the resulting JSON into
@@ -104,4 +113,4 @@ progress popup), so the page stays small; the on-screen table shows a preview.
 - Synthetic reports carry **fabricated** prevalence values (layout review only).
 - Validation is via jsdom + a static SVG-geometry check (no browser in the build env).
 
-Versioning: the version is always in the filename; current = **v0.9**.
+Versioning: the version is always in the filename; current = **v0.10**.
