@@ -1,0 +1,17 @@
+{
+  "MalariaSurveillanceReportNomads.marker_calls_tables": [
+    "gs://BUCKET/nomads/run1.marker_calls.tsv"
+  ],
+  "MalariaSurveillanceReportNomads.cohort_name": "SEN_NOMADS_2024",
+
+  "MalariaSurveillanceReportNomads.site_metadata": "gs://BUCKET/nomads/site_metadata.csv",
+  "MalariaSurveillanceReportNomads.version_label": "v0.11-real",
+  "MalariaSurveillanceReportNomads.data_source": "NOMADS ONT amplicon · nomadic marker calls",
+  "MalariaSurveillanceReportNomads.gcs_out_root_dir": "gs://BUCKET/malaria_reports",
+
+  "##_marker_calls_schema": "one row per sample x marker; see docs/WDL_INTERFACE.md section 5",
+  "##_optional_rendering_levers": "all three are optional; see docs/WDL_INTERFACE.md section 4",
+  "##_render_config_json": "gs://BUCKET/config/render_config.json",
+  "##_report_template_override": "gs://BUCKET/templates/report.template.html",
+  "##_reference_bundle_tar": "gs://BUCKET/reference/reference_bundle.tar.gz"
+}

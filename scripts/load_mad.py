@@ -41,7 +41,7 @@ def load_meta(path):
     return m
 
 # --- point-in-polygon dept assignment (sen ADM2) ---
-_FEATS = json.load(open(os.path.join(os.path.dirname(HERE), 'reference', 'sen_adm2.geojson')))['features']
+_FEATS = json.load(open(os.path.join(G.REF_DIR, 'sen_adm2.geojson')))['features']
 def _rings(g): return g['coordinates'] if g['type'] == 'MultiPolygon' else [g['coordinates']]
 def _pip(lon, lat, poly):
     pts = poly[0]; n = len(pts); ins = False; j = n-1

@@ -35,7 +35,13 @@ def fmt_years(ys):
 random.seed(505)
 def _na(x):  # accent- & case-insensitive key for name lookups (geoBoundaries names are un-accented)
     return ''.join(c for c in unicodedata.normalize('NFD', str(x)) if unicodedata.category(c) != 'Mn').lower().strip()
-VERSION = sys.argv[1] if len(sys.argv) > 1 else 'v0.11'   # single source of truth; build_reports.sh passes it
+# Version label stamped into every report. Importers set it with set_version(); the CLI
+# below takes it as argv[1]. Not read from argv at import time so that this module can be
+# imported as a library (make_report.py) without inheriting the caller's arguments.
+VERSION = 'v0.11'
+def set_version(v):
+    global VERSION
+    if v: VERSION = v
 
 Z = 1.959963985
 def wilson(x, n):
@@ -48,8 +54,12 @@ def cnt(p, n): return int(round(p/100.0*n))
 
 import os as _os
 ROOT = _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__)))  # repo root (this file lives in scripts/)
-MAP = json.load(open(_os.path.join(ROOT, 'reference', 'sen_admin2_map.json')))
-PHA4GE_FIELDS = json.load(open(_os.path.join(ROOT, 'schemas', 'pha4ge_fields.json')))
+# Reference/schema locations are overridable so a deployment can supply updated boundaries
+# or an updated WHO compendium without rebuilding the container (see docs/WDL_INTERFACE.md).
+REF_DIR    = _os.environ.get('MALARIA_REPORTS_REF_DIR')    or _os.path.join(ROOT, 'reference')
+SCHEMA_DIR = _os.environ.get('MALARIA_REPORTS_SCHEMA_DIR') or _os.path.join(ROOT, 'schemas')
+MAP = json.load(open(_os.path.join(REF_DIR, 'sen_admin2_map.json')))
+PHA4GE_FIELDS = json.load(open(_os.path.join(SCHEMA_DIR, 'pha4ge_fields.json')))
 DEPTS = MAP['depts']
 latMin = min(d['lat'] for d in DEPTS); latMax = max(d['lat'] for d in DEPTS)
 def southness(lat): return (latMax - lat)/(latMax - latMin)
@@ -259,7 +269,7 @@ def _who_index():
     """gene token -> list of (components, who_class_string, raw_alt). A
     'Pfdhfr & Pfdhps' row is split so each gene gets only its own alterations."""
     idx = {}
-    for r in json.load(open(_os.path.join(ROOT, 'reference', 'who_combined.json'))):
+    for r in json.load(open(_os.path.join(REF_DIR, 'who_combined.json'))):
         genes = [g.strip() for g in r['gene'].split('&')]
         alts  = [a.strip() for a in r['alt'].split('&')]
         if len(genes) > 1 and len(alts) != len(genes): continue
@@ -491,9 +501,7 @@ def build_assay(name, spec):
         units.append(rec)
     return assemble_report(name, spec, units)
 
-reports={name:build_assay(name,spec) for name,spec in ASSAYS.items()}
-
-def build_combined():
+def build_combined(reports):
     units=[]
     for d in DEPTS:
         recs={a:next(u for u in reports[a]['units'] if u['name']==d['name']) for a in ASSAYS}
@@ -557,7 +565,13 @@ def build_combined():
              markers=natmarkers,stoplight=stoplight,marker_defs={k:MK[k] for k in MK})
     if ctrends: out['trends']=ctrends
     return out
-reports['COMBINED']=build_combined()
+
+def build_synthetic_reports():
+    """Build the four synthetic mock-up reports (design review only)."""
+    reports = {name: build_assay(name, spec) for name, spec in ASSAYS.items()}
+    reports['COMBINED'] = build_combined(reports)
+    for a in reports: add_export(reports[a])
+    return reports
 
 # Senegal admin-2 (department) -> admin-1 (region), best-effort for the Africa CDC "Region" column.
 SEN_REGION = {
@@ -699,7 +713,6 @@ def add_export(rep):
     _pack_export(rep, {'who': who, 'afcdc': afc_mut, 'pha4ge': pha4ge, 'dhis2': dhis},
         order=['who', 'dhis2', 'afcdc', 'pha4ge'],
         note='Africa CDC (Mutation/Haplotype) lists one row per sample × observed mutant alteration; AF-CDC Marker-Centric gives per sample × codon wildtype/mutation counts; PHA4GE follows the Malaria Community Standard (human sample); DHIS2 follows the dataValueSet schema. Values are synthetic; WHO Malaria Threats Map layout is representative.')
-for a in reports: add_export(reports[a])
 
 def project(lon, lat):
     """lon/lat -> SVG x,y using the SAME equirectangular projection as build_maps.py (via MAP bounds)."""
@@ -786,41 +799,46 @@ def real_export(rep, samples, assay_name, max_afcdc=500):
               'endemicity, study type, host subject ID, haplotype) are not captured in the sequencing data.'))
     return rep
 
-_os.makedirs(_os.path.join(ROOT,'build'), exist_ok=True)
-for a,rep in reports.items():
-    json.dump(rep,open(_os.path.join(ROOT,'build',f'data_{a.lower()}.json'),'w'),separators=(',',':'))
+if __name__ == '__main__':
+    # CLI: build the synthetic mock-up data blobs + run the self-checks.
+    #   python3 gen_reports.py <version-label>
+    set_version(sys.argv[1] if len(sys.argv) > 1 else VERSION)
+    reports = build_synthetic_reports()
+    _os.makedirs(_os.path.join(ROOT,'build'), exist_ok=True)
+    for a,rep in reports.items():
+        json.dump(rep,open(_os.path.join(ROOT,'build',f'data_{a.lower()}.json'),'w'),separators=(',',':'))
 
-# ---- self-checks -----------------------------------------------------------
-assert abs(wilson(10,100)[1]-5.52)<0.05
-for name in ('WGS','MAD4HATTER','NOMADS','COMBINED'):
-    r=reports[name]; m=r['meta']
-    assert 'incidence' not in json.dumps(r).lower(), f'{name}: incidence leaked'
-    # "validated" may appear only inside WHO's defined class name. Walk display strings
-    # (the internal 'cls' key is a machine value, never rendered).
-    def _walk(o, key=None):
-        if isinstance(o, dict):
-            for k, v in o.items(): _walk(v, k)
-        elif isinstance(o, list):
-            for v in o: _walk(v)
-        elif isinstance(o, str) and key != 'cls':
-            for mo in re.finditer(r'validated', o, re.I):
-                assert o[mo.start():mo.start()+len('Validated marker')] == 'Validated marker', \
-                    f'{name}: "validated" outside WHO\'s defined term, in {key!r}: {o[:120]!r}'
-    _walk(r)
-    assert 'diagnostics' not in r['capabilities']['tabs'] and 'transmission' not in r['capabilities']['tabs']
-    assert 'diagnostics' not in r and 'transmission' not in r
-    assert m['marker_action_pct']==10.0
-    nonwho=[mk for mk in r['markers'] if mk.get('assessed') and not mk['who']]
-    print(f"{name:11s} units={m['n_units_sampled']:2d}/{m['n_units_total']} n={m['n_qc']:5d} "
-          f"markers={sum(1 for mk in r['markers'] if mk.get('assessed'))} (nonWHO={len(nonwho)}) "
-          f"tabs={','.join(r['capabilities']['tabs'])}")
-for name in ('WGS','MAD4HATTER','NOMADS','COMBINED'):
-    tr=reports[name].get('trends')
-    assert tr, f'{name}: no trends block'
-    assert [y for f in tr['frames'] for y in f['years']]==tr['years'], f'{name}: frames do not partition years in order'
-    for f in tr['frames']:
-        assert sum(tr['year_n'][y] for y in f['years'])>0, f'{name} {f["key"]}: empty frame'
-    print(f"{name:11s} trends: {len(tr['years'])} years -> {len(tr['frames'])} frames "
-          f"[{', '.join(f['label']+'(n='+str(sum(tr['year_n'][y] for y in f['years']))+')' for f in tr['frames'])}]")
-print("stoplight (WGS):", [(s['cat'],s['status']) for s in reports['WGS']['stoplight']])
-print("ALL CHECKS PASS")
+    # ---- self-checks -----------------------------------------------------------
+    assert abs(wilson(10,100)[1]-5.52)<0.05
+    for name in ('WGS','MAD4HATTER','NOMADS','COMBINED'):
+        r=reports[name]; m=r['meta']
+        assert 'incidence' not in json.dumps(r).lower(), f'{name}: incidence leaked'
+        # "validated" may appear only inside WHO's defined class name. Walk display strings
+        # (the internal 'cls' key is a machine value, never rendered).
+        def _walk(o, key=None):
+            if isinstance(o, dict):
+                for k, v in o.items(): _walk(v, k)
+            elif isinstance(o, list):
+                for v in o: _walk(v)
+            elif isinstance(o, str) and key != 'cls':
+                for mo in re.finditer(r'validated', o, re.I):
+                    assert o[mo.start():mo.start()+len('Validated marker')] == 'Validated marker', \
+                        f'{name}: "validated" outside WHO\'s defined term, in {key!r}: {o[:120]!r}'
+        _walk(r)
+        assert 'diagnostics' not in r['capabilities']['tabs'] and 'transmission' not in r['capabilities']['tabs']
+        assert 'diagnostics' not in r and 'transmission' not in r
+        assert m['marker_action_pct']==10.0
+        nonwho=[mk for mk in r['markers'] if mk.get('assessed') and not mk['who']]
+        print(f"{name:11s} units={m['n_units_sampled']:2d}/{m['n_units_total']} n={m['n_qc']:5d} "
+              f"markers={sum(1 for mk in r['markers'] if mk.get('assessed'))} (nonWHO={len(nonwho)}) "
+              f"tabs={','.join(r['capabilities']['tabs'])}")
+    for name in ('WGS','MAD4HATTER','NOMADS','COMBINED'):
+        tr=reports[name].get('trends')
+        assert tr, f'{name}: no trends block'
+        assert [y for f in tr['frames'] for y in f['years']]==tr['years'], f'{name}: frames do not partition years in order'
+        for f in tr['frames']:
+            assert sum(tr['year_n'][y] for y in f['years'])>0, f'{name} {f["key"]}: empty frame'
+        print(f"{name:11s} trends: {len(tr['years'])} years -> {len(tr['frames'])} frames "
+              f"[{', '.join(f['label']+'(n='+str(sum(tr['year_n'][y] for y in f['years']))+')' for f in tr['frames'])}]")
+    print("stoplight (WGS):", [(s['cat'],s['status']) for s in reports['WGS']['stoplight']])
+    print("ALL CHECKS PASS")

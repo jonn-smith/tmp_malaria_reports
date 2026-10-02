@@ -1,0 +1,9 @@
+{
+  "min_samples": 5,
+  "marker_action_pct": 10.0,
+  "min_frame_n": 100,
+
+  "_comment": "Keys above are understood by the report model. Any OTHER key here is copied verbatim into the report metadata (DATA.meta) for a template to read, which is how new rendering settings are added without changing the WDL interface. Examples:",
+  "programme_contact": "National Malaria Control Programme, Senegal",
+  "report_title_suffix": "sentinel surveillance"
+}
