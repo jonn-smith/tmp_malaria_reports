@@ -325,6 +325,55 @@ del _k, _m, _cls, _who, _how, _desc
 
 MARKER_PCT = 10.0
 MIN_FRAME_N = 100     # a year with >= this many QC pass samples becomes its own trend frame
+
+class Selection:
+    """An optional sample allow-list. Report prevalence is a proportion, so a filtered
+    cohort has to be visible in the report rather than silently changing the denominators:
+    this tracks what was asked for, what matched and what was never seen, and
+    assemble_report() stamps all of it into the report metadata."""
+
+    def __init__(self, ids=None, label=None):
+        self.label = label or ''
+        self.requested = [i for i in (ids or []) if i]
+        self._want = set(self.requested)
+        self.matched = set()
+
+    def __bool__(self):
+        return bool(self._want)
+
+    def keep(self, *candidate_ids):
+        """True when the sample should be included. Several id forms may be offered
+        (e.g. a run-suffixed MAD4HATTER id and its base id); any match keeps the sample."""
+        if not self._want:
+            return True
+        for cid in candidate_ids:
+            if cid and cid in self._want:
+                self.matched.add(cid)
+                return True
+        return False
+
+    def meta(self):
+        if not self._want:
+            return {}
+        missing = sorted(self._want - self.matched)
+        return {'sample_selection': self.label or 'explicit sample list',
+                'n_requested': len(self.requested),
+                'n_matched': len(self.matched),
+                'n_requested_missing': len(missing),
+                'requested_missing_examples': missing[:20]}
+
+    @staticmethod
+    def from_arg(arg, label=None):
+        """arg is a path to a file of ids (one per line) or a comma-separated list."""
+        if not arg:
+            return Selection()
+        if _os.path.exists(arg):
+            with open(arg) as fh:
+                ids = [ln.strip() for ln in fh if ln.strip() and not ln.startswith('#')]
+        else:
+            ids = [t.strip() for t in arg.split(',') if t.strip()]
+        return Selection(ids, label)
+
 HRP_PCT    = 5.0
 MIN_SAMPLES = 5
 MONTHS = [f'2024-{m:02d}' for m in range(1,13)]
@@ -386,7 +435,7 @@ def build_trends(covered, units):
             'frames': make_frames(year_counts), 'nat': nat, 'units': uout,
             'min_frame_n': MIN_FRAME_N}
 
-def assemble_report(name, spec, units):
+def assemble_report(name, spec, units, selection=None):
     """Assemble the template DATA blob from per-admin-2 unit records.
     Shared by the synthetic generator (build_assay) and real-data loaders
     (load_wgs.py, ...). Each unit dict: name, sampled(bool), n(QC pass denom),
@@ -433,6 +482,8 @@ def assemble_report(name, spec, units):
               n_units_sampled=len(chosen_names),n_units_total=len(DEPTS),n_collected=tot_col,n_qc=tot_qc,
               n_called=tot_qc,   # loaders override: QC pass samples with >=1 marker genotype call
               qc_rate=round(100*tot_qc/tot_col,1) if tot_col else 0)
+    if selection is not None:
+        meta.update(selection.meta())
     caps=dict(tabs=tabs,genes=sorted(spec['genes']),covered_markers=covered)
     # v0.8: COI (transmission) and HRP2/3 (diagnostics) sections removed from the report;
     # per-unit hrp/div inputs are accepted from loaders but not emitted.

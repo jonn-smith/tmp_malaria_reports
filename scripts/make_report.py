@@ -52,6 +52,15 @@ def parse_args(argv=None):
     # shared
     p.add_argument('--site-metadata', help='Per-sample site/coordinate table (MAD4HATTER, NOMADS)')
 
+    # sample selection
+    p.add_argument('--sample-ids', default=None,
+                   help='Restrict the report to these samples: a file with one sample id per '
+                        'line (# comments allowed) or a comma-separated list. Omit to use every '
+                        'sample in the inputs.')
+    p.add_argument('--selection-label', default=None,
+                   help='Human-readable name for the selection, shown in the report '
+                        '(e.g. a Terra sample_set name)')
+
     # stable knobs
     p.add_argument('--version-label', default=None, help='Version string stamped on the report')
     p.add_argument('--data-source', default=None, help='Provenance line shown in the report banner')
@@ -99,11 +108,15 @@ def main(argv=None):
     version = a.version_label or cfg.get('version') or G.VERSION
     G.set_version(version)
 
+    # A selection changes every denominator in the report, so it is carried through to the
+    # metadata and rendered, rather than quietly narrowing the cohort.
+    selection = G.Selection.from_arg(a.sample_ids, a.selection_label or cfg.get('selection_label'))
+
     if a.assay == 'WGS':
         if not a.sample_table:
             raise SystemExit('--assay WGS requires --sample-table')
         import load_wgs
-        rep = load_wgs.load(a.sample_table)
+        rep = load_wgs.load(a.sample_table, selection)
     elif a.assay == 'MAD4HATTER':
         if not a.resmarker_table or not a.site_metadata:
             raise SystemExit('--assay MAD4HATTER requires --resmarker-table and --site-metadata')
@@ -111,12 +124,12 @@ def main(argv=None):
         # load_mad takes directories; stage the listed files into one
         rm_dir = _stage('resmarker', a.resmarker_table)
         ad_dir = _stage('allele', a.allele_table) if a.allele_table else None
-        rep = load_mad.load(rm_dir, a.site_metadata, ad_dir)
+        rep = load_mad.load(rm_dir, a.site_metadata, ad_dir, selection)
     else:
         if not a.marker_calls:
             raise SystemExit('--assay NOMADS requires --marker-calls')
         import load_nomads
-        rep = load_nomads.load(a.marker_calls, a.site_metadata)
+        rep = load_nomads.load(a.marker_calls, a.site_metadata, selection=selection)
 
     # metadata overrides: explicit flags win over the config file
     rep['meta']['version'] = version
@@ -145,6 +158,14 @@ def main(argv=None):
         write_export_csvs(rep, a.out_csv_dir)
 
     m = rep['meta']
+    if selection:
+        sys.stderr.write(f"[make_report] selection '{m.get('sample_selection')}': "
+                         f"{m.get('n_matched')} of {m.get('n_requested')} requested samples matched"
+                         + (f", {m['n_requested_missing']} not found (e.g. "
+                            f"{', '.join(m['requested_missing_examples'][:3])})"
+                            if m.get('n_requested_missing') else '') + '\n')
+        if not m.get('n_matched'):
+            raise SystemExit('no samples matched --sample-ids; refusing to build an empty report')
     sys.stderr.write(f"[make_report] {a.assay} {version}: {m['n_qc']} QC pass samples, "
                      f"{m['n_units_sampled']}/{m['n_units_total']} admin-2 units, period {m['period']}\n")
     sys.stderr.write(f"[make_report] wrote {a.out_html} and {a.out_data_json}\n")

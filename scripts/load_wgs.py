@@ -92,7 +92,7 @@ def coi_from_barcode(bc):
     hets = bc.count('N')
     return 1 + hets, hets > 0
 
-def load(sample_tsv):
+def load(sample_tsv, selection=None):
     with open(sample_tsv, newline='') as f:
         rdr = csv.DictReader(f, delimiter='\t')
         mcols = marker_columns(rdr.fieldnames)
@@ -103,6 +103,8 @@ def load(sample_tsv):
             sid = (row.get('entity:sample_id') or '').strip()
             if not sid.startswith('SEN_'):            # drop controls / non-Senegal (3D7, Dd2, ...)
                 drop['not_sen'] += 1; continue
+            if selection is not None and not selection.keep(sid):
+                drop['not_selected'] = drop.get('not_selected', 0) + 1; continue
             dept = dept_of(row)
             if not dept:
                 drop['no_dept'] += 1; unmatched.add((row.get('District') or '').strip()); continue
@@ -168,7 +170,7 @@ def load(sample_tsv):
     sys.stderr.write(f"[load_wgs] depts sampled={ns}/{len(units)} qc_samples={sum(u.get('n',0) for u in units)} "
                      f"dropped: non-SEN={drop['not_sen']} no_dept={drop['no_dept']}"
                      + (f" (unmatched districts: {sorted(x for x in unmatched if x)})" if unmatched else "") + "\n")
-    rep = G.assemble_report('WGS', G.ASSAYS['WGS'], units)
+    rep = G.assemble_report('WGS', G.ASSAYS['WGS'], units, selection)
     rep['meta']['real'] = True
     rep['meta']['n_called'] = sum(1 for s_ in samples if s_.get('calls'))
     rep['meta']['version'] = 'v0.11-real'   # gen_reports reads sys.argv on import; set explicitly

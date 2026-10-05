@@ -145,7 +145,7 @@ def _dept(name, lat, lon):
     return None
 
 
-def load(call_tables, site_metadata=None, version=None, data_source=None):
+def load(call_tables, site_metadata=None, version=None, data_source=None, selection=None):
     # optional per-sample geography/date table, for calls tables that carry none
     smeta = {}
     if site_metadata and os.path.exists(site_metadata):
@@ -161,7 +161,7 @@ def load(call_tables, site_metadata=None, version=None, data_source=None):
                                   'year': _year_of(r, cm)}
 
     samples = {}
-    drop = {'rows': 0, 'no_marker': 0, 'not_typed': 0, 'no_location': 0}
+    drop = {'rows': 0, 'no_marker': 0, 'not_typed': 0, 'no_location': 0, 'not_selected': 0}
     for path in call_tables:
         with open(path, newline='') as fh:
             delim = '\t' if path.lower().endswith(('.tsv', '.txt')) else ','
@@ -174,6 +174,9 @@ def load(call_tables, site_metadata=None, version=None, data_source=None):
                 drop['rows'] += 1
                 sid = _get(row, cm, 'sample_id')
                 if not sid: continue
+                if selection is not None and not selection.keep(sid):
+                    drop['not_selected'] = drop.get('not_selected', 0) + 1
+                    continue
                 key = _marker_key(row, cm)
                 if not key:
                     drop['no_marker'] += 1
@@ -241,7 +244,7 @@ def load(call_tables, site_metadata=None, version=None, data_source=None):
                      f"depts sampled={ns}/{len(units)} dropped={{'no_marker': {drop['no_marker']}, "
                      f"'not_typed': {drop['not_typed']}, 'no_location': {drop['no_location']}}}\n")
 
-    rep = G.assemble_report('NOMADS', G.ASSAYS['NOMADS'], units)
+    rep = G.assemble_report('NOMADS', G.ASSAYS['NOMADS'], units, selection)
     rep['meta']['real'] = True
     rep['meta']['version'] = version or G.VERSION
     rep['meta']['data_source'] = data_source or 'NOMADS ONT amplicon · nomadic marker calls'

@@ -4,9 +4,10 @@ Handoff contract for running the report generator in Terra. **The inputs below a
 stable surface.** Report rendering is still under active development; the whole point of
 this interface is that rendering can keep changing without any of these inputs changing.
 
-Validated 2026-10-02: all three workflows ran end-to-end under `miniwdl` in the pinned
-container (WGS 2,161 QC pass samples; MAD4HATTER 883; NOMADS 240 synthetic), and
-`miniwdl check` is clean (no errors, no shellcheck warnings) on all three.
+Validated 2026-10-05: all three workflows ran end-to-end under `miniwdl` in the pinned
+container (WGS 2,161 QC pass samples; MAD4HATTER 883; NOMADS 240 synthetic), plus a
+sample-selected WGS run (120 ids -> 102 QC pass samples, 1 admin-2 unit, 2022). `miniwdl
+check` is clean (no errors, no shellcheck warnings) on all three.
 
 ---
 
@@ -39,6 +40,29 @@ Example inputs JSONs are in `wdl/inputs/`.
 | MAD4HATTER | `allele_tables` | `Array[File]` | Optional `allele_data.txt` files. Currently unused by the rendered report (COI was removed in v0.8) but accepted so the interface does not change when it returns. |
 | NOMADS | `marker_calls_tables` | `Array[File]` | Assay-agnostic marker-calls table, schema in §5. |
 | NOMADS | `site_metadata` | `File?` | Optional; only needed when the calls tables carry no geography. |
+
+### Sample selection (identical across all three)
+
+A report can cover every sample in the inputs (the default) or an explicit subset.
+
+| Input | Type | Purpose |
+|---|---|---|
+| `sample_ids` | `Array[String]` | Sample ids to report on. **On a Terra `sample_set`, bind this to `this.samples.sample_id`** — that is the idiomatic way to drive one report per set. Empty (default) means every sample in the inputs. |
+| `sample_id_list` | `File?` | Alternative to `sample_ids`: one id per line, `#` comments allowed. Used when `sample_ids` is empty. |
+| `selection_label` | `String?` | Name for the selection, shown in the report (e.g. the sample_set name). |
+
+Selection is applied per sample *before* any aggregation, so unit, site, year and marker
+denominators all reflect the subset. Because prevalence is a proportion, a filtered report
+says so: the summary scope bar carries a `selected samples: <label>` chip and the Methods
+tab gets a callout stating how many of the requested ids were found. Ids that matched
+nothing are counted and listed in the task log, and a selection that matches **no** samples
+fails the task rather than producing an empty report.
+
+For MAD4HATTER, ids match either the base sample id or the run-suffixed id as written in
+the resmarker table (`SNG23MAD146` and `SNG23MAD146_S25_L001` both work).
+
+To produce several reports, run the workflow once per set — Terra does this natively when
+you launch on a set entity, and it keeps each report's denominators self-contained.
 
 ### Common inputs (identical across all three)
 

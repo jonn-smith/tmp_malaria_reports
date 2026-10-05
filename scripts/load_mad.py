@@ -87,7 +87,7 @@ def year_of(b):
     if re.search(r'SEN[-_]20\d{2}', b): return re.search(r'(20\d{2})', b).group(1)
     return '20'+m.group(1) if m else None
 
-def load(rm_dir, meta_csv, ad_dir=None):
+def load(rm_dir, meta_csv, ad_dir=None, selection=None):
     meta = load_meta(meta_csv)
     coi_map = coi_from_alleles(ad_dir) if ad_dir and os.path.isdir(ad_dir) else {}
     # union marker calls across all runs, per base sample
@@ -100,6 +100,9 @@ def load(rm_dir, meta_csv, ad_dir=None):
         # index MK targets by (gene, codon) for this file
         for row in rd:
             b = base(row['SampleID'])
+            # match either the base id or the run-suffixed id as written in the table
+            if selection is not None and not selection.keep(b, (row.get('SampleID') or '').strip()):
+                continue
             g = (row.get('Gene') or '').strip();
             try: c = int(row.get('CodonID'))
             except (TypeError, ValueError): continue
@@ -164,7 +167,7 @@ def load(rm_dir, meta_csv, ad_dir=None):
     ns = sum(1 for u in units if u.get('sampled'))
     sys.stderr.write(f"[load_mad] runs={files} samples={len(samples)} depts sampled={ns}/{len(units)} "
                      f"sites={len(set(s['site'] for s in samples))} dropped={drop}\n")
-    rep = G.assemble_report('MAD4HATTER', G.ASSAYS['MAD4HATTER'], units)
+    rep = G.assemble_report('MAD4HATTER', G.ASSAYS['MAD4HATTER'], units, selection)
     rep['meta']['real'] = True
     rep['meta']['n_called'] = sum(1 for s_ in samples if s_.get('calls'))
     rep['meta']['version'] = 'v0.11-real'   # gen_reports reads sys.argv on import; set explicitly

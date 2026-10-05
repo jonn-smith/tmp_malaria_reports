@@ -1,11 +1,14 @@
 {
   "MalariaSurveillanceReportWgs.sample_table_tsv": "gs://BUCKET/sr-malaria/senegal_sample_table.tsv",
   "MalariaSurveillanceReportWgs.cohort_name": "SEN_WGS_2005_2023",
-
+  "##_sample_selection": "optional; omit for the whole cohort. On a sample_set bind sample_ids to this.samples.sample_id",
+  "##_sample_ids": [
+    "this.samples.sample_id"
+  ],
+  "##_selection_label": "SEN_2022_sampleset",
   "MalariaSurveillanceReportWgs.version_label": "v0.11-real",
-  "MalariaSurveillanceReportWgs.data_source": "Illumina WGS · broad-firecloud-dsde-methods/sr-malaria (Senegal joint call)",
+  "MalariaSurveillanceReportWgs.data_source": "Illumina WGS \u00b7 broad-firecloud-dsde-methods/sr-malaria (Senegal joint call)",
   "MalariaSurveillanceReportWgs.gcs_out_root_dir": "gs://BUCKET/malaria_reports",
-
   "##_optional_rendering_levers": "all three are optional; see docs/WDL_INTERFACE.md section 4",
   "##_render_config_json": "gs://BUCKET/config/render_config.json",
   "##_report_template_override": "gs://BUCKET/templates/report.template.html",

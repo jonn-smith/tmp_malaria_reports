@@ -482,7 +482,8 @@ R.summary=()=>{
       <div class="scopebar"><span><b>Per-year summary</b></span>
         <span>· years <b>${esc(M.period)}</b></span>
         <span>· all <b>${M.n_units_sampled}</b> sampled admin-2 area${M.n_units_sampled===1?'':'s'}${D.sites&&D.sites.length?` (${D.sites.length} collection sites)`:''}</span>
-        <span>· <b>${nf(M.n_qc)}</b> QC pass samples</span></div>
+        <span>· <b>${nf(M.n_qc)}</b> QC pass samples</span>
+        ${M.sample_selection?`<span class="scopechip filtered">selected samples: ${esc(M.sample_selection)}</span>`:''}</div>
       <div>${summaryTable()}</div></div>`;
   });
   html+=`</div>`;
@@ -869,6 +870,7 @@ R.methods=()=>{
         <li>Trend caveat: these cohorts were not sampled uniformly over time (districts enter and leave the sampling frame), so part of any national change over time reflects <i>where</i> samples came from, not only parasite population change. The samples-per-period chart is shown alongside every trend for that reason; scope a region to remove the composition effect.</li>
         <li>Admin-2 boundaries: geoBoundaries (SEN ADM2). Admin-3 shown when available; collection dates assumed available (contingency messaging if absent).</li>
       </ul></div>
+    ${M.sample_selection?`<div class="callout amber" style="margin-top:14px"><b>Sample selection.</b> This report covers an explicitly selected subset of samples (<b>${esc(M.sample_selection)}</b>): ${nf(M.n_matched)} of ${nf(M.n_requested)} requested samples were found in the inputs${M.n_requested_missing?`, ${nf(M.n_requested_missing)} were not`:''}. Every count and prevalence here is for that subset only.</div>`:''}
     <div class="callout ${REAL?'':'amber'}" style="margin-top:14px"><b>Data status.</b> ${REAL?esc(M.data_source||'Real data.')+`. Prevalence = carriers ÷ QC pass infections typed at the locus. Thresholds and marker classes are the published WHO criteria.`:`Design mock-up (${M.version}) with synthetic prevalence values. Thresholds, WHO classes, and marker lists are real; the numbers are fabricated for layout review.`}</div>`;
 };
 

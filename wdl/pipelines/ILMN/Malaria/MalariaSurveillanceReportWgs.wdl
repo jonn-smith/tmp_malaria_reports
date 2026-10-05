@@ -24,6 +24,9 @@ workflow MalariaSurveillanceReportWgs {
         render_config_json:       "JSON settings file for the renderer; unrecognised keys pass through to the report metadata, so new rendering features need no change to this interface"
         report_template_override: "Replacement report template (HTML); omit to use the template pinned by the docker image"
         reference_bundle_tar:     "tar(.gz) of replacement reference data (admin boundaries, WHO compendium); omit to use the bundle pinned by the docker image"
+        sample_ids:               "Sample ids to report on; on a Terra sample_set use this.samples.sample_id. Empty means every sample in the inputs"
+        sample_id_list:           "Alternative to sample_ids: a file with one sample id per line (# comments allowed)"
+        selection_label:          "Human-readable name for the sample selection, shown in the report (e.g. the sample_set name)"
         gcs_out_root_dir:         "GCS bucket to copy the report into; omit to leave outputs in the execution directory"
     }
 
@@ -36,8 +39,15 @@ workflow MalariaSurveillanceReportWgs {
         File? render_config_json
         File? report_template_override
         File? reference_bundle_tar
+        Array[String] sample_ids = []
+        File? sample_id_list
+        String? selection_label
         String? gcs_out_root_dir
     }
+
+    # a sample_set's membership arrives as an array; a curated list arrives as a file
+    Boolean have_sample_array = length(sample_ids) > 0
+    File? selected_ids_file = if have_sample_array then write_lines(sample_ids) else sample_id_list
 
     String outdir = sub(select_first([gcs_out_root_dir, "."]), "/$", "") + "/MalariaSurveillanceReportWgs/~{cohort_name}"
 
@@ -49,7 +59,9 @@ workflow MalariaSurveillanceReportWgs {
             data_source              = data_source,
             render_config_json       = render_config_json,
             report_template_override = report_template_override,
-            reference_bundle_tar     = reference_bundle_tar
+            reference_bundle_tar     = reference_bundle_tar,
+            sample_ids_file          = selected_ids_file,
+            selection_label          = selection_label
     }
 
     if (defined(gcs_out_root_dir)) {

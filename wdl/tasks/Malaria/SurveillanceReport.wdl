@@ -29,6 +29,8 @@ task RenderWgsReport {
         render_config_json:       "JSON settings file; unrecognised keys pass through to the report metadata so new template features need no interface change"
         report_template_override: "Replacement report template (HTML); omit to use the template baked into the docker image"
         reference_bundle_tar:     "tar(.gz) of replacement reference data (admin boundaries, WHO compendium); omit to use the bundle baked into the docker image"
+        sample_ids_file:          "Optional allow-list of sample ids, one per line; omit to report on every sample in the inputs"
+        selection_label:          "Human-readable name for the sample selection, shown in the report (e.g. a Terra sample_set name)"
         extra_args:               "Additional command-line args appended verbatim to the make_report.py invocation"
         runtime_attr_override:    "Override the default runtime attributes"
     }
@@ -43,12 +45,15 @@ task RenderWgsReport {
         File? report_template_override
         File? reference_bundle_tar
 
+        File? sample_ids_file
+        String? selection_label
+
         String extra_args = ""
 
         RuntimeAttr? runtime_attr_override
     }
 
-    Int disk_size = 10 + ceil(5.0 * (size(sample_table_tsv, "GB") + size(reference_bundle_tar, "GB")))
+    Int disk_size = 10 + ceil(5.0 * (size(sample_table_tsv, "GB") + size(reference_bundle_tar, "GB") + size(sample_ids_file, "GB")))
 
     command <<<
         set -euxo pipefail
@@ -85,6 +90,8 @@ task RenderWgsReport {
             --sample-table ~{sample_table_tsv} \
             ~{"--version-label " + version_label} \
             ~{"--data-source '" + data_source + "'"} \
+            ~{"--sample-ids " + sample_ids_file} \
+            ~{"--selection-label '" + selection_label + "'"} \
             ~{"--config " + render_config_json} \
             ~{"--template " + report_template_override} \
             ~{if defined(reference_bundle_tar) then "--reference ./reference" else ""} \
@@ -151,6 +158,8 @@ task RenderMad4hatterReport {
         render_config_json:       "JSON settings file; unrecognised keys pass through to the report metadata so new template features need no interface change"
         report_template_override: "Replacement report template (HTML); omit to use the template baked into the docker image"
         reference_bundle_tar:     "tar(.gz) of replacement reference data (admin boundaries, WHO compendium); omit to use the bundle baked into the docker image"
+        sample_ids_file:          "Optional allow-list of sample ids, one per line; omit to report on every sample in the inputs"
+        selection_label:          "Human-readable name for the sample selection, shown in the report (e.g. a Terra sample_set name)"
         extra_args:               "Additional command-line args appended verbatim to the make_report.py invocation"
         runtime_attr_override:    "Override the default runtime attributes"
     }
@@ -167,13 +176,16 @@ task RenderMad4hatterReport {
         File? report_template_override
         File? reference_bundle_tar
 
+        File? sample_ids_file
+        String? selection_label
+
         String extra_args = ""
 
         RuntimeAttr? runtime_attr_override
     }
 
     Int disk_size = 10 + ceil(5.0 * (size(resmarker_tables, "GB") + size(allele_tables, "GB")
-                                     + size(site_metadata, "GB") + size(reference_bundle_tar, "GB")))
+                                     + size(site_metadata, "GB") + size(reference_bundle_tar, "GB") + size(sample_ids_file, "GB")))
 
     command <<<
         set -euxo pipefail
@@ -212,6 +224,8 @@ task RenderMad4hatterReport {
             ~{if length(allele_tables) > 0 then "--allele-table " else ""}~{sep=' ' allele_tables} \
             ~{"--version-label " + version_label} \
             ~{"--data-source '" + data_source + "'"} \
+            ~{"--sample-ids " + sample_ids_file} \
+            ~{"--selection-label '" + selection_label + "'"} \
             ~{"--config " + render_config_json} \
             ~{"--template " + report_template_override} \
             ~{if defined(reference_bundle_tar) then "--reference ./reference" else ""} \
@@ -277,6 +291,8 @@ task RenderNomadsReport {
         render_config_json:       "JSON settings file; unrecognised keys pass through to the report metadata so new template features need no interface change"
         report_template_override: "Replacement report template (HTML); omit to use the template baked into the docker image"
         reference_bundle_tar:     "tar(.gz) of replacement reference data (admin boundaries, WHO compendium); omit to use the bundle baked into the docker image"
+        sample_ids_file:          "Optional allow-list of sample ids, one per line; omit to report on every sample in the inputs"
+        selection_label:          "Human-readable name for the sample selection, shown in the report (e.g. a Terra sample_set name)"
         extra_args:               "Additional command-line args appended verbatim to the make_report.py invocation"
         runtime_attr_override:    "Override the default runtime attributes"
     }
@@ -292,13 +308,16 @@ task RenderNomadsReport {
         File? report_template_override
         File? reference_bundle_tar
 
+        File? sample_ids_file
+        String? selection_label
+
         String extra_args = ""
 
         RuntimeAttr? runtime_attr_override
     }
 
     Int disk_size = 10 + ceil(5.0 * (size(marker_calls_tables, "GB") + size(site_metadata, "GB")
-                                     + size(reference_bundle_tar, "GB")))
+                                     + size(reference_bundle_tar, "GB") + size(sample_ids_file, "GB")))
 
     command <<<
         set -euxo pipefail
@@ -336,6 +355,8 @@ task RenderNomadsReport {
             ~{"--site-metadata " + site_metadata} \
             ~{"--version-label " + version_label} \
             ~{"--data-source '" + data_source + "'"} \
+            ~{"--sample-ids " + sample_ids_file} \
+            ~{"--selection-label '" + selection_label + "'"} \
             ~{"--config " + render_config_json} \
             ~{"--template " + report_template_override} \
             ~{if defined(reference_bundle_tar) then "--reference ./reference" else ""} \
