@@ -573,7 +573,7 @@ R.resistance=()=>{
   html+=markerToggleGrid('mtoggles', cm, null);
   // map + controls (detail page = admin-2 choropleth only, no circles)
   const hasSites=false;
-  html+=`<div class="grid two"><div class="card"><h3>Prevalence by ${hasSites?'site':'admin-2'} <select id="drsel">${cm.map(k=>{const m=D.markers.find(x=>x.key===k);return `<option value="${k}">${esc(markerLabel(m))}</option>`;}).join('')}</select> <span class="scopechip" id="drperiod"></span></h3>
+  html+=`<div class="grid two"><div class="card"><h3>Prevalence by ${hasSites?'site':'admin-2'} — map shows: <select id="drsel">${cm.map(k=>{const m=D.markers.find(x=>x.key===k);return `<option value="${k}">${esc(markerLabel(m))}</option>`;}).join('')}</select> <span class="scopechip" id="drperiod"></span></h3>
       <div class="controls">
         ${TR?`<label>Period: <select id="yrsel"><option value="">All years (pooled)</option>${
           TR.frames.map(f=>`<option value="f:${f.key}">${esc(f.label)} (n=${f.years.reduce((a,y)=>a+(TR.year_n[y]||0),0)})</option>`).join('')}${
@@ -735,6 +735,7 @@ R.trends=()=>{
     <div class="sec-desc">Select markers to display on the map and prevalence tables below.</div>
     ${markerToggleGrid('trtoggles', cm, [dflt])}
     <div class="controls">
+      <label>Map shows: <select id="trmapsel"></select></label>
       <label>Granularity: <select id="trgran"><option value="frames">Periods (${TR.frames.length})</option><option value="years">Single years (${TR.years.length})</option></select></label>
       <label>Min samples/region: <b id="trminlab">${MINN}</b> <input type="range" id="trmin" min="1" max="30" value="${MINN}"></label>
       <span id="trscope"></span>
@@ -766,6 +767,20 @@ function wireTrends(){
   const allKeys=[...document.querySelectorAll('#trtoggles input[type=checkbox]')].map(cb=>cb.dataset.k);
   const TRCOL=['#2a78d6','#d03b3b','#1baf7a','#9a5b16','#6f42c1','#0b7285','#c2185b','#5b6067'];
   const picked=()=>{const v=gridChecked('trtoggles'); return v.length?v:allKeys.slice(0,1);};
+  /* The map can only show one marker at a time, so which one is an explicit choice rather
+     than "whichever selected marker happens to sort first" - that silently hijacked the
+     map whenever a marker earlier in the catalogue was added. */
+  const mapSel=$('#trmapsel');
+  let mapKey=picked()[0], mapOpts='';
+  const mapKeyNow=()=>{const ks=picked(); if(!ks.includes(mapKey)) mapKey=ks[0]; return mapKey;};
+  const syncMapSel=()=>{
+    const ks=picked(), want=ks.join('|');
+    if(want!==mapOpts){
+      mapOpts=want;
+      mapSel.innerHTML=ks.map(k=>`<option value="${k}">${esc(markerLabel(D.markers.find(x=>x.key===k)||{}))}</option>`).join('');
+    }
+    mapSel.value=mapKeyNow();
+  };
   let idx=0, diff=false, timer=null, scope=null;     // scope=null -> national
   const frames=()=>trFrames(gran.value);
   const stat=(years,mi)=>scope?trUnit(scope,years,mi):trNat(years,mi);
@@ -777,7 +792,8 @@ function wireTrends(){
     const mx=Math.max(2,...vs); return mx<=10?[0,1,2,5,10,20,100]:[0,2,5,10,20,50,100];
   };
   const draw=()=>{
-    const keys=picked(), key=keys[0], mi=trIdx(key), fs=frames();
+    const keys=picked(); syncMapSel();
+    const key=mapKeyNow(), mi=trIdx(key), fs=frames();
     if(idx>=fs.length) idx=fs.length-1; if(idx<0) idx=0;
     const f=fs[idx], prev=idx>0?fs[idx-1]:null;
     const m=D.markers.find(x=>x.key===key)||{};
@@ -804,7 +820,7 @@ function wireTrends(){
     $('#trframe').textContent=f.label;
     const fn=f.years.reduce((a,y)=>a+(TR.year_n[y]||0),0);
     $('#trframen').textContent=`n=${nf(fn)} · frame ${idx+1}/${fs.length}`;
-    $('#trmaplab').textContent=(single?'':`— ${(m.gene||'')+' '+(m.aa||'')} `)
+    $('#trmaplab').textContent=`— ${(m.gene||'')+' '+(m.aa||'')} `
       +(diff?(prev?`Δ ${f.label} vs ${prev.label} (percentage points)`:'(no previous period)'):'');
     $('#trprev').disabled=idx===0; $('#trnext').disabled=idx===fs.length-1;
     $('#trdiff').classList.toggle('on',diff);
@@ -860,6 +876,7 @@ function wireTrends(){
     const nm=t.textContent.split(':')[0].trim();
     scope=(scope===nm)?null:nm; draw();});
   wireToggleGrid('trtoggles', ()=>draw());
+  mapSel.onchange=()=>{mapKey=mapSel.value; draw();};
   gran.onchange=()=>{idx=0; draw();};
   mn.oninput=()=>{MINN=+mn.value; $('#trminlab').textContent=MINN; draw();};
   draw();

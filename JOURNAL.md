@@ -608,3 +608,15 @@ Regression checks still pass (period filter pooled-restore, WHO-terminology rule
 ## 2026-10-05T16:50:00Z — Resistance section heading reverted to "antimalarial resistance"
 
 See 2026-10-05T16:30Z, which recorded changing our section heading to "antimicrobial resistance" under the blanket terminology instruction. Jonn confirmed "Genetic alterations associated with antimalarial resistance" is the wanted wording, so the heading is back to antimalarial (without "drug"). The Trends page keeps the AMR phrasing Jonn specified verbatim ("Trends in AMR markers over time", "Antimicrobial resistance (AMR) marker prevalence over time and space"), and the WHO publication title remains verbatim. Rebuilt and reshipped; 0 jsdom errors.
+
+## 2026-10-05T18:10:00Z — Fixed: Trends map ignored marker changes (no explicit map-marker control)
+
+**Report.** Jonn: on the Trends page "changing things doesn't seem to change the map".
+
+**Root cause.** When the Trends marker control became the shared gene-grouped grid (v0.12), the map lost any explicit notion of *which* marker it shows and fell back to `picked()[0]` — the first checked box in DOM order, i.e. catalogue order, which starts with Pfk13. Two distinct symptoms, one cause: checking a marker that sorts *later* than the current one (e.g. a dhps marker while viewing Pfcrt K76T) left the map on the old marker, so nothing appeared to happen; checking one that sorts *earlier* silently hijacked the map, and because every WHO Validated k13 marker is 0% in Senegal the choropleth went uniformly lowest-bin and also looked like nothing had happened. The Resistance page never had this problem because it kept its own `#drsel` dropdown for the mapped marker.
+
+**Fix.** Added a "Map shows:" dropdown on Trends (`#trmapsel`), populated from the currently checked markers and re-synced on every draw; the user's choice persists while that marker stays checked and falls back to the first selection when it is unchecked. The map, stepper, difference mode, and the single-marker table all follow it. The map card now always names the mapped marker (previously only when several were selected). Also labelled the equivalent Resistance control "Prevalence by admin-2 — map shows: …" so the two pages read the same way.
+
+**Verify (jsdom).** Adding a marker earlier in the grid now leaves the map untouched (colours byte-identical once the per-render hatch pattern id is normalised) and only grows the dropdown; switching the dropdown repaints; unchecking the mapped marker falls back cleanly; stepping and difference mode still repaint. 0 errors on all four reports, 0 SVG geometry overflow.
+
+**Note on test rigour.** My first signature compared raw `fill` attributes and reported a change where there was none: `choropleth()` emits a unique hatch `<pattern>` id per render, so suppressed regions' `url(#ndN)` differs on every redraw. Normalising that id was needed to make the comparison meaningful — worth remembering for future map assertions.
