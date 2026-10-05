@@ -37,6 +37,8 @@ nav.tabs .wrap{display:flex;gap:2px;padding-top:0;padding-bottom:0;overflow-x:au
 h2.sec{font-size:18px;font-weight:600;margin:6px 0 4px}
 .sec-desc{color:var(--ink2);font-size:13.5px;margin-bottom:14px}
 .grid{display:grid;gap:16px}.two{grid-template-columns:1fr 1fr}.three{grid-template-columns:repeat(3,1fr)}
+.grid>*{min-width:0}   /* let wide tables scroll inside .scroll instead of stretching the grid */
+.card{min-width:0}
 @media(max-width:860px){.two,.three{grid-template-columns:1fr}}
 .card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:18px}
 .card h3{font-size:14.5px;font-weight:600;margin-bottom:2px}
@@ -742,7 +744,7 @@ R.trends=()=>{
         <div class="hint">Shaded band = 95% Wilson CI. Faint grey lines are the other WHO compendium markers for context. Hover a point for n.</div>
         <div id="trchart"></div></div>
       <div class="card" tabindex="0" id="trmapcard"><h3>Map by period <span class="sub" id="trmaplab"></span></h3>
-        <div class="hint">Step with the arrows (or ←/→ keys when this card is focused) to flicker between consecutive periods &mdash; colour bins are fixed across all periods, so a colour change is a real change. Click a region to scope the chart and table to it.</div>
+        <div class="hint">Step with the arrows (or ←/→ keys when this card is focused) to flicker between consecutive periods. Click a region to scope the chart and table to it.</div>
         <div class="stepbar">
           <button class="step" id="trprev" title="Previous period">◀</button>
           <div><div class="frame" id="trframe"></div><div class="sub" id="trframen"></div></div>
@@ -752,8 +754,8 @@ R.trends=()=>{
         </div>
         <div id="trmap"></div><div id="trlegend"></div><div class="readout" id="trreadout">Click a region…</div></div>
     </div>
-    <div class="grid two" style="margin-top:16px">
-      <div class="card"><h3>Samples per period</h3><div class="hint">Denominator behind each frame; the current frame is highlighted.</div><div id="trbars"></div></div>
+    <div class="grid" style="margin-top:16px">
+      <div class="card"><h3>Samples per period</h3><div class="hint">Number of samples collected (n) per period; the current period is highlighted.</div><div id="trbars"></div></div>
       <div class="card"><h3 id="trtbltitle">By period</h3><div class="hint" id="trdl"></div><div id="trtable"></div></div>
     </div>`;
 };
@@ -810,7 +812,7 @@ function wireTrends(){
     const cl=$('#trclear'); if(cl) cl.onclick=()=>{scope=null; clearRegions(); draw();};
     $('#trbars').innerHTML=bars(fs.map((x,i)=>({label:x.label,
         v:(scope?x.years.reduce((a,y)=>a+trUnit(scope,[y],0).n,0):x.years.reduce((a,y)=>a+(TR.year_n[y]||0),0)),
-        color:i===idx?'var(--accent)':'var(--s1)'})),{w:520});
+        color:i===idx?'var(--accent)':'var(--s1)'})),{w:1080});
     const sr=series(mi);
     let rows;
     if(single){
