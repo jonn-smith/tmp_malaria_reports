@@ -409,8 +409,8 @@ const CLSDESC={validated:'Association with reduced drug response is established 
                candidate:'Association is supported by some but not all of those lines of evidence; WHO treats it as under assessment.',
                potential:'An association has been reported, usually from laboratory work alone, and is not yet established.',
                haplotype:'WHO lists this codon only inside a multi-codon haplotype, so the class shown is the haplotype\u2019s; the codon alone carries no WHO class. The haplotype is named on the row.',
-               background:'Typed by this assay panel as resistance genetic background or a partner-drug response modulator, not as a resistance marker in its own right. Absent from the WHO compendium.',
-               research:'Reported in the literature, including markers for investigational drugs. Absent from the WHO compendium.'};
+               background:'Typed by this assay panel as resistance genetic background or a partner-drug response modulator, not as a resistance marker in its own right. Not included in the WHO marker list.',
+               research:'Reported in the literature, including markers for investigational drugs. Not included in the WHO marker list.'};
 const CLSORDER=['validated','candidate','potential','haplotype','background','research'];
 const clsPill=m=>CLSPILL[m.cls]||(m.who?'who':'research');
 // spelled-out key for the coloured class pills (abbreviation -> full label -> meaning)
