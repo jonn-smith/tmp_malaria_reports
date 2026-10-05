@@ -14,13 +14,15 @@
 #   allele_dir        = dir of UCSF mad4hatter allele_data.txt files (COI); "" to skip COI
 set -euo pipefail
 cd "$(dirname "$0")"
-VER=v0.11-real   # must match meta.version set in scripts/load_wgs.py / scripts/load_mad.py
+VER=v0.11-real   # FILENAME suffix only: .gitignore keys on "*-real.html" to keep real-data
+                 # reports out of the repo. The version shown inside the report is v0.11.
+REPORT_VER=v0.11
 mkdir -p build reports
 
 WGS_TSV="${1:-}"; RM_DIR="${2:-}"; SITE_META="${3:-}"; ALLELE_DIR="${4:-}"
 
 inject () {  # <assay> <data.json> <outfile>
-  python3 - "$1" "$2" "$3" "$VER" <<'PY'
+  python3 - "$1" "$2" "$3" "$REPORT_VER" <<'PY'
 import sys
 assay, dj, out, ver = sys.argv[1:5]
 tpl = open('templates/report_v05.template.html').read()

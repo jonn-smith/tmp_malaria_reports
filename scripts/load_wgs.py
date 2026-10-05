@@ -173,7 +173,7 @@ def load(sample_tsv, selection=None):
     rep = G.assemble_report('WGS', G.ASSAYS['WGS'], units, selection)
     rep['meta']['real'] = True
     rep['meta']['n_called'] = sum(1 for s_ in samples if s_.get('calls'))
-    rep['meta']['version'] = 'v0.11-real'   # gen_reports reads sys.argv on import; set explicitly
+    rep['meta']['version'] = 'v0.11'   # gen_reports reads sys.argv on import; set explicitly
     rep['meta']['data_source'] = 'Illumina WGS · broad-firecloud-dsde-methods/sr-malaria (Senegal joint call)'
     G.real_export(rep, samples, 'Whole genome sequencing')   # real-only export (no fabrication)
     rep['sites'] = G.sites_from_samples(samples)             # site-level points (finer than admin-2)

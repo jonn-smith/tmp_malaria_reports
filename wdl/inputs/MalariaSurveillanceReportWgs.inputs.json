@@ -6,7 +6,7 @@
     "this.samples.sample_id"
   ],
   "##_selection_label": "SEN_2022_sampleset",
-  "MalariaSurveillanceReportWgs.version_label": "v0.11-real",
+  "MalariaSurveillanceReportWgs.version_label": "v0.11",
   "MalariaSurveillanceReportWgs.data_source": "Illumina WGS \u00b7 broad-firecloud-dsde-methods/sr-malaria (Senegal joint call)",
   "MalariaSurveillanceReportWgs.gcs_out_root_dir": "gs://BUCKET/malaria_reports",
   "##_optional_rendering_levers": "all three are optional; see docs/WDL_INTERFACE.md section 4",

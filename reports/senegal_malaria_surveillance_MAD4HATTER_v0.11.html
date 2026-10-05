@@ -329,8 +329,7 @@ $('#h-tags').innerHTML=[['Platform',M.platform],['Admin-2 units sampled',`${M.n_
   .map(([k,v])=>`<span><b>${k}:</b> ${v}</span>`).join('')+` <span class="badge">${M.version}</span>`;
 // top banner: mock-up warning only for synthetic data; real data gets a neutral provenance line
 { const mw=$('#mockwarn');
-  if(mw){ if(REAL){ mw.classList.remove('mockwarn'); mw.classList.add('realbanner');
-      mw.innerHTML=esc(M.data_source||''); }
+  if(mw){ if(REAL){ mw.remove(); }
     else { mw.innerHTML=`MOCK-UP ${M.version} — illustrative synthetic data for design review. WHO thresholds/criteria &amp; marker lists are real; prevalence values are fabricated.`; } } }
 const LABEL={summary:'Summary',resistance:'Resistance Markers',trends:'Trends',export:'Export',methods:'Methods'};
 const CATS=new Set(['resistance']);
@@ -406,12 +405,12 @@ const CLSABBR={validated:'VAL',candidate:'CAN',potential:'POT',haplotype:'HAP',b
 const CLSFULL={validated:'Validated marker',candidate:'Candidate marker',potential:'Potential marker',
                haplotype:'Haplotype component',background:'Not in WHO compendium (panel locus)',
                research:'Not in WHO compendium (research)'};
-const CLSDESC={validated:'WHO class, listed for this alteration on its own. Carries the \u2265'+M.marker_action_pct+'% action flag.',
-               candidate:'WHO class, listed for this alteration on its own.',
-               potential:'WHO class, listed for this alteration on its own.',
-               haplotype:'WHO lists this codon only as part of a multi-codon haplotype; the class shown on the row is the haplotype\u2019s, not a class WHO gives the single codon.',
-               background:'Locus typed by this assay panel that marks resistance genetic background or modulates partner-drug response. WHO does not list it.',
-               research:'Published research association, including markers for investigational drugs. WHO does not list it.'};
+const CLSDESC={validated:'Association with reduced drug response is established on all three lines of evidence WHO weighs \u2014 epidemiological, laboratory and clinical. Carries the \u2265'+M.marker_action_pct+'% action flag.',
+               candidate:'Association is supported by some but not all of those lines of evidence; WHO treats it as under assessment.',
+               potential:'An association has been reported, usually from laboratory work alone, and is not yet established.',
+               haplotype:'WHO lists this codon only inside a multi-codon haplotype, so the class shown is the haplotype\u2019s; the codon alone carries no WHO class. The haplotype is named on the row.',
+               background:'Typed by this assay panel as resistance genetic background or a partner-drug response modulator, not as a resistance marker in its own right. Absent from the WHO compendium.',
+               research:'Reported in the literature, including markers for investigational drugs. Absent from the WHO compendium.'};
 const CLSORDER=['validated','candidate','potential','haplotype','background','research'];
 const clsPill=m=>CLSPILL[m.cls]||(m.who?'who':'research');
 // spelled-out key for the coloured class pills (abbreviation -> full label -> meaning)
@@ -422,10 +421,13 @@ function classLegend(){
     `<span class="k"><a class="pill ${CLSPILL[c]}" href="${WHO_URL}" target="_blank" rel="noopener" style="text-decoration:none">${CLSABBR[c]}</a><span><b><a href="${WHO_URL}" target="_blank" rel="noopener" style="color:inherit">${CLSFULL[c]}</a></b> \u2014 ${esc(CLSDESC[c])}</span></span>`).join('')+`</div>`;
 }
 const clsLabel=m=>m.category||CLSFULL[m.cls]||'Not in WHO compendium';
+const geneLink=m=>m.gene_id
+  ? `<a href="https://plasmodb.org/plasmo/app/record/gene/${esc(m.gene_id)}" target="_blank" rel="noopener" onclick="event.stopPropagation()" title="${esc(m.gene_id)} on PlasmoDB"><i>${esc(m.gene)}</i></a>`
+  : `<i>${esc(m.gene)}</i>`;
 function mkRow(m,summary,stat){
   if(stat){m=Object.assign({},m,{est:stat.est,lo:stat.lo,hi:stat.hi,x:stat.x,n:stat.n,
                                  action:(m.cls==='validated'&&stat.est>=RES_PCT)});}
-  return `<tr data-k="${m.key}"${summary?'':' style="cursor:pointer" title="Click to show this marker on the map"'}><td><i>${esc(m.gene)}</i></td><td>${esc(m.aa)}</td><td>${esc(m.drug)}</td>
+  return `<tr data-k="${m.key}"${summary?'':' style="cursor:pointer" title="Click to show this marker on the map"'}><td>${geneLink(m)}</td><td>${esc(m.aa)}</td><td>${esc(m.drug)}</td>
       <td><a class="pill ${clsPill(m)}" href="${WHO_URL}" target="_blank" rel="noopener" onclick="event.stopPropagation()" style="text-decoration:none" title="${esc((CLSABBR[m.cls]||'')+' = '+clsLabel(m)+(m.who_cls?' \u2014 '+m.who_cls+' ('+(m.who_how||'')+')':'')+'. Source: WHO Compendium of molecular markers for antimalarial drug resistance.')}">${esc(CLSABBR[m.cls]||clsLabel(m))}</a></td>${summary?'':`<td style="font-size:11.5px;color:var(--ink2)">${esc(m.crit)}</td>`}
       <td class="num">${pct(m.est)}</td>
       <td class="num ci-txt">${ci(m.lo,m.hi)}</td>
@@ -452,14 +454,14 @@ function summaryTable(){
   out.sort((a,b)=> (b.y.localeCompare(a.y)) || (b.w.est-a.w.est));
   let h=`<div class="scroll"><table><thead><tr><th>Year</th><th>Gene</th><th>AA change</th><th>Associated drug</th><th>WHO Classification</th><th class="num">n tested</th><th class="num">Prevalence</th><th class="num">95% CI</th><th>Flag</th></tr></thead><tbody>`;
   out.forEach(r=>{const m=r.m, small=r.n<MINN;
-    h+=`<tr><td>${esc(r.y)}</td><td><i>${esc(m.gene)}</i></td><td>${esc(m.aa)}</td><td>${esc(m.drug)}</td>`
+    h+=`<tr><td>${esc(r.y)}</td><td>${geneLink(m)}</td><td>${esc(m.aa)}</td><td>${esc(m.drug)}</td>`
       +`<td><a class="pill ${clsPill(m)}" href="${WHO_URL}" target="_blank" rel="noopener" style="text-decoration:none" title="${esc((CLSABBR[m.cls]||'')+' = '+clsLabel(m)+(m.who_cls?' \u2014 '+m.who_cls:''))}">${esc(CLSABBR[m.cls]||clsLabel(m))}</a></td>`
       +`<td class="num">${nf(r.n)}</td>`
       +(small?`<td class="num hint" colspan="2">suppressed (n&lt;${MINN})</td><td></td>`
              :`<td class="num">${pct(r.w.est)}</td><td class="num ci-txt">${ci(r.w.lo,r.w.hi)}</td>`
               +`<td>${r.w.est>=RES_PCT?`<span class="pill action">\u2265${RES_PCT}%</span>`:''}</td>`)
       +`</tr>`;});
-  return h+`</tbody></table></div><div class="tcap">One row per marker and single collection year, newest first; years in which a marker has no calls are omitted, and years with fewer than ${MINN} samples are suppressed rather than shown as a percentage. See the <a onclick="showTab('trends')" style="cursor:pointer;color:#2a6fb0;text-decoration:underline">Trends</a> tab for the full series and the <a onclick="showTab('resistance')" style="cursor:pointer;color:#2a6fb0;text-decoration:underline">Resistance Markers</a> tab for all-years figures.</div>`;
+  return h+`</tbody></table></div><div class="tcap">One row per marker per year, newest first; years in which a marker has no calls are omitted, and years with fewer than ${MINN} samples are suppressed rather than shown as a percentage. See the <a onclick="showTab('trends')" style="cursor:pointer;color:#2a6fb0;text-decoration:underline">Trends</a> tab for the full series and the <a onclick="showTab('resistance')" style="cursor:pointer;color:#2a6fb0;text-decoration:underline">Resistance Markers</a> tab for all-years figures.</div>`;
 }
 function markerTable(id,summary){
   const rows=D.markers.filter(m=>m.assessed&&(!summary||(m.who&&m.est>=RES_PCT)));
@@ -471,20 +473,19 @@ function markerTable(id,summary){
 
 R.summary=()=>{
   let html=`<h2 class="sec">Summary</h2>
-    <div class="sec-desc">WHO <b>Validated markers</b> that reach ≥${RES_PCT}% in at least one collection year, reported <b>one year at a time</b> — no year grouping and no all-years figure here. All-years values are on the Resistance Markers tab.</div>
-    ${classLegend()}
+    <div class="sec-desc">WHO Validated markers that reach ≥${RES_PCT}% in at least one collection year.</div>
     <div class="stoplight">`;
   const jump={'Resistance Markers':'resistance'};
   D.stoplight.forEach(s=>{
     const st=s.status, word={red:'Concern',amber:'Watch',green:'No flag',grey:'Not assessed'}[st];
     html+=`<div class="light ${st}" onclick="showTab('${jump[s.cat]||'summary'}')">
       <div class="cat"><span class="dot"></span>${esc(s.cat)}</div>
-      <div class="scopebar"><span><b>Per-year summary</b></span>
-        <span>· years <b>${esc(M.period)}</b></span>
+      <div class="scopebar"><span>years <b>${esc(M.period)}</b></span>
         <span>· all <b>${M.n_units_sampled}</b> sampled admin-2 area${M.n_units_sampled===1?'':'s'}${D.sites&&D.sites.length?` (${D.sites.length} collection sites)`:''}</span>
         <span>· <b>${nf(M.n_qc)}</b> QC pass samples</span>
         ${M.sample_selection?`<span class="scopechip filtered">selected samples: ${esc(M.sample_selection)}</span>`:''}</div>
-      <div>${summaryTable()}</div></div>`;
+      <div>${summaryTable()}</div>
+      ${classLegend()}</div>`;
   });
   html+=`</div>`;
   html+=`<div class="kpis" style="margin-top:18px">
@@ -497,7 +498,7 @@ R.summary=()=>{
     ? `All samples collected ${/,/.test(M.period)?'in':'over'} ${M.period}`
     : 'All samples collected';
   const sampMap = hasSites
-    ? `<div class="hint">One point per collection <b>site</b> at its real coordinates — finer than admin-2 (${D.sites.length} sites). Circle size ∝ QC pass samples. Regions shaded by total QC pass samples. Click a site to pin its count, or a region for its total.</div>
+    ? `<div class="hint">One point per collection site (lat/long). Circle size ∝ QC pass samples. Regions shaded by total QC pass samples. Mouseover a site or region for more details. Click a site to pin its count, or a region for its total.</div>
        ${siteMap(null,null,M.color)}<div class="hint" style="margin:8px 0 0">Region shading — total QC pass samples per admin-2 unit:</div>${binnedLegend(nBreaks(Math.max(1,...D.map.depts.map(dp=>{const u0=unit(dp.name);return (u0&&u0.sampled)?u0.n:0;}))),BLU,'',null,false)}${siteLegend(M.color)}<div class="readout">Click a site or region…</div>`
     : `<div class="hint">Circle size ∝ QC pass samples per admin-2 unit. Click a region to pin its sample count; hover for the number.</div>
        ${dotmap(u=>u&&u.sampled?u.n:0,M.color)}${dotLegend(u=>u&&u.sampled?u.n:0,M.color)}<div class="readout">Click a region…</div>`;
