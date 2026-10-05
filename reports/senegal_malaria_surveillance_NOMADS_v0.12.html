@@ -563,7 +563,7 @@ R.summary=()=>{
 
 R.resistance=()=>{
   const cm=(CAP.covered_markers||[]).filter(k=>D.markers.find(m=>m.key===k&&m.assessed));
-  let html=`<h2 class="sec">Genetic alterations associated with antimicrobial resistance</h2>
+  let html=`<h2 class="sec">Genetic alterations associated with antimalarial resistance</h2>
     <div class="sec-desc">Gene, amino-acid change, associated drug, and WHO class, with prevalence among QC pass infections (95% Wilson CI). Each marker class is either defined by the WHO or included by researchers as a background marker for investigation. <a href="${WHO_URL}" target="_blank" rel="noopener">WHO</a>-defined classes: <i>Validated marker</i>, <i>Candidate marker</i>, and <i>Potential marker</i> where WHO lists the alteration on its own, <i>Haplotype component</i> where WHO lists the codon only inside a multi-codon haplotype. <i>Background</i> markers for panel background or research loci. The ≥${RES_PCT}% action flag is applied to Validated markers.</div>`;
   // marker toggles
   html+=classLegend();
