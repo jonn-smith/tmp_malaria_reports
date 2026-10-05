@@ -7,7 +7,7 @@
   "MalariaSurveillanceReportMad4hatter.cohort_name": "SEN_MAD4HATTER_2020_2023",
 
   "MalariaSurveillanceReportMad4hatter.allele_tables": [],
-  "MalariaSurveillanceReportMad4hatter.version_label": "v0.11",
+  "MalariaSurveillanceReportMad4hatter.version_label": "v0.12",
   "MalariaSurveillanceReportMad4hatter.data_source": "MAD4HATTER v4 amplicon · UCSF mad4hatter outputs (runs 1-10)",
   "MalariaSurveillanceReportMad4hatter.gcs_out_root_dir": "gs://BUCKET/malaria_reports",
 

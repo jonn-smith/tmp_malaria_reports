@@ -20,7 +20,7 @@ workflow MalariaSurveillanceReportNomads {
         marker_calls_tables:      "Marker-calls tables (TSV/CSV), one row per sample x marker; schema documented in scripts/load_nomads.py"
         site_metadata:            "Per-sample site and coordinate table; optional when the calls tables already carry geography"
         cohort_name:              "Cohort label; used in the output directory path and output filenames"
-        version_label:            "Version string stamped on the report (e.g. v0.11-real)"
+        version_label:            "Version string stamped on the report (e.g. v0.12)"
         data_source:              "Provenance line shown in the report banner"
         render_config_json:       "JSON settings file for the renderer; unrecognised keys pass through to the report metadata, so new rendering features need no change to this interface"
         report_template_override: "Replacement report template (HTML); omit to use the template pinned by the docker image"

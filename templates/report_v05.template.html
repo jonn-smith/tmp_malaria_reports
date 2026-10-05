@@ -403,9 +403,9 @@ const CLSABBR={validated:'VAL',candidate:'CAN',potential:'POT',haplotype:'HAP',b
    antimalarial drug resistance (see WHO_URL). Only the last two are ours, and they say
    explicitly that WHO does not list the locus. */
 const CLSFULL={validated:'Validated marker',candidate:'Candidate marker',potential:'Potential marker',
-               haplotype:'Haplotype component',background:'Not in WHO compendium (panel locus)',
-               research:'Not in WHO compendium (research)'};
-const CLSDESC={validated:'Association with reduced drug response is established on all three lines of evidence WHO weighs \u2014 epidemiological, laboratory and clinical. Carries the \u2265'+M.marker_action_pct+'% action flag.',
+               haplotype:'Haplotype component',background:'Background',
+               research:'Background (research)'};
+const CLSDESC={validated:'Association with reduced drug response is established on all three lines of evidence WHO weighs \u2014 epidemiological, laboratory, and clinical. Carries the \u2265'+M.marker_action_pct+'% action flag.',
                candidate:'Association is supported by some but not all of those lines of evidence; WHO treats it as under assessment.',
                potential:'An association has been reported, usually from laboratory work alone, and is not yet established.',
                haplotype:'WHO lists this codon only inside a multi-codon haplotype, so the class shown is the haplotype\u2019s; the codon alone carries no WHO class. The haplotype is named on the row.',
@@ -421,6 +421,24 @@ function classLegend(){
     `<span class="k"><a class="pill ${CLSPILL[c]}" href="${WHO_URL}" target="_blank" rel="noopener" style="text-decoration:none">${CLSABBR[c]}</a><span><b><a href="${WHO_URL}" target="_blank" rel="noopener" style="color:inherit">${CLSFULL[c]}</a></b> \u2014 ${esc(CLSDESC[c])}</span></span>`).join('')+`</div>`;
 }
 const clsLabel=m=>m.category||CLSFULL[m.cls]||'Not in WHO compendium';
+/* Notes column: only what the row does not already state. Haplotype rows name the
+   haplotype WHO lists the codon in; WHO-listed rows give WHO's evidence qualifier (the
+   substance behind the class); background/research rows give the locus's role. */
+function noteFor(m){
+  if(m.cls==='haplotype'){
+    const hap=(m.who_how||'').replace(/^component of the WHO-listed haplotype\s*/i,'');
+    const ev=(m.who_cls||'').match(/\(([^)]*)\)/);
+    return (hap?`Component of WHO haplotype ${esc(hap)}`:'Component of a WHO-listed haplotype')
+           +(ev?` \u2014 haplotype evidence: ${esc(ev[1])}`:'');
+  }
+  if(m.who){
+    const ev=(m.who_cls||'').match(/\(([^)]*)\)/);
+    return ev?`WHO evidence: ${esc(ev[1])}`:'';
+  }
+  // background / research: the role, minus the clause the class column already carries
+  return esc((m.crit||'').replace(/[;,]?\s*(not listed in the WHO compendium|not WHO-tracked)\.?$/i,'')
+                         .replace(/^Panel background locus:\s*/i,'').trim());
+}
 const geneLink=m=>m.gene_id
   ? `<a href="https://plasmodb.org/plasmo/app/record/gene/${esc(m.gene_id)}" target="_blank" rel="noopener" onclick="event.stopPropagation()" title="${esc(m.gene_id)} on PlasmoDB"><i>${esc(m.gene)}</i></a>`
   : `<i>${esc(m.gene)}</i>`;
@@ -428,10 +446,10 @@ function mkRow(m,summary,stat){
   if(stat){m=Object.assign({},m,{est:stat.est,lo:stat.lo,hi:stat.hi,x:stat.x,n:stat.n,
                                  action:(m.cls==='validated'&&stat.est>=RES_PCT)});}
   return `<tr data-k="${m.key}"${summary?'':' style="cursor:pointer" title="Click to show this marker on the map"'}><td>${geneLink(m)}</td><td>${esc(m.aa)}</td><td>${esc(m.drug)}</td>
-      <td><a class="pill ${clsPill(m)}" href="${WHO_URL}" target="_blank" rel="noopener" onclick="event.stopPropagation()" style="text-decoration:none" title="${esc((CLSABBR[m.cls]||'')+' = '+clsLabel(m)+(m.who_cls?' \u2014 '+m.who_cls+' ('+(m.who_how||'')+')':'')+'. Source: WHO Compendium of molecular markers for antimalarial drug resistance.')}">${esc(CLSABBR[m.cls]||clsLabel(m))}</a></td>${summary?'':`<td style="font-size:11.5px;color:var(--ink2)">${esc(m.crit)}</td>`}
-      <td class="num">${pct(m.est)}</td>
+      <td><a class="pill ${clsPill(m)}" href="${WHO_URL}" target="_blank" rel="noopener" onclick="event.stopPropagation()" style="text-decoration:none" title="${esc((CLSABBR[m.cls]||'')+' = '+clsLabel(m)+(m.who_cls?' \u2014 '+m.who_cls+' ('+(m.who_how||'')+')':'')+'. Source: WHO Compendium of molecular markers for antimalarial drug resistance.')}">${esc(CLSABBR[m.cls]||clsLabel(m))}</a></td>      <td class="num">${pct(m.est)}</td>
       <td class="num ci-txt">${ci(m.lo,m.hi)}</td>
-      <td>${m.action?`<span class="pill action">≥${RES_PCT}%</span>`:''}</td></tr>`;
+      <td>${m.action?`<span class="pill action">≥${RES_PCT}%</span>`:''}</td>
+      <td class="sub2" style="margin:0">${noteFor(m)}</td></tr>`;
 }
 /* Summary view: WHO Validated markers at/above the threshold, one row per marker and
    period, each marker led by its pooled (all years, all areas) row. */
@@ -463,10 +481,39 @@ function summaryTable(){
       +`</tr>`;});
   return h+`</tbody></table></div><div class="tcap">One row per marker per year, newest first; years in which a marker has no calls are omitted, and years with fewer than ${MINN} samples are suppressed rather than shown as a percentage. See the <a onclick="showTab('trends')" style="cursor:pointer;color:#2a6fb0;text-decoration:underline">Trends</a> tab for the full series and the <a onclick="showTab('resistance')" style="cursor:pointer;color:#2a6fb0;text-decoration:underline">Resistance Markers</a> tab for all-years figures.</div>`;
 }
+/* Marker-selection grid: gene-grouped chips with per-gene all/none. Used by both the
+   Resistance and Trends pages so the control is identical on each. checkedKeys=null
+   means every box starts checked. */
+function markerToggleGrid(containerId, keys, checkedKeys){
+  const grp=[], seen={};
+  keys.forEach(k=>{const m=D.markers.find(x=>x.key===k); if(!m) return;
+    if(!(m.gene in seen)){seen[m.gene]=grp.length; grp.push({gene:m.gene,gene_id:m.gene_id,items:[]});}
+    grp[seen[m.gene]].items.push(m);});
+    const on = checkedKeys ? new Set(checkedKeys) : null;
+  return `<div class="tgroups" id="${containerId}">`+grp.map((g,gi)=>
+    `<div class="tgroup"><div class="tglab"><i>${esc(g.gene)}</i><span class="tgn">${g.items.length} marker${g.items.length>1?'s':''} \u00b7 ${esc(g.gene_id||'')}</span>
+       <span class="tgacts"><button class="lnk" data-gsel="${gi}" data-on="1">all</button> / <button class="lnk" data-gsel="${gi}" data-on="0">none</button></span></div>
+     <div class="tgrid">`+g.items.map(m=>
+      `<label title="${esc(m.gene+' '+m.aa+' \u2014 '+CLSFULL[m.cls]+': '+(m.crit||''))}"><input type="checkbox" data-k="${m.key}" data-g="${gi}"${(!on||on.has(m.key))?' checked':''}><span class="aa">${esc(m.aa)}</span><span class="pill ${clsPill(m)}">${esc(CLSABBR[m.cls]||'?')}</span></label>`).join('')
+    +`</div></div>`).join('')+`</div>`;
+}
+function wireToggleGrid(containerId, onChange){
+  document.querySelectorAll(`#${containerId} button.lnk`).forEach(b=>b.onclick=e=>{
+    e.preventDefault();
+    const onv=b.dataset.on==='1';
+    document.querySelectorAll(`#${containerId} input[data-g="${b.dataset.gsel}"]`).forEach(cb=>{
+      if(cb.checked!==onv){cb.checked=onv; cb.dispatchEvent(new Event('change'));}});
+  });
+  document.querySelectorAll(`#${containerId} input[type=checkbox]`)
+    .forEach(cb=>cb.addEventListener('change',()=>onChange(cb)));
+}
+const gridChecked=containerId=>[...document.querySelectorAll(`#${containerId} input[type=checkbox]`)]
+  .filter(cb=>cb.checked).map(cb=>cb.dataset.k);
+
 function markerTable(id,summary){
   const rows=D.markers.filter(m=>m.assessed&&(!summary||(m.who&&m.est>=RES_PCT)));
   if(summary&&!rows.length) return `<div class="hint" style="margin-top:6px">No marker listed in the WHO compendium is at or above the ${RES_PCT}% threshold.</div>`;
-  return `<div class="scroll"><table${id?` id="${id}"`:''}><thead><tr><th>Gene</th><th>AA change</th><th>Associated drug</th><th>WHO Classification</th>${summary?'':'<th>WHO criterion</th>'}<th class="num">Prevalence${summary?' (all years, all areas)':''}</th><th class="num">95% CI</th><th>Flag</th></tr></thead><tbody>`+
+  return `<div class="scroll"><table${id?` id="${id}"`:''}><thead><tr><th>Gene</th><th>AA change</th><th>Associated drug</th><th>WHO Classification</th><th class="num">Prevalence${summary?' (all years, all areas)':''}</th><th class="num">95% CI</th><th>Flag</th><th>Notes</th></tr></thead><tbody>`+
     rows.map(m=>mkRow(m,summary)).join('')
     +`</tbody></table></div>`+(summary&&TR?`<div class="tcap">Every figure in this table pools all years and all sampled areas. The per-period notes show where each flag actually holds — see the <a onclick="showTab('trends')" style="cursor:pointer;color:#2a6fb0;text-decoration:underline">Trends</a> tab for the full series, or filter by period on <a onclick="showTab('resistance')" style="cursor:pointer;color:#2a6fb0;text-decoration:underline">Resistance Markers</a>.</div>`:'');
 }
@@ -516,20 +563,12 @@ R.summary=()=>{
 
 R.resistance=()=>{
   const cm=(CAP.covered_markers||[]).filter(k=>D.markers.find(m=>m.key===k&&m.assessed));
-  let html=`<h2 class="sec">Genetic alterations associated with antimalarial drug resistance</h2>
-    <div class="sec-desc">Gene, amino-acid change, associated drug and WHO class — with prevalence among QC pass infections (95% Wilson CI). Classes are the <a href="${WHO_URL}" target="_blank" rel="noopener">WHO compendium</a>&rsquo;s own: <b>Validated marker</b>, <b>Candidate marker</b> and <b>Potential marker</b> where WHO lists the alteration on its own, <b>Haplotype component</b> where WHO lists the codon only inside a multi-codon haplotype, and <b>Not in WHO compendium</b> for panel background or research loci. The ≥${RES_PCT}% action flag is applied to Validated markers. Filter, sort, or click a row to map it.</div>`;
+  let html=`<h2 class="sec">Genetic alterations associated with antimicrobial resistance</h2>
+    <div class="sec-desc">Gene, amino-acid change, associated drug, and WHO class, with prevalence among QC pass infections (95% Wilson CI). Each marker class is either defined by the WHO or included by researchers as a background marker for investigation. <a href="${WHO_URL}" target="_blank" rel="noopener">WHO</a>-defined classes: <i>Validated marker</i>, <i>Candidate marker</i>, and <i>Potential marker</i> where WHO lists the alteration on its own, <i>Haplotype component</i> where WHO lists the codon only inside a multi-codon haplotype. <i>Background</i> markers for panel background or research loci. The ≥${RES_PCT}% action flag is applied to Validated markers.</div>`;
   // marker toggles
   html+=classLegend();
-  const grp=[]; const seen={};
-  cm.forEach(k=>{const m=D.markers.find(x=>x.key===k); if(!m) return;
-    if(!(m.gene in seen)){seen[m.gene]=grp.length; grp.push({gene:m.gene,gene_id:m.gene_id,items:[]});}
-    grp[seen[m.gene]].items.push(m);});
-  html+=`<div class="tgroups" id="mtoggles">`+grp.map((g,gi)=>
-    `<div class="tgroup"><div class="tglab"><i>${esc(g.gene)}</i><span class="tgn">${g.items.length} marker${g.items.length>1?'s':''} \u00b7 ${esc(g.gene_id||'')}</span>
-       <span class="tgacts"><button class="lnk" data-gsel="${gi}" data-on="1">all</button> / <button class="lnk" data-gsel="${gi}" data-on="0">none</button></span></div>
-     <div class="tgrid">`+g.items.map(m=>
-      `<label title="${esc(m.gene+' '+m.aa+' \u2014 '+CLSFULL[m.cls]+': '+(m.crit||''))}"><input type="checkbox" data-k="${m.key}" data-g="${gi}" checked><span class="aa">${esc(m.aa)}</span><span class="pill ${clsPill(m)}">${esc(CLSABBR[m.cls]||'?')}</span></label>`).join('')
-    +`</div></div>`).join('')+`</div>`;
+  html+=`<div class="sec-desc">Select markers to display on the map and prevalence tables below.</div>`;
+  html+=markerToggleGrid('mtoggles', cm, null);
   // map + controls (detail page = admin-2 choropleth only, no circles)
   const hasSites=false;
   html+=`<div class="grid two"><div class="card"><h3>Prevalence by ${hasSites?'site':'admin-2'} <select id="drsel">${cm.map(k=>{const m=D.markers.find(x=>x.key===k);return `<option value="${k}">${esc(markerLabel(m))}</option>`;}).join('')}</select> <span class="scopechip" id="drperiod"></span></h3>
@@ -542,7 +581,7 @@ R.resistance=()=>{
       <div class="yrnote" id="yrnote"></div>
       <div class="hint">Click a ${hasSites?'site':'region'} to pin its value; hover for the number. ${hasSites?'Small-n sites are greyed':'Hatched = n below threshold'} (suppressed).</div>
       <div id="drmap"></div><div id="drlegend"></div><div class="readout">Click a region…</div></div>
-    <div class="card"><h3>Samples per ${hasSites?'site':'admin-2 unit'} <span class="scopechip" id="drbarperiod"></span></h3><div class="hint">Denominator behind each ${hasSites?'site':'region'}'s prevalence — small n means an unstable %.</div><div id="drbars"></div></div></div>`;
+    <div class="card"><h3>Samples per ${hasSites?'site':'admin-2 unit'} <span class="scopechip" id="drbarperiod"></span></h3><div class="hint">Number of samples collected (n) per ${hasSites?'site':'region'}. Small n means prevalence values are skewed.</div><div id="drbars"></div></div></div>`;
   // table
   html+=`<div class="card" style="margin-top:16px"><h3>Marker table <span class="scopechip" id="mtperiod"></span></h3><div class="hint" id="dltbl"></div>
     <div class="controls">
@@ -550,7 +589,7 @@ R.resistance=()=>{
       <label>Min prevalence: <input type="number" id="mtminprev" min="0" max="100" step="0.5" value="0" style="width:64px;font-size:12.5px;padding:3px 6px;border:1px solid var(--line);border-radius:6px"> %</label>
       <label>Sort: <select id="mtsort"><option value="gene">Gene order</option><option value="desc">Prevalence high→low</option><option value="asc">Prevalence low→high</option></select></label>
     </div>
-    ${markerTable('mtable')}<div class="tcap">WHO thresholds &amp; marker lists are real; prevalence values are ${REAL?'observed from the sequenced samples':'synthetic'}. The ≥${RES_PCT}% flag marks WHO Validated markers at or above the WHO treatment-failure threshold.</div></div>`;
+    ${markerTable('mtable')}<div class="tcap">Prevalence values are ${REAL?'observed from the sequenced samples':'synthetic'}. The ≥${RES_PCT}% flag marks WHO Validated markers at or above the WHO treatment-failure threshold.</div></div>`;
   return html;
 };
 function wireResistance(){
@@ -588,18 +627,11 @@ function wireResistance(){
     draw(); rebuildTable(); refreshDL();
   };
   // marker toggles filter table rows + selector options
-  document.querySelectorAll('#mtoggles input').forEach(cb=>cb.onchange=()=>{
+  wireToggleGrid('mtoggles', cb=>{
     const k=cb.dataset.k, on=cb.checked;
     document.querySelectorAll(`#mtable tr[data-k="${k}"]`).forEach(r=>r.style.display=on?'':'none');
     const opt=sel.querySelector(`option[value="${k}"]`); if(opt) opt.disabled=!on;
     if(!on && sel.value===k){const first=[...sel.options].find(o=>!o.disabled); if(first){sel.value=first.value; draw();}}
-  });
-  // per-gene all/none
-  document.querySelectorAll('#mtoggles button.lnk').forEach(b=>b.onclick=e=>{
-    e.preventDefault();
-    const on=b.dataset.on==='1';
-    document.querySelectorAll(`#mtoggles input[data-g="${b.dataset.gsel}"]`).forEach(cb=>{
-      if(cb.checked!==on){cb.checked=on; cb.dispatchEvent(new Event('change'));}});
   });
   // marker-table widget: filter (WHO/research/threshold/min-prevalence) + sort by prevalence
   const mtf=$('#mtfilter'), mts=$('#mtsort'), mtp=$('#mtminprev');
@@ -623,8 +655,8 @@ function wireResistance(){
         out.push(st?mkRow(m,false,st)
                    :`<tr data-k="${m.key}"><td><i>${esc(m.gene)}</i></td><td>${esc(m.aa)}</td><td>${esc(m.drug)}</td>`
                     +`<td><span class="pill ${clsPill(m)}">${esc(clsLabel(m))}</span></td>`
-                    +`<td style="font-size:11.5px;color:var(--ink2)">${esc(m.crit)}</td>`
-                    +`<td class="num hint" colspan="3">not assessed in ${esc(selLabel||'this period')}</td></tr>`);});
+                    +`<td class="num hint" colspan="3">not assessed in ${esc(selLabel||'this period')}</td>`
+                    +`<td class="sub2" style="margin:0">${noteFor(m)}</td></tr>`);});
     }
     $('#mtable tbody').innerHTML=out.join('')||`<tr><td colspan="8" class="hint">No markers match the current filter.</td></tr>`;
     document.querySelectorAll('#mtable tr[data-k]').forEach(r=>{if(off.has(r.dataset.k)) r.style.display='none';});
@@ -691,16 +723,16 @@ function trendChart(frames,series,{w=620,h=250,ymax=null}={}){
   return o+'</svg>';
 }
 R.trends=()=>{
-  if(!TR) return `<h2 class="sec">Trends over time</h2><div class="callout"><b>No time-resolved data.</b></div>`;
+  if(!TR) return `<h2 class="sec">Trends in AMR markers over time</h2><div class="callout"><b>No time-resolved data.</b></div>`;
   const cm=(CAP.covered_markers||[]).filter(k=>D.markers.find(m=>m.key===k&&m.assessed)&&trIdx(k)>=0);
   const dflt=(D.markers.filter(m=>m.assessed&&m.action).sort((a,b)=>b.est-a.est)[0]
             ||D.markers.filter(m=>m.assessed&&m.who).sort((a,b)=>b.est-a.est)[0]||{}).key||cm[0];
-  return `<h2 class="sec">Trends over time</h2>
-    <div class="sec-desc">Prevalence by collection period, from the same QC pass samples as the pooled view &mdash; every frame is summed from per-year counts, so the periods always add up to the pooled figure. Sparse years are merged into periods with a usable denominator (a year reaching n&ge;${TR.min_frame_n} stands alone); switch to single years to see the raw series.</div>
+  return `<h2 class="sec">Trends in AMR markers over time</h2>
+    <div class="sec-desc">Antimicrobial resistance (AMR) marker prevalence over time and space. Years with few samples are merged into larger periods of time for ease-of-visualization (switch to single years to see the raw series).</div>
     ${classLegend()}
+    <div class="sec-desc">Select markers to display on the map and prevalence tables below.</div>
+    ${markerToggleGrid('trtoggles', cm, [dflt])}
     <div class="controls">
-      <label>Markers (select one or more): <select id="trmk" multiple size="6">${cm.map(k=>{const m=D.markers.find(x=>x.key===k);
-        return `<option value="${k}"${k===dflt?' selected':''}>${esc(markerLabel(m))} [${esc(CLSABBR[m.cls]||'')}]</option>`;}).join('')}</select></label>
       <label>Granularity: <select id="trgran"><option value="frames">Periods (${TR.frames.length})</option><option value="years">Single years (${TR.years.length})</option></select></label>
       <label>Min samples/region: <b id="trminlab">${MINN}</b> <input type="range" id="trmin" min="1" max="30" value="${MINN}"></label>
       <span id="trscope"></span>
@@ -727,10 +759,11 @@ R.trends=()=>{
 };
 function wireTrends(){
   if(!TR) return;
-  const mkSel=$('#trmk'), gran=$('#trgran'), mn=$('#trmin');
-  if(!mkSel) return;
+  const gran=$('#trgran'), mn=$('#trmin');
+  if(!gran) return;
+  const allKeys=[...document.querySelectorAll('#trtoggles input[type=checkbox]')].map(cb=>cb.dataset.k);
   const TRCOL=['#2a78d6','#d03b3b','#1baf7a','#9a5b16','#6f42c1','#0b7285','#c2185b','#5b6067'];
-  const picked=()=>{const v=[...mkSel.selectedOptions].map(o=>o.value); return v.length?v:[mkSel.options[0].value];};
+  const picked=()=>{const v=gridChecked('trtoggles'); return v.length?v:allKeys.slice(0,1);};
   let idx=0, diff=false, timer=null, scope=null;     // scope=null -> national
   const frames=()=>trFrames(gran.value);
   const stat=(years,mi)=>scope?trUnit(scope,years,mi):trNat(years,mi);
@@ -824,14 +857,17 @@ function wireTrends(){
     const t=el.querySelector('title'); if(!t) return;
     const nm=t.textContent.split(':')[0].trim();
     scope=(scope===nm)?null:nm; draw();});
-  mkSel.onchange=()=>draw(); gran.onchange=()=>{idx=0; draw();};
+  wireToggleGrid('trtoggles', ()=>draw());
+  gran.onchange=()=>{idx=0; draw();};
   mn.oninput=()=>{MINN=+mn.value; $('#trminlab').textContent=MINN; draw();};
   draw();
 }
 R.export=()=>{
   const e=D.export, order=e.order||Object.keys(e.views||{});
-  let html=`<h2 class="sec">Export \u2014 dashboard-ready views</h2>
-    <div class="sec-desc">The same data formatted for downstream dashboards. Switch views; download each as CSV.</div>
+  const NUMWORD={1:'One',2:'Two',3:'Three',4:'Four',5:'Five',6:'Six'};
+  const fmtNames=order.map(k=>esc(e.views[k].label||k));
+  let html=`<h2 class="sec">Export data for dashboards</h2>
+    <div class="sec-desc">This dataset reformatted for easy import into downstream dashboards. ${NUMWORD[fmtNames.length]||fmtNames.length} data formats currently supported: ${fmtNames.join(', ')}.</div>
     <div class="controls"><label>Output type: <select id="expsel">`+order.map(k=>`<option value="${k}">${esc(e.views[k].label||k)}</option>`).join('')+`</select></label></div>
     <div id="exportview"></div>`;
   return html;
@@ -841,9 +877,8 @@ function wireExport(){
   const render=key=>{const v=V[key]||{cols:[],count:0,preview:[]};
     const rows=v.preview||[], cols=(v.cols&&v.cols.length)?v.cols:Object.keys(rows[0]||{a:1});
     let h=`<div class="card"><h3>${esc(v.title||key)}</h3>`
-      +(v.note?`<div class="callout"><b>Note.</b> ${esc(v.note)}</div>`:``)
       +`<div class="hint"><button class="btn" id="dlbtn">\u2913 Download full CSV (${v.count} rows)</button>`
-      +(v.count>rows.length?` <span style="color:var(--ink2)">Table shows the first ${rows.length} of ${v.count} rows; download for the full set.</span>`:``)+`</div>`
+      +(v.count>rows.length?`<div style="color:var(--ink2);margin-top:8px">Table shows the first ${rows.length} of ${v.count} rows; download for the full set.</div>`:``)+`</div>`
       +`<div class="scroll"><table><thead><tr>`+cols.map(c=>`<th>${esc(c)}</th>`).join('')+`</tr></thead><tbody>`
       +rows.map(r=>`<tr>`+cols.map(c=>`<td>${esc(r[c])}</td>`).join('')+`</tr>`).join('')+`</tbody></table></div></div>`;
     $('#exportview').innerHTML=h;
@@ -866,7 +901,7 @@ R.methods=()=>{
       <ul style="font-size:13px;color:var(--ink2);margin:6px 0 0 18px;line-height:1.7">
         <li>Marker list &amp; classes: <a href="${who}" target="_blank" rel="noopener">WHO Compendium of molecular markers for antimalarial drug resistance</a>. Every class shown in this report is read from that compendium; each class label links to it.</li>
         <li>Resistance action flag: ≥${RES_PCT}% — aligns with WHO's ≥10% treatment-failure threshold for changing first-line policy.</li>
-        <li>Marker classes use the WHO compendium&rsquo;s own names: <b>Validated marker</b>, <b>Candidate marker</b> and <b>Potential marker</b> (with WHO&rsquo;s evidence qualifiers &mdash; e.g. &ldquo;Validated marker (Epi., Lab. &amp; Clin.)&rdquo; &mdash; shown on each row&rsquo;s tooltip). Where WHO lists a codon only inside a multi-codon haplotype, the row is labelled <b>Haplotype component</b> and names that haplotype, because WHO does not assign the single codon a class of its own. Loci absent from the compendium are labelled <b>Not in WHO compendium</b> (panel background, e.g. Pfarps10, Pffd, Pfmdr2, Pfexo, Pfmdr1 Y184F; or research, e.g. Pfaat1, Pfcarl, Pfubp1, Pfap2-mu). All are counted; only Validated markers carry the ≥${RES_PCT}% action flag.</li>
+        <li>Marker classes use the WHO compendium&rsquo;s own names: <b>Validated marker</b>, <b>Candidate marker</b>, and <b>Potential marker</b> (with WHO&rsquo;s evidence qualifiers &mdash; e.g. &ldquo;Validated marker (Epi., Lab. &amp; Clin.)&rdquo; &mdash; shown on each row&rsquo;s tooltip). Where WHO lists a codon only inside a multi-codon haplotype, the row is labelled <b>Haplotype component</b> and names that haplotype, because WHO does not assign the single codon a class of its own. Loci absent from the compendium are labelled <b>Not in WHO compendium</b> (panel background, e.g. Pfarps10, Pffd, Pfmdr2, Pfexo, and Pfmdr1 Y184F; or research, e.g. Pfaat1, Pfcarl, Pfubp1, and Pfap2-mu). All are counted; only Validated markers carry the ≥${RES_PCT}% action flag.</li>
         <li>Time periods: the Trends tab and the Resistance period filter group collection years into frames with a usable denominator — a year reaching n&ge;${TR?TR.min_frame_n:100} QC pass samples stands alone, sparser runs are merged. Every frame is summed from per-year counts, so the frames always add up to the pooled figure; the pooled view remains the default everywhere. Prevalence by period is subject to the same min-sample suppression as the pooled view, and a marker with no calls in a period reads "not assessed" rather than 0%.</li>
         <li>Trend caveat: these cohorts were not sampled uniformly over time (districts enter and leave the sampling frame), so part of any national change over time reflects <i>where</i> samples came from, not only parasite population change. The samples-per-period chart is shown alongside every trend for that reason; scope a region to remove the composition effect.</li>
         <li>Admin-2 boundaries: geoBoundaries (SEN ADM2). Admin-3 shown when available; collection dates assumed available (contingency messaging if absent).</li>

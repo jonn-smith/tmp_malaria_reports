@@ -19,7 +19,7 @@ workflow MalariaSurveillanceReportWgs {
     parameter_meta {
         sample_table_tsv:         "Terra export of the WGS `sample` table (TSV) with per-amino-acid genotype columns"
         cohort_name:              "Cohort label; used in the output directory path and output filenames"
-        version_label:            "Version string stamped on the report (e.g. v0.11-real)"
+        version_label:            "Version string stamped on the report (e.g. v0.12)"
         data_source:              "Provenance line shown in the report banner"
         render_config_json:       "JSON settings file for the renderer; unrecognised keys pass through to the report metadata, so new rendering features need no change to this interface"
         report_template_override: "Replacement report template (HTML); omit to use the template pinned by the docker image"

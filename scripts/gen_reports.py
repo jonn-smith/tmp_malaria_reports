@@ -38,7 +38,7 @@ def _na(x):  # accent- & case-insensitive key for name lookups (geoBoundaries na
 # Version label stamped into every report. Importers set it with set_version(); the CLI
 # below takes it as argv[1]. Not read from argv at import time so that this module can be
 # imported as a library (make_report.py) without inheriting the caller's arguments.
-VERSION = 'v0.11'
+VERSION = 'v0.12'
 def set_version(v):
     global VERSION
     if v: VERSION = v
@@ -212,13 +212,13 @@ ASSAYS = {
    genes={'k13','crt','mdr1','mdr2','dhfr','dhps','coronin','ubp1','ap2mu','arps10','exo','aat1','carl','atg18'},
    cnv=True, hrp=True, species=False,
    div=dict(coi=True,poly=True,mono=True,rh=True,cotx=True,coi_method='24-SNP barcode heterozygosity'),
-   note='Whole-genome short-read sequencing; this report shows the prevalence of drug-resistance markers from the WHO compendium plus panel background and research loci, called from per-sample genotypes.'),
+   note='Whole-genome short-read sequencing; this report shows the prevalence of drug-resistance markers from the WHO compendium, plus panel background and research loci, called from per-sample genotypes.'),
  'MAD4HATTER': dict(full='MAD4HATTER v4 amplicon panel (Illumina)', platform='Illumina (v4, pools 1A+1B+2)',
    turnaround='1–2 weeks', color='#1baf7a', n_range=(30,260), years=[str(y) for y in range(2020,2025)], n_depts=38, qc=0.87,
    genes={'k13','crt','mdr1','mdr2','dhfr','dhps','cytb','coronin','ubp1','arps10','fd','exo'},
    cnv=True, hrp=True, species=True,
    div=dict(coi=True,poly=True,mono=True,rh=True,cotx=True,coi_method='naive COI (max distinct microhaplotype alleles per locus)'),
-   note='v4 amplicon panel (resistance pools); this report shows the prevalence of drug-resistance markers from the WHO compendium, called from resistance-marker (resmarker) output. Also types Pfcoronin, Pfubp1 and the panel background loci (Pfarps10, Pffd, Pfmdr2, Pfexo); it does not type Pfap2-mu, Pfaat1, Pfcarl or Pfatg18.'),
+   note='v4 amplicon panel (resistance pools); this report shows the prevalence of drug-resistance markers from the WHO compendium, called from resistance-marker (resmarker) output. Also types Pfcoronin, Pfubp1, and the panel background loci (Pfarps10, Pffd, Pfmdr2, and Pfexo); it does not type Pfap2-mu, Pfaat1, Pfcarl or Pfatg18.'),
  'NOMADS': dict(full='NOMADS targeted panel (Oxford Nanopore)', platform='ONT MinION (nomads16)',
    turnaround='1–3 days', color='#2a78d6', n_range=(40,160), years=[str(y) for y in range(2022,2025)], n_depts=19, qc=0.84,
    genes={'k13','crt','mdr1','dhfr','dhps'},
@@ -655,11 +655,11 @@ def _mmm_yyyy(d):
 # export view metadata: key -> (button label, csv filename, on-screen title)
 VIEW_META = {
  'who':      ('WHO Threat Maps', 'who_threat_map.csv', 'WHO Malaria Threats Map',
-             'WHO Malaria Threats Map layout: one row per admin-2 × marker (samples tested, mutant present, percent, WHO class). Representative of the schema.'),
+             'WHO Malaria Threats Map layout: one row per admin-2 × marker (samples tested, mutant present, percent, and WHO class). Representative of the schema.'),
  'afcdc':    ('Africa CDC', 'afcdc_mutation_haplotype.csv', 'Africa CDC — Mutation / Haplotype data sheet',
-             'Africa CDC Mutation/Haplotype data sheet: one row per sample × observed mutant alteration (Gene symbol · Gene Alteration · Haplotype). Columns not captured in the sequencing data (host subject ID, haplotype, travel history, destinations, endemicity, study type) are left blank.'),
+             'Africa CDC Mutation/Haplotype data sheet: one row per sample × observed mutant alteration (Gene symbol · Gene Alteration · Haplotype). Columns not captured in the sequencing data (host subject ID, haplotype, travel history, destinations, endemicity, and study type) are left blank.'),
  'pha4ge':   ('PHA4GE', 'pha4ge_malaria_standard.csv', 'PHA4GE Malaria Community Standard (human sample) — one row per sample × observed alteration',
-             'PHA4GE Malaria Community Standard (human sample): the 210-field per-specimen schema, one row per sample × observed alteration. Only fields the genomic data supports are populated (sample ID, geography, collection date, organism/host, assay/instrument, MOI, gene/alteration); all other fields (accessions, host demographics, sequencing kit, etc.) are left blank.'),
+             'PHA4GE Malaria Community Standard (human sample): the 210-field per-specimen schema, one row per sample × observed alteration. Only fields the genomic data supports are populated (sample ID, geography, collection date, organism/host, assay/instrument, MOI, and gene/alteration); all other fields (accessions, host demographics, sequencing kit, etc.) are left blank.'),
  'dhis2':    ('DHIS2', 'dhis2_datavalueset.csv', 'DHIS2 dataValueSet',
              'DHIS2 dataValueSet import schema: dataElement · period · orgUnit · categoryOptionCombo · value — one row per admin-2 × marker (value = prevalence %).'),
 }

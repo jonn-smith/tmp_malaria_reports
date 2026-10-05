@@ -69,7 +69,7 @@ you launch on a set entity, and it keeps each report's denominators self-contain
 | Input | Type | Purpose |
 |---|---|---|
 | `cohort_name` | `String` | Output filename + output directory component. |
-| `version_label` | `String?` | Version string stamped on the report, e.g. `v0.11`. |
+| `version_label` | `String?` | Version string stamped on the report, e.g. `v0.12`. |
 | `data_source` | `String?` | Provenance line in the report banner. |
 | `render_config_json` | `File?` | **Rendering settings. See §3.** |
 | `report_template_override` | `File?` | **Replacement template. See §3.** |
@@ -145,8 +145,8 @@ counted and reported in the task log rather than silently dropped.
 ## 6. Container
 
 ```bash
-docker build -t us.gcr.io/broad-dsp-lrma/lr-malaria-reports:0.11.0 -f docker/Dockerfile .
-docker push  us.gcr.io/broad-dsp-lrma/lr-malaria-reports:0.11.0
+docker build -t us.gcr.io/broad-dsp-lrma/lr-malaria-reports:0.12.0 -f docker/Dockerfile .
+docker push  us.gcr.io/broad-dsp-lrma/lr-malaria-reports:0.12.0
 ```
 
 Notes for whoever maintains it:
@@ -171,7 +171,7 @@ The task body is one command, so it can be reproduced outside WDL exactly:
 ```bash
 python3 scripts/make_report.py --assay WGS \
     --sample-table sample.tsv \
-    --version-label v0.11 \
+    --version-label v0.12 \
     --out-html report.html --out-data-json report.data.json --out-csv-dir csv/
 ```
 

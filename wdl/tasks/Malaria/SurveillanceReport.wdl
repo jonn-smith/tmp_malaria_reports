@@ -8,7 +8,7 @@ task RenderWgsReport {
         description: "Render the malaria molecular-surveillance report from a short-read WGS sample table (a Terra export of the sr-malaria `sample` table, carrying per-amino-acid genotype columns)."
 
         tool:         "make_report.py"
-        tool_version: "0.11.0"
+        tool_version: "0.12.0"
         tool_url:     "https://github.com/jonn-smith/tmp_malaria_reports"
 
         author: "Jonn Smith"
@@ -24,7 +24,7 @@ task RenderWgsReport {
     parameter_meta {
         sample_table_tsv:         "Terra export of the WGS `sample` table (TSV) with per-amino-acid genotype columns"
         cohort_name:              "Cohort label used for output filenames"
-        version_label:            "Version string stamped on the report (e.g. v0.11-real)"
+        version_label:            "Version string stamped on the report (e.g. v0.12)"
         data_source:              "Provenance line shown in the report banner"
         render_config_json:       "JSON settings file; unrecognised keys pass through to the report metadata so new template features need no interface change"
         report_template_override: "Replacement report template (HTML); omit to use the template baked into the docker image"
@@ -115,7 +115,7 @@ task RenderWgsReport {
         boot_disk_gb:       25,
         preemptible_tries:  1,
         max_retries:        1,
-        docker:             "us.gcr.io/broad-dsp-lrma/lr-malaria-reports:0.11.0"
+        docker:             "us.gcr.io/broad-dsp-lrma/lr-malaria-reports:0.12.0"
     }
     RuntimeAttr runtime_attr = select_first([runtime_attr_override, default_attr])
     runtime {
@@ -135,7 +135,7 @@ task RenderMad4hatterReport {
         description: "Render the malaria molecular-surveillance report from MAD4HATTER amplicon outputs: one resistance-marker table per sequencing run, a per-sample site/coordinate table, and optionally the microhaplotype allele tables."
 
         tool:         "make_report.py"
-        tool_version: "0.11.0"
+        tool_version: "0.12.0"
         tool_url:     "https://github.com/jonn-smith/tmp_malaria_reports"
 
         author: "Jonn Smith"
@@ -153,7 +153,7 @@ task RenderMad4hatterReport {
         site_metadata:            "Per-sample site and coordinate table (Sample_id, site, Latitude, Longitude)"
         allele_tables:            "MAD4HATTER microhaplotype allele tables (allele_data.txt); optional"
         cohort_name:              "Cohort label used for output filenames"
-        version_label:            "Version string stamped on the report (e.g. v0.11-real)"
+        version_label:            "Version string stamped on the report (e.g. v0.12)"
         data_source:              "Provenance line shown in the report banner"
         render_config_json:       "JSON settings file; unrecognised keys pass through to the report metadata so new template features need no interface change"
         report_template_override: "Replacement report template (HTML); omit to use the template baked into the docker image"
@@ -249,7 +249,7 @@ task RenderMad4hatterReport {
         boot_disk_gb:       25,
         preemptible_tries:  1,
         max_retries:        1,
-        docker:             "us.gcr.io/broad-dsp-lrma/lr-malaria-reports:0.11.0"
+        docker:             "us.gcr.io/broad-dsp-lrma/lr-malaria-reports:0.12.0"
     }
     RuntimeAttr runtime_attr = select_first([runtime_attr_override, default_attr])
     runtime {
@@ -269,7 +269,7 @@ task RenderNomadsReport {
         description: "Render the malaria molecular-surveillance report from NOMADS (ONT amplicon) marker calls. Input is the assay-agnostic marker-calls table documented in scripts/load_nomads.py: one row per sample x marker, so a change in nomadic's own output layout is absorbed by the mapping into that table rather than by this interface."
 
         tool:         "make_report.py"
-        tool_version: "0.11.0"
+        tool_version: "0.12.0"
         tool_url:     "https://github.com/jonn-smith/tmp_malaria_reports"
 
         author: "Jonn Smith"
@@ -286,7 +286,7 @@ task RenderNomadsReport {
         marker_calls_tables:      "Marker-calls tables (TSV/CSV), one row per sample x marker; schema documented in scripts/load_nomads.py"
         cohort_name:              "Cohort label used for output filenames"
         site_metadata:            "Per-sample site and coordinate table; optional when the calls tables already carry geography"
-        version_label:            "Version string stamped on the report (e.g. v0.11-real)"
+        version_label:            "Version string stamped on the report (e.g. v0.12)"
         data_source:              "Provenance line shown in the report banner"
         render_config_json:       "JSON settings file; unrecognised keys pass through to the report metadata so new template features need no interface change"
         report_template_override: "Replacement report template (HTML); omit to use the template baked into the docker image"
@@ -380,7 +380,7 @@ task RenderNomadsReport {
         boot_disk_gb:       25,
         preemptible_tries:  1,
         max_retries:        1,
-        docker:             "us.gcr.io/broad-dsp-lrma/lr-malaria-reports:0.11.0"
+        docker:             "us.gcr.io/broad-dsp-lrma/lr-malaria-reports:0.12.0"
     }
     RuntimeAttr runtime_attr = select_first([runtime_attr_override, default_attr])
     runtime {

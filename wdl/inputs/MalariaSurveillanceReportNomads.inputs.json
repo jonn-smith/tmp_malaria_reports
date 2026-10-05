@@ -5,7 +5,7 @@
   "MalariaSurveillanceReportNomads.cohort_name": "SEN_NOMADS_2024",
 
   "MalariaSurveillanceReportNomads.site_metadata": "gs://BUCKET/nomads/site_metadata.csv",
-  "MalariaSurveillanceReportNomads.version_label": "v0.11",
+  "MalariaSurveillanceReportNomads.version_label": "v0.12",
   "MalariaSurveillanceReportNomads.data_source": "NOMADS ONT amplicon · nomadic marker calls",
   "MalariaSurveillanceReportNomads.gcs_out_root_dir": "gs://BUCKET/malaria_reports",
 

@@ -5,8 +5,8 @@
 # ship as a new tag; the WDL interface does not change. See docs/WDL_INTERFACE.md.
 #
 # Build + push:
-#   docker build -t us.gcr.io/broad-dsp-lrma/lr-malaria-reports:0.11.0 -f docker/Dockerfile .
-#   docker push  us.gcr.io/broad-dsp-lrma/lr-malaria-reports:0.11.0
+#   docker build -t us.gcr.io/broad-dsp-lrma/lr-malaria-reports:0.12.0 -f docker/Dockerfile .
+#   docker push  us.gcr.io/broad-dsp-lrma/lr-malaria-reports:0.12.0
 # Base is the full python image rather than -slim deliberately: every WDL task in this
 # repo runs the house-standard resource-detection preamble, which calls `free`. The slim
 # image omits procps, so the preamble aborts under `set -e`. (slim + `apt-get install
@@ -15,7 +15,7 @@ FROM python:3.11
 
 LABEL org.opencontainers.image.title="lr-malaria-reports"
 LABEL org.opencontainers.image.description="Senegal malaria molecular-surveillance report renderer"
-LABEL org.opencontainers.image.version="0.11.0"
+LABEL org.opencontainers.image.version="0.12.0"
 
 # The report pipeline is pure standard-library Python 3 by design: no third-party
 # packages, so there is nothing to resolve at build time and nothing to drift.
