@@ -104,6 +104,29 @@ def project(feats, iso=None, country=None):
         if props.get('level_meaning'): meanings.add(str(props['level_meaning']))
         depts.append(rec)
 
+    # Unit identity is the name: the report aggregates and joins on it, so duplicates would
+    # silently merge distinct units (Namibia has 7 "Luderitz", Egypt 34 collisions). pcode is
+    # not a usable alternative - it is official for some sources and an unstable
+    # geoBoundaries hash for others - so disambiguate the name itself and keep the original.
+    seen = {}
+    for d in depts:
+        seen.setdefault(d['name'], []).append(d)
+    for nm, group in seen.items():
+        if len(group) < 2: continue
+        for i, d in enumerate(group, 1):
+            d['name_raw'] = nm
+            d['name'] = f"{nm} ({d['region']})" if d.get('region') else f"{nm} ({i})"
+    # a second pass in case a region suffix still collides
+    seen2 = {}
+    for d in depts:
+        seen2.setdefault(d['name'], []).append(d)
+    for nm, group in seen2.items():
+        if len(group) < 2: continue
+        for i, d in enumerate(group, 1):
+            d['name'] = f"{nm} ({i})"
+    names = [d['name'] for d in depts]
+    assert len(names) == len(set(names)), 'unit names still collide after disambiguation'
+
     out = {'viewBox': f'0 0 {W} {H}', 'W': W, 'H': H, 'pad': PAD,
            'lonMin': lonMin, 'lonMax': lonMax, 'latMin': latMin, 'latMax': latMax,
            'depts': depts}

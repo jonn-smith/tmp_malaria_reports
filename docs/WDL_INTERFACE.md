@@ -68,6 +68,28 @@ projection is invertible the loaders use the same paths to assign each sample's
 latitude/longitude to a district. Paths are rounded to 0.1 px (about 100 m for a country
 the size of Senegal), so a sample essentially on a district boundary may fall either side.
 
+Geometry details that the conversion handles explicitly:
+
+- **Multipart units are kept whole.** A MultiPolygon becomes one unit with several
+  subpaths, never exploded, so unit counts match the source (Libya 22, Mauritius 12,
+  Mayotte 17). One consequence: a unit whose parts straddle distant territory stretches the
+  map frame — Mauritius spans 10.2° of latitude because the dependencies are included, so
+  the main island occupies a small part of the canvas.
+- **Holes are respected in both drawing and assignment.** Hole rings are wound opposite to
+  their exterior in these sources, so SVG's nonzero fill renders them as holes; and sample
+  assignment applies the even-odd rule across all of a unit's rings, so a point inside an
+  enclave resolves to the enclave rather than the unit surrounding it. 14 of the 54 maps
+  contain holes, and this matters most in Zimbabwe, where it changes the answer for 17 of
+  91 units (the "… Urban" districts sit inside their rural namesakes).
+- **Unit names are made unique at build time.** The report aggregates and joins on the
+  name, so duplicates would silently merge distinct units; 10 of 54 countries had
+  collisions (Egypt 34, Namibia 7 units all called "Luderitz"). Colliding names get a
+  region or ordinal suffix and the original is kept as `name_raw`. `pcode` is deliberately
+  **not** used as a key: it is an official P-code in some sources and an unstable
+  geoBoundaries hash in others.
+- Sub-pixel parts are dropped: one ~900 m² islet of Mayotte's Bandrele commune collapses
+  below the 0.1 px path resolution, leaving 12 of its 13 parts drawn.
+
 Region (admin-1) names are only available for Senegal, from a curated lookup; gbOpen ADM2
 features carry no parent name, so for other countries the region fields in the exports are
 blank until an ADM1 lookup is added.
