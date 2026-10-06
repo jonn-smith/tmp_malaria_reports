@@ -682,3 +682,19 @@ The Africa CDC Mutation/Haplotype sheet and the PHA4GE standard both have a dedi
 Applied on all four code paths (real export and synthetic export, each for Africa CDC and PHA4GE). The synthetic marker-centric rows needed an internal `_hap` flag to carry the distinction through to the mutation/haplotype view; it is popped before packing so it never reaches an output column — asserted in the verification.
 
 Verified across reports: no row ever populates both fields (MAD-real 1,310 haplotype / 7,314 alteration; WGS-real 1,703 / 10,753; synthetic 3 / 19; combined 10 / 49), the on-screen Africa CDC preview shows the combination under Haplotype with Gene Alteration blank, `_hap` does not leak, and the stale "AF-CDC Marker-Centric" sentence in the synthetic export note (that view was removed in v0.12) is gone.
+
+## 2026-10-06T21:00:00Z — Downloaded world ADM2 boundaries (geoBoundaries gbOpen) and sized them
+
+**Context.** Jonn expects data from multiple countries, not just Senegal, so admin-2 boundaries are needed for choropleths beyond SEN.
+
+**Source.** geoBoundaries gbOpen, queried via `https://www.geoboundaries.org/api/current/gbOpen/ALL/ADM2/` (180 entries). Took the `simplifiedGeometryGeoJSON` variant, which is what the committed Senegal file already is — SEN simplified is 414.6 KB against 1,903.9 KB for the full-resolution version, and the committed `reference/sen_adm2.geojson` is byte-comparable to the simplified download, so the whole corpus is consistent with what the pipeline was built against.
+
+**What was fetched.** All 180 countries/territories that have ADM2 in gbOpen, 8-way parallel with retry and a JSON-parse validation per file: 180 OK, 0 failures, 0 parse errors. Staged at `/workspace/geoboundaries_adm2/` (gitignored, not committed — 457 MB including projections is not something to put in git without deciding what actually ships).
+
+**Sizes.** Raw simplified geojson 351.6 MB over 49,308 ADM2 units. By continent: Latin America/Caribbean 106.7 MB, Asia 80.5 MB, Europe 75.1 MB, **Africa 47.7 MB (52 countries, 5,322 units)**, Northern America 25.2 MB, Oceania 16.5 MB. Largest single countries: Brazil 39.5 MB (5,570 units), Russia 25.1 MB, Canada 17.6 MB, Mexico 16.4 MB.
+
+**The number that actually matters.** The renderer does not consume geojson; it consumes the projected SVG paths that `build_maps.py` produces (`sen_admin2_map.json`). I projected all 180 with the same equirectangular + cos(lat) scheme and 1-decimal rounding to measure the deployable form: **103.8 MB total (30% of raw), 24.2 MB gzipped**; **Africa alone 13.4 MB, 3.9 MB gzipped**. Sanity check: Senegal projected to 109.3 KB against the committed 119.8 KB, i.e. the same artefact modulo the padding build_maps adds.
+
+**Coverage gap worth knowing.** Of 54 African countries, 51 have gbOpen ADM2; **Libya, Mauritius and Mayotte do not**. A report for those would need ADM1, another source (e.g. GADM, different licence), or the site-level map only.
+
+**Not done deliberately.** No pipeline change yet: the projection used here was a measurement script, not a committed generaliser of `build_maps.py`, and no boundary data was added to the repo or the container. The sensible next step is to make country selection an input (the reference-bundle override already exists for exactly this) and ship only the countries in scope — Africa's 3.9 MB gzipped is negligible, the full world's 24.2 MB is not, for an image that is otherwise ~1 GB but currently carries one 120 KB map.
