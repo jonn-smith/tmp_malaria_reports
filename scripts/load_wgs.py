@@ -134,12 +134,16 @@ def load(sample_tsv, selection=None):
             for k, col in mcols.items():
                 g = (row.get(col) or '').strip().lower()
                 if g in ('hom_ref','hom_var','het'):
-                    a['mkn'][k] = a['mkn'].get(k, 0) + 1
-                    if yslot is not None: yslot['d'][k] = yslot['d'].get(k, 0) + 1
-                    if g in ('hom_var','het'):                      # carriage of the mutant
-                        a['mkx'][k] = a['mkx'].get(k, 0) + 1
-                        if yslot is not None: yslot['x'][k] = yslot['x'].get(k, 0) + 1
                     srec['calls'][k] = (1,0) if g=='hom_ref' else (0,1) if g=='hom_var' else (1,1)
+            # multi-codon units are scored from the finished per-sample call set, then
+            # counted exactly like single-codon markers
+            G.add_haplotype_calls(srec['calls'])
+            for k, (wt, mt) in srec['calls'].items():
+                a['mkn'][k] = a['mkn'].get(k, 0) + 1
+                if yslot is not None: yslot['d'][k] = yslot['d'].get(k, 0) + 1
+                if mt:
+                    a['mkx'][k] = a['mkx'].get(k, 0) + 1
+                    if yslot is not None: yslot['x'][k] = yslot['x'].get(k, 0) + 1
             h2 = (row.get('hrp2') or '').strip(); h3 = (row.get('hrp3') or '').strip()
             if h2 in ('+','-') or h3 in ('+','-'):
                 a['hrpn'] += 1
