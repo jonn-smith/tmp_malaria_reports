@@ -742,3 +742,13 @@ Jonn raised three format-conversion risks and asked whether I had accounted for 
 **What the new rows immediately exposed (worth Jonn's attention).** WGS reports Pfcrt K76T at 50.5% but C72S, M74I and N75E all at 0.0%, so the Pfcrt haplotype computes to 0.0% from WGS while MAD gives 67.7% with all three codons agreeing. Same shape as the known `pfdhps_Lys_437_Gly` polarity bug: the WGS genotype columns for those codons look mis-annotated. Because A437G is also 0% in WGS, every SP haplotype containing it reads 0.0% there and is unusable until the upstream annotation is fixed; MAD gives quintuple 2.1%, sextuple 0.0%.
 
 **Export caveat to raise.** Haplotype units are emitted as ordinary rows in all four export views (WHO/DHIS2 as `gene`/`mutation` = "A437G+K540E"; Africa CDC as a Gene Alteration). They are self-describing, but a downstream dashboard that sums "mutations" would count a quintuple *and* its five components. Flagged for Jonn to decide whether exports should exclude them or move them to the Africa CDC sheet's dedicated Haplotype column.
+
+## 2026-10-06T16:30:00Z — Multi-codon units routed to the Haplotype column in the per-sample exports
+
+Jonn: for data with explicit known haplotypes, move it to the haplotype column; exclude nothing.
+
+The Africa CDC Mutation/Haplotype sheet and the PHA4GE standard both have a dedicated haplotype field, so a WHO-listed multi-codon combination now populates that field and leaves the single-codon field empty, while single codons behave as before. Africa CDC: `Haplotype` vs `Gene Alteration`; PHA4GE: `haplotype` vs `gene_alteration`. The `Gene symbol` / `gene_name` fields still carry the gene so the row stays identifiable. Nothing is excluded from any view, and the WHO Threats-Map and DHIS2 layouts are unchanged because neither schema has a haplotype field — their `mutation` / `dataElement` values keep the combination string.
+
+Applied on all four code paths (real export and synthetic export, each for Africa CDC and PHA4GE). The synthetic marker-centric rows needed an internal `_hap` flag to carry the distinction through to the mutation/haplotype view; it is popped before packing so it never reaches an output column — asserted in the verification.
+
+Verified across reports: no row ever populates both fields (MAD-real 1,310 haplotype / 7,314 alteration; WGS-real 1,703 / 10,753; synthetic 3 / 19; combined 10 / 49), the on-screen Africa CDC preview shows the combination under Haplotype with Gene Alteration blank, `_hap` does not leak, and the stale "AF-CDC Marker-Centric" sentence in the synthetic export note (that view was removed in v0.12) is gone.
