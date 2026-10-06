@@ -754,7 +754,7 @@ VIEW_META = {
  'who':      ('WHO Threat Maps', 'who_threat_map.csv', 'WHO Malaria Threats Map',
              'WHO Malaria Threats Map layout: one row per admin-2 × marker (samples tested, mutant present, percent, and WHO class). Representative of the schema.'),
  'afcdc':    ('Africa CDC', 'afcdc_mutation_haplotype.csv', 'Africa CDC — Mutation / Haplotype data sheet',
-             'Africa CDC Mutation/Haplotype data sheet: one row per sample × observed mutant alteration (Gene symbol · Gene Alteration · Haplotype). Columns not captured in the sequencing data (host subject ID, haplotype, travel history, destinations, endemicity, and study type) are left blank.'),
+             'Africa CDC Mutation/Haplotype data sheet: one row per sample × observed mutant alteration (Gene symbol · Gene Alteration · Haplotype). WHO-listed multi-codon combinations are reported in the Haplotype column; single codons in Gene Alteration. Columns not captured in the sequencing data (host subject ID, travel history, destinations, endemicity, and study type) are left blank.'),
  'pha4ge':   ('PHA4GE', 'pha4ge_malaria_standard.csv', 'PHA4GE Malaria Community Standard (human sample) — one row per sample × observed alteration',
              'PHA4GE Malaria Community Standard (human sample): the 210-field per-specimen schema, one row per sample × observed alteration. Only fields the genomic data supports are populated (sample ID, geography, collection date, organism/host, assay/instrument, MOI, and gene/alteration); all other fields (accessions, host demographics, sequencing kit, etc.) are left blank.'),
  'dhis2':    ('DHIS2', 'dhis2_datavalueset.csv', 'DHIS2 dataValueSet',
@@ -787,7 +787,9 @@ def build_pha4ge(samples, mkdefs, assay_name, platform):
         if s.get('lon') is not None: base['geo_loc_longitude'] = s['lon']
         for m in muts:
             r = dict(base); g = _afgene(m['gene'])
-            r['gene_name'] = g; r['gene_symbol'] = g; r['gene_alteration'] = m['aa']
+            r['gene_name'] = g; r['gene_symbol'] = g
+            if m.get('components'): r['haplotype'] = m['aa']
+            else: r['gene_alteration'] = m['aa']
             rows.append(r)
     return rows
 def _csv_cell(v):
@@ -841,12 +843,14 @@ def add_export(rep):
                 afc.append({'Sample ID':sample_id,'Date of sample collection':date,'Facility name':f"{u['name']} HC",
                     'District':u['name'],'Region':reg,'Country name':ctry,'Study type':'cross_sectional_survey',
                     'Gene name':afgene(m['gene']),'Codon':m['aa'],'Wildtype count':tot-mut,'Mutation count':mut,
+                    '_hap':bool(m.get('components')),
                     'Travel_history':trav,'Travel location (if Y)':tloc,'Endemicity':en,'Assay used':assay_name})
     afc_mut = [{'Sample ID': r['Sample ID'], 'Host subject ID': '',
                 'Date of sample collection': r['Date of sample collection'], 'Facility name': r['Facility name'],
                 'Country': r['Country name'], 'Region/Province (Admin Level 1)': r['Region'],
                 'District (Admin Level 2)': r['District'], 'Study type': r['Study type'], 'Gene symbol': r['Gene name'],
-                'Gene Alteration': r['Codon'], 'Haplotype': '', 'Travel history [Y/N]': r['Travel_history'],
+                'Gene Alteration': ('' if r['_hap'] else r['Codon']),
+                'Haplotype': (r['Codon'] if r['_hap'] else ''), 'Travel history [Y/N]': r['Travel_history'],
                 'Destination of most recent travel(city)': r['Travel location (if Y)'],
                 'Destination of most recent travel(state/province/territory)': '',
                 'Destination of most recent travel(country)': '', 'Endemicity': r['Endemicity'],
@@ -857,10 +861,12 @@ def add_export(rep):
                'geo_loc_name(country)': r['Country name'], 'geo_loc_name(state/province/territory)': r['Region'],
                'geo_loc_name(county/region)': r['District'], 'geo_loc_name(city)': r['Facility name'],
                'sequencing_assay_type': r['Assay used'], 'gene_name': r['Gene name'], 'gene_symbol': r['Gene name'],
-               'gene_alteration': r['Codon']} for r in afc if r['Mutation count'] > 0]
+               'gene_alteration': ('' if r['_hap'] else r['Codon']),
+               'haplotype': (r['Codon'] if r['_hap'] else '')} for r in afc if r['Mutation count'] > 0]
+    for _r in afc: _r.pop('_hap', None)
     _pack_export(rep, {'who': who, 'afcdc': afc_mut, 'pha4ge': pha4ge, 'dhis2': dhis},
         order=['who', 'dhis2', 'afcdc', 'pha4ge'],
-        note='Africa CDC (Mutation/Haplotype) lists one row per sample × observed mutant alteration; AF-CDC Marker-Centric gives per sample × codon wildtype/mutation counts; PHA4GE follows the Malaria Community Standard (human sample); DHIS2 follows the dataValueSet schema. Values are synthetic; WHO Malaria Threats Map layout is representative.')
+        note='Africa CDC (Mutation/Haplotype) lists one row per sample × observed mutant alteration, with WHO-listed multi-codon combinations in the Haplotype column; PHA4GE follows the Malaria Community Standard (human sample); DHIS2 follows the dataValueSet schema. Values are synthetic; WHO Malaria Threats Map layout is representative.')
 
 def project(lon, lat):
     """lon/lat -> SVG x,y using the SAME equirectangular projection as build_maps.py (via MAP bounds)."""
@@ -932,7 +938,10 @@ def real_export(rep, samples, assay_name, max_afcdc=500):
                         'Date of sample collection': _mmm_yyyy(s.get('date', '')), 'Facility name': s.get('site', ''),
                         'Country': ctry, 'Region/Province (Admin Level 1)': s.get('region') or '—',
                         'District (Admin Level 2)': s['district'], 'Study type': '', 'Gene symbol': _afgene(m['gene']),
-                        'Gene Alteration': m['aa'], 'Haplotype': '', 'Travel history [Y/N]': '',
+                        # a WHO-listed multi-codon combination is a haplotype, so it goes in the
+                        # sheet's Haplotype column rather than being reported as a single alteration
+                        'Gene Alteration': ('' if m.get('components') else m['aa']),
+                        'Haplotype': (m['aa'] if m.get('components') else ''), 'Travel history [Y/N]': '',
                         'Destination of most recent travel(city)': '',
                         'Destination of most recent travel(state/province/territory)': '',
                         'Destination of most recent travel(country)': '', 'Endemicity': '', 'Assay used': assay_name})
