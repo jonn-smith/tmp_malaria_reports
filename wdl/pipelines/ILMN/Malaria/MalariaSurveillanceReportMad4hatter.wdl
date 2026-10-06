@@ -26,6 +26,8 @@ workflow MalariaSurveillanceReportMad4hatter {
         render_config_json:       "JSON settings file for the renderer; unrecognised keys pass through to the report metadata, so new rendering features need no change to this interface"
         report_template_override: "Replacement report template (HTML); omit to use the template pinned by the docker image"
         reference_bundle_tar:     "tar(.gz) of replacement reference data (admin boundaries, WHO compendium); omit to use the bundle pinned by the docker image"
+        country_iso3:             "ISO3 code selecting the admin-2 boundary set (51 malaria-endemic African countries ship in the image; SEN by default)"
+        country_name:             "Country name shown in the report"
         sample_ids:               "Sample ids to report on; on a Terra sample_set use this.samples.sample_id. Empty means every sample in the inputs"
         sample_id_list:           "Alternative to sample_ids: a file with one sample id per line (# comments allowed)"
         selection_label:          "Human-readable name for the sample selection, shown in the report (e.g. the sample_set name)"
@@ -44,6 +46,8 @@ workflow MalariaSurveillanceReportMad4hatter {
         File? render_config_json
         File? report_template_override
         File? reference_bundle_tar
+        String? country_iso3
+        String? country_name
         Array[String] sample_ids = []
         File? sample_id_list
         String? selection_label
@@ -67,6 +71,8 @@ workflow MalariaSurveillanceReportMad4hatter {
             render_config_json       = render_config_json,
             report_template_override = report_template_override,
             reference_bundle_tar     = reference_bundle_tar,
+            country_iso3             = country_iso3,
+            country_name             = country_name,
             sample_ids_file          = selected_ids_file,
             selection_label          = selection_label
     }

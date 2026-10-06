@@ -34,7 +34,7 @@ import csv, json, os, re, sys
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 import gen_reports as G
-from load_mad import dept_of as dept_of_coords          # point-in-polygon on sen_adm2.geojson
+dept_of_coords = lambda lat, lon: G.dept_of_point(lat, lon)   # projected-space PIP, any country
 
 csv.field_size_limit(10**7)
 
@@ -60,7 +60,7 @@ HET_WORDS = {'het', 'mixed', 'heterozygous', '0/1', '1/0'}
 NO_WORDS  = {'missing', 'nocall', 'no_call', '.', '', 'na', 'n/a', 'null', 'fail', 'failed'}
 
 # admin-2 name lookup + the health-district spellings the other loaders already handle
-DEPT_BY_NA = {G._na(d['name']): d['name'] for d in G.DEPTS}
+def _dept_by_na(): return {G._na(d['name']): d['name'] for d in G.DEPTS}
 HEALTH2DEPT = {'RICHARD TOLL': 'Dagana', 'DIOULOULOU': 'Bignona', 'NDOFFANE': 'Kaolack',
                'TOUBA': 'Mbacke', 'MAKACOULIBANTANG': 'Koumpentoum', 'MBAO': 'Pikine',
                'MADIYANA 2': 'Mbacke'}
@@ -138,7 +138,7 @@ def _f(v):
 
 def _dept(name, lat, lon):
     if name:
-        d = DEPT_BY_NA.get(G._na(HEALTH2DEPT.get(name.upper(), name)))
+        d = _dept_by_na().get(G._na(HEALTH2DEPT.get(name.upper(), name)))
         if d: return d
     if lat is not None and lon is not None:
         return dept_of_coords(lat, lon)
@@ -210,7 +210,7 @@ def load(call_tables, site_metadata=None, version=None, data_source=None, select
             drop['no_location'] += 1
             continue
         rec['district'] = d
-        rec['region'] = G.SEN_REGION.get(d, '—') if hasattr(G, 'SEN_REGION') else '—'
+        rec['region'] = (G.SEN_REGION.get(d, '—') if G.COUNTRY_ISO == 'SEN' else '—')
         placed.append(rec)
 
     # aggregate to admin-2 units (same shape the other loaders emit)

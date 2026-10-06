@@ -48,7 +48,7 @@ MARKER_COL_RE = re.compile(r'^pf(?P<gene>.+?)_(?P<ref>[A-Z][a-z]{2})_(?P<pos>\d+
 HEALTH2DEPT = {'RICHARD TOLL':'Dagana','DIOULOULOU':'Bignona','NDOFFANE':'Kaolack',
                'TOUBA':'Mbacke','MAKACOULIBANTANG':'Koumpentoum','MBAO':'Pikine',
                'MADIYANA 2':'Mbacke'}
-DEPT_BY_NA = {G._na(d['name']): d['name'] for d in G.DEPTS}
+def _dept_by_na(): return {G._na(d['name']): d['name'] for d in G.DEPTS}
 
 def marker_columns(header):
     """Map each report marker key -> its genotype column in this export (if present).
@@ -72,7 +72,13 @@ def marker_columns(header):
 
 def dept_of(row):
     d = (row.get('District') or '').strip()
-    return DEPT_BY_NA.get(G._na(HEALTH2DEPT.get(d.upper(), d)))
+    name = _dept_by_na().get(G._na(HEALTH2DEPT.get(d.upper(), d)))
+    if name: return name
+    # fall back to coordinates when the district name is absent or unrecognised
+    def _f(v):
+        try: return float(v)
+        except (TypeError, ValueError): return None
+    return G.dept_of_point(_f(row.get('Latitude')), _f(row.get('Longitude')))
 
 def qc_pass(row):
     s = (row.get('qc_status') or '').strip().lower()

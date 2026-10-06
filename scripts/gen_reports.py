@@ -43,6 +43,19 @@ def set_version(v):
     global VERSION
     if v: VERSION = v
 
+def set_country(iso, name=None):
+    """Point the report model at another country's admin-2 geometry. Must be called
+    before a loader runs, because DEPTS/EPI and the point-in-polygon index derive from it."""
+    global COUNTRY_ISO, COUNTRY_NAME, MAP, DEPTS, latMin, latMax, EPI, _PIP_RINGS
+    COUNTRY_ISO = (iso or COUNTRY_ISO).upper()
+    MAP = load_country_map(COUNTRY_ISO)
+    COUNTRY_NAME = name or MAP.get('country') or COUNTRY_NAME or COUNTRY_ISO
+    DEPTS = MAP['depts']
+    latMin = min(d['lat'] for d in DEPTS); latMax = max(d['lat'] for d in DEPTS)
+    EPI = {d['name']: {'s': southness(d['lat']), 'pop': base_pop(d['name'], southness(d['lat']))}
+           for d in DEPTS}
+    _PIP_RINGS = None
+
 Z = 1.959963985
 def wilson(x, n):
     if n == 0: return (0.0, 0.0, 0.0)
@@ -58,7 +71,27 @@ ROOT = _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__)))  # repo ro
 # or an updated WHO compendium without rebuilding the container (see docs/WDL_INTERFACE.md).
 REF_DIR    = _os.environ.get('MALARIA_REPORTS_REF_DIR')    or _os.path.join(ROOT, 'reference')
 SCHEMA_DIR = _os.environ.get('MALARIA_REPORTS_SCHEMA_DIR') or _os.path.join(ROOT, 'schemas')
-MAP = json.load(open(_os.path.join(REF_DIR, 'sen_admin2_map.json')))
+import gzip as _gzip, math as _math, re as _re2
+
+COUNTRY_ISO = (_os.environ.get('MALARIA_REPORTS_COUNTRY') or 'SEN').upper()
+COUNTRY_NAME = _os.environ.get('MALARIA_REPORTS_COUNTRY_NAME') or ''
+
+def load_country_map(iso=None):
+    """Projected admin-2 map for a country: reference/adm2/<ISO3>_adm2_map.json[.gz],
+    falling back to the committed Senegal artefact."""
+    iso = (iso or COUNTRY_ISO).upper()
+    for cand in (_os.path.join(REF_DIR, 'adm2', f'{iso}_adm2_map.json.gz'),
+                 _os.path.join(REF_DIR, 'adm2', f'{iso}_adm2_map.json')):
+        if _os.path.exists(cand):
+            if cand.endswith('.gz'):
+                with _gzip.open(cand, 'rt', encoding='utf-8') as fh: return json.load(fh)
+            with open(cand, encoding='utf-8') as fh: return json.load(fh)
+    if iso == 'SEN':
+        return json.load(open(_os.path.join(REF_DIR, 'sen_admin2_map.json')))
+    raise SystemExit(f'no admin-2 map for {iso}: expected reference/adm2/{iso}_adm2_map.json(.gz). '
+                     'Build one with scripts/build_maps.py --geojson <file> --iso ' + iso)
+
+MAP = load_country_map()
 PHA4GE_FIELDS = json.load(open(_os.path.join(SCHEMA_DIR, 'pha4ge_fields.json')))
 DEPTS = MAP['depts']
 latMin = min(d['lat'] for d in DEPTS); latMax = max(d['lat'] for d in DEPTS)
@@ -178,6 +211,56 @@ MK = {m[0]:dict(gene=m[1],gene_id=m[2],aa=m[3],drug=m[4],cls=m[5],who=(m[5] in (
 # synthetic-only: fixed per-marker drift so the mock-up trend charts show something
 # (sign and magnitude are arbitrary illustration, not an epidemiological claim)
 TREND_SLOPE={k:((zlib.crc32(k.encode())%13)-5)/8.0 for k in MK}
+
+_PIP_RINGS = None
+
+def _pip_rings():
+    """Parse each unit's SVG path back into projected rings, once."""
+    global _PIP_RINGS
+    if _PIP_RINGS is None:
+        rings = []
+        for d in DEPTS:
+            polys = []
+            for seg in d['path'].split('M'):
+                seg = seg.strip()
+                if not seg: continue
+                pts = []
+                for tok in seg.rstrip('Z').split('L'):
+                    tok = tok.strip()
+                    if not tok: continue
+                    x, _, y = tok.partition(',')
+                    try: pts.append((float(x), float(y)))
+                    except ValueError: pass
+                if len(pts) >= 3: polys.append(pts)
+            rings.append((d['name'], polys))
+        _PIP_RINGS = rings
+    return _PIP_RINGS
+
+def project_point(lat, lon):
+    """lon/lat -> the same projected x,y that build_maps.py emitted."""
+    pad = MAP.get('pad', 10)
+    cosLat = _math.cos(_math.radians((MAP['latMin'] + MAP['latMax']) / 2))
+    scale = (MAP['W'] - 2 * pad) / ((MAP['lonMax'] - MAP['lonMin']) * cosLat)
+    return ((lon - MAP['lonMin']) * cosLat * scale + pad,
+            (MAP['latMax'] - lat) * scale + pad)
+
+def dept_of_point(lat, lon):
+    """Admin-2 unit containing a coordinate, or None. Works in projected space, so the
+    paths that draw the choropleth are also what assigns samples to districts. Paths are
+    rounded to 0.1 px (~100 m for a country the size of Senegal), so a point essentially
+    on a boundary may fall either side."""
+    if lat is None or lon is None: return None
+    x, y = project_point(lat, lon)
+    for name, polys in _pip_rings():
+        for pts in polys:
+            inside = False; n = len(pts); j = n - 1
+            for i in range(n):
+                xi, yi = pts[i]; xj, yj = pts[j]
+                if ((yi > y) != (yj > y)) and (x < (xj - xi) * (y - yi) / ((yj - yi) or 1e-12) + xi):
+                    inside = not inside
+                j = i
+            if inside: return name
+    return None
 
 def dept_prev(key,s):
     m=MK[key]['mean']
@@ -563,7 +646,7 @@ def assemble_report(name, spec, units, selection=None):
     for u in sampled: allyears|=set(u.get('years') or [])
     period=fmt_years(allyears) or 'n/a'
     meta=dict(assay=name,assay_full=spec['full'],platform=spec['platform'],
-              color=spec['color'],note=spec['note'],country='Senegal',admin='Admin-2 (department)',
+              color=spec['color'],note=spec['note'],country=(COUNTRY_NAME or 'Senegal'),admin='Admin-2 (district)',
               admin_available=True,dates_available=bool(allyears),period=period,years=sorted(allyears),
               links=PIPELINE_LINKS.get(name,[]),
               generated='2026-09-23',version=VERSION,real=False,data_source='Synthetic design mock-up (illustrative values)',
@@ -696,7 +779,7 @@ def build_combined(reports):
     tot_qc=sum(reports[a]['meta']['n_qc'] for a in ASSAYS); tot_col=sum(reports[a]['meta']['n_collected'] for a in ASSAYS)
     meta=dict(assay='COMBINED',assay_full='Combined multi-assay (WGS + MAD4HATTER + NOMADS)',
               platform='Illumina WGS + Illumina amplicon + ONT',color='#006dae',
-              note='Harmonised view; markers pooled across assays that type each locus.',country='Senegal',
+              note='Harmonised view; markers pooled across assays that type each locus.',country=(COUNTRY_NAME or 'Senegal'),
               admin='Admin-2 (department)',admin_available=True,dates_available=True,
               period=(fmt_years(set().union(*([set(u.get('years',[])) for u in units if u.get('sampled')] or [set()]))) or 'n/a'),
               years=sorted(set().union(*([set(u.get('years',[])) for u in units if u.get('sampled')] or [set()]))),
