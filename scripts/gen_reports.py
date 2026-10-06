@@ -323,6 +323,95 @@ for _k, _m in MK.items():
         _m['crit'] = _desc
 del _k, _m, _cls, _who, _how, _desc
 
+# ---- multi-codon (haplotype) units -------------------------------------------
+# WHO lists several combinations of codons as single resistance units (the SP quintuple,
+# the Pfdhfr triple, and so on). These are reported as extra rows whose prevalence is the
+# proportion of samples carrying the mutant allele at EVERY constituent codon.
+#
+# IMPORTANT, and the reason these rows are labelled and flagged differently: that is
+# **unphased co-occurrence**, not a phased haplotype. P. falciparum is haploid in blood
+# stage, so for a single-clone infection co-occurrence IS the haplotype; but in a
+# polyclonal infection the changes may sit on different clones, and a mixed ("het") call
+# at a codon says only that some parasites carry it. Co-occurrence is therefore an UPPER
+# BOUND on true haplotype prevalence, and these rows deliberately do not carry the
+# action flag. Resolving them properly needs phasing (e.g. within-sample haplotype
+# reconstruction from microhaplotype reads), which this pipeline does not do.
+HAPLOTYPES = [
+    ('hap_dhfr_triple', 'Pfdhfr', 'N51I+C59R+S108N', 'Pyrimethamine / SP',
+     ['dhfr_N51I', 'dhfr_C59R', 'dhfr_S108N'], 'Pfdhfr triple mutant'),
+    ('hap_dhps_double', 'Pfdhps', 'A437G+K540E', 'Sulfadoxine / SP',
+     ['dhps_A437G', 'dhps_K540E'], 'Pfdhps double mutant'),
+    ('hap_sp_quintuple', 'Pfdhfr + Pfdhps', 'N51I+C59R+S108N & A437G+K540E', 'Sulfadoxine-pyrimethamine',
+     ['dhfr_N51I', 'dhfr_C59R', 'dhfr_S108N', 'dhps_A437G', 'dhps_K540E'],
+     'SP quintuple mutant; associated with SP treatment failure'),
+    ('hap_sp_sextuple', 'Pfdhfr + Pfdhps', 'N51I+C59R+S108N & A437G+K540E+A581G', 'Sulfadoxine-pyrimethamine',
+     ['dhfr_N51I', 'dhfr_C59R', 'dhfr_S108N', 'dhps_A437G', 'dhps_K540E', 'dhps_A581G'],
+     'SP sextuple mutant; relevant to IPTp and chemoprevention'),
+    ('hap_crt_74_75_76', 'Pfcrt', 'M74I+N75E+K76T', 'Chloroquine / amodiaquine',
+     ['crt_M74I', 'crt_N75E', 'crt_K76T'], 'Pfcrt chloroquine-resistance core haplotype'),
+    ('hap_mdr1_triple', 'Pfmdr1', 'S1034C+N1042D+D1246Y', 'Amodiaquine / lumefantrine',
+     ['mdr1_S1034C', 'mdr1_N1042D', 'mdr1_D1246Y'], 'Pfmdr1 triple mutant'),
+]
+
+def _mk_pos(key):
+    m = re.match(r'^([A-Z])(\d+)([A-Za-z*])$', MK[key]['aa'])
+    return (MK[key]['tok'], int(m.group(2)), m.group(3).upper())
+
+def _who_combination_index():
+    """frozenset of (gene token, codon, alt AA) -> strongest WHO class for that exact
+    combination, so a haplotype row's class is WHO's own rather than assigned by us."""
+    idx = {}
+    for r in json.load(open(_os.path.join(REF_DIR, 'who_combined.json'))):
+        genes = [g.strip() for g in r['gene'].split('&')]
+        alts  = [a.strip() for a in r['alt'].split('&')]
+        if len(genes) > 1 and len(alts) != len(genes): continue
+        comps = set()
+        for gi, g in enumerate(genes):
+            tok = _WHO_GENE_TOK.get(g.lower())
+            if not tok: continue
+            a = alts[gi] if len(genes) > 1 else r['alt']
+            for pos, alt in _alt_components(a):
+                comps.add((tok, pos, alt))
+        if len(comps) < 2: continue
+        key = frozenset(comps)
+        rank = _WHO_RANK.get(r['cls'].split()[0], 0)
+        if key not in idx or rank > idx[key][0]:
+            idx[key] = (rank, r['cls'], r['alt'].strip())
+    return idx
+
+WHO_COMBO_IDX = _who_combination_index()
+
+for _key, _gene, _aa, _drug, _comps, _desc in HAPLOTYPES:
+    assert all(c in MK for c in _comps), f'{_key}: unknown component marker'
+    _want = frozenset(_mk_pos(c) for c in _comps)
+    _hit = WHO_COMBO_IDX.get(_want)
+    assert _hit, f'{_key}: this combination is not listed in the WHO compendium'
+    MK[_key] = dict(gene=_gene, gene_id=None, aa=_aa, drug=_drug,
+                    cls=_hit[1].split()[0].lower(), who=True, tok='hap',
+                    mean=min(MK[c]['mean'] for c in _comps),
+                    who_cls=_hit[1], who_how='WHO-listed combination ' + _hit[2],
+                    components=list(_comps), hap=True,
+                    crit=(f"WHO Compendium: {_hit[1]} \u2014 WHO-listed combination {_hit[2]}. {_desc}. "
+                          "Prevalence is unphased co-occurrence across the constituent codons, "
+                          "so it is an upper bound on true haplotype prevalence."))
+del _key, _gene, _aa, _drug, _comps, _desc, _want, _hit
+
+def covers(genes, k):
+    """True when a panel covering `genes` can report marker k. A multi-codon unit needs
+    every constituent codon's gene on the panel."""
+    m = MK[k]
+    if m.get('components'):
+        return all(MK[c]['tok'] in genes for c in m['components'])
+    return m['tok'] in genes
+
+def add_haplotype_calls(calls):
+    """Add haplotype pseudo-marker calls to one sample's {marker: (wt, mut)} dict.
+    A haplotype is scored only when the sample was genotyped at every constituent codon."""
+    for k, m in MK.items():
+        comps = m.get('components')
+        if not comps or any(c not in calls for c in comps): continue
+        calls[k] = (0, 1) if all(calls[c][1] for c in comps) else (1, 0)
+
 MARKER_PCT = 10.0
 MIN_FRAME_N = 100     # a year with >= this many QC pass samples becomes its own trend frame
 
@@ -441,7 +530,7 @@ def assemble_report(name, spec, units, selection=None):
     (load_wgs.py, ...). Each unit dict: name, sampled(bool), n(QC pass denom),
     n_col?(collected), date_min?/date_max?, mk{k:pct}, mkx{k:mutant_ct},
     mkn{k:genotyped_ct}, hrp2/hrp3(pct) + hrp2x/hrp3x/hrpn(cts), div{coi,poly,mono,rh,cotx}."""
-    covered=[k for k in MK if MK[k]['tok'] in spec['genes']]
+    covered=[k for k in MK if covers(spec['genes'], k)]
     sampled=[u for u in units if u.get('sampled')]
     chosen_names={u['name'] for u in sampled}
     tot_col=sum(u.get('n_col',u.get('n',0)) for u in sampled); tot_qc=sum(u.get('n',0) for u in sampled)
@@ -453,10 +542,10 @@ def assemble_report(name, spec, units, selection=None):
     for k,m in MK.items():
         base=dict(key=k,gene=m['gene'],gene_id=m['gene_id'],aa=m['aa'],drug=m['drug'],who=m['who'],
                   cls=m['cls'],category=CLS_LABEL[m['cls']],crit=m['crit'],
-                  who_cls=m.get('who_cls'),who_how=m.get('who_how'))
-        if m['tok'] not in spec['genes'] or natn.get(k,0)==0: base['assessed']=False; natmarkers.append(base); continue
+                  who_cls=m.get('who_cls'),who_how=m.get('who_how'),components=m.get('components'))
+        if k not in covered or natn.get(k,0)==0: base['assessed']=False; natmarkers.append(base); continue
         est,lo,hi=wilson(natx[k],natn[k])
-        base.update(assessed=True,x=natx[k],n=natn[k],est=est,lo=lo,hi=hi,action=(m['cls']=='validated' and est>=MARKER_PCT))
+        base.update(assessed=True,x=natx[k],n=natn[k],est=est,lo=lo,hi=hi,action=(m['cls']=='validated' and est>=MARKER_PCT and not m.get('components')))
         natmarkers.append(base)
     res_hits=[m for m in natmarkers if m.get('assessed') and m.get('cls')=='validated' and m['est']>=MARKER_PCT]
     res_watch=[m for m in natmarkers if m.get('assessed') and m.get('cls')=='validated' and 5.0<=m['est']<MARKER_PCT]
@@ -507,7 +596,7 @@ def build_assay(name, spec):
     chosen=(random.sample([d for d in DEPTS if EPI[d['name']]['pop']>250000],spec['n_depts'])
             if name=='WGS' else order[:spec['n_depts']])
     chosen_names={d['name'] for d in chosen}
-    covered=[k for k in MK if MK[k]['tok'] in spec['genes']]
+    covered=[k for k in MK if covers(spec['genes'], k)]
     units=[]
     for d in DEPTS:
         s=EPI[d['name']]['s']; rec={'name':d['name']}
@@ -531,12 +620,20 @@ def build_assay(name, spec):
             rec['mkx']={k:0 for k in covered}; rec['mkn']={k:0 for k in covered}
             for yi,(yy,ny) in enumerate(zip(uyears,alloc)):
                 t=(yi/(len(uyears)-1)) if len(uyears)>1 else 1.0
-                xs={}; ds={}
+                xs={}; ds={}; pv={}
                 for k in covered:
+                    if MK[k].get('components'): continue
                     slope=TREND_SLOPE[k]
                     p=max(0.0,min(100.0,dept_prev(k,s)*(1+slope*(t-0.5))))
-                    xs[k]=cnt(p,ny); ds[k]=ny
-                    rec['mkx'][k]+=xs[k]; rec['mkn'][k]+=ny
+                    pv[k]=p; xs[k]=cnt(p,ny); ds[k]=ny
+                # synthetic co-occurrence: the components are drawn independently here, so
+                # take the lowest component prevalence (an upper bound) for the unit
+                for k in covered:
+                    comps=MK[k].get('components')
+                    if not comps or any(c not in pv for c in comps): continue
+                    xs[k]=cnt(min(pv[c] for c in comps),ny); ds[k]=ny
+                for k in xs:
+                    rec['mkx'][k]+=xs[k]; rec['mkn'][k]+=ds[k]
                 rec['by_year'][yy]={'n':ny,'x':xs,'d':ds}
             rec['mk']={k:(round(100*rec['mkx'][k]/rec['mkn'][k],1) if rec['mkn'][k] else 0.0) for k in covered}
             h2,h3=hrp_dept(s); rec['hrp2']=h2; rec['hrp3']=h3
@@ -579,17 +676,17 @@ def build_combined(reports):
                         slot['d'][k]=slot['d'].get(k,0)+v['d'][i]
             if by: rec['by_year']=by
         units.append(rec)
-    genes=set().union(*[ASSAYS[a]['genes'] for a in ASSAYS]); covered=[k for k in MK if MK[k]['tok'] in genes]
+    genes=set().union(*[ASSAYS[a]['genes'] for a in ASSAYS]); covered=[k for k in MK if covers(genes, k)]
     natmarkers=[]
     for k,m in MK.items():
-        contrib=[a for a in ASSAYS if m['tok'] in ASSAYS[a]['genes']]
+        contrib=[a for a in ASSAYS if covers(ASSAYS[a]['genes'], k)]
         base=dict(key=k,gene=m['gene'],gene_id=m['gene_id'],aa=m['aa'],drug=m['drug'],who=m['who'],
                   cls=m['cls'],category=CLS_LABEL[m['cls']],crit=m['crit'],
-                  who_cls=m.get('who_cls'),who_how=m.get('who_how'))
+                  who_cls=m.get('who_cls'),who_how=m.get('who_how'),components=m.get('components'))
         if not contrib: base['assessed']=False; natmarkers.append(base); continue
         x=sum(next((mm['x'] for mm in reports[a]['markers'] if mm['key']==k and mm.get('assessed')),0) for a in contrib)
         n=sum(next((mm['n'] for mm in reports[a]['markers'] if mm['key']==k and mm.get('assessed')),0) for a in contrib)
-        est,lo,hi=wilson(x,n); base.update(assessed=True,x=x,n=n,est=est,lo=lo,hi=hi,action=(m['cls']=='validated' and est>=MARKER_PCT),assays=contrib)
+        est,lo,hi=wilson(x,n); base.update(assessed=True,x=x,n=n,est=est,lo=lo,hi=hi,action=(m['cls']=='validated' and est>=MARKER_PCT and not m.get('components')),assays=contrib)
         natmarkers.append(base)
     res_hits=[m for m in natmarkers if m.get('assessed') and m.get('cls')=='validated' and m['est']>=MARKER_PCT]
     res_watch=[m for m in natmarkers if m.get('assessed') and m.get('cls')=='validated' and 5.0<=m['est']<MARKER_PCT]

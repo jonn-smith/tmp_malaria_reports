@@ -427,6 +427,12 @@ const clsLabel=m=>m.category||CLSFULL[m.cls]||'Not in WHO compendium';
    haplotype WHO lists the codon in; WHO-listed rows give WHO's evidence qualifier (the
    substance behind the class); background/research rows give the locus's role. */
 function noteFor(m){
+  if(m.components){
+    const ev=(m.who_cls||'').match(/\(([^)]*)\)/);
+    return `Multi-codon unit over ${m.components.length} codons${ev?` \u2014 WHO evidence: ${esc(ev[1])}`:''}. `
+         + `<b>Unphased co-occurrence</b>: counts samples carrying the mutant allele at every codon, which is an upper bound `
+         + `on true haplotype prevalence because in a polyclonal infection the changes may sit on different clones.`;
+  }
   if(m.cls==='haplotype'){
     const hap=(m.who_how||'').replace(/^component of the WHO-listed haplotype\s*/i,'');
     const ev=(m.who_cls||'').match(/\(([^)]*)\)/);
@@ -963,6 +969,11 @@ R.methods=()=>{
       <p style="font-size:13.5px;color:var(--ink2)">Classes are taken from the
       <a href="${who}" target="_blank" rel="noopener">WHO Compendium of molecular markers for antimalarial drug resistance</a> and reflect the evidence WHO records for
       each alteration. WHO's evidence qualifiers (for example &ldquo;Epi., Lab. &amp; Clin.&rdquo;) appear in the Notes column.</p>
+      <p style="font-size:13.5px;color:var(--ink2);margin-top:8px"><b>Multi-codon units.</b> WHO lists some combinations of codons as single resistance units
+      (for example the SP quintuple). These appear as additional rows, named by their constituent changes. Their prevalence is the proportion of samples carrying the
+      mutant allele at <i>every</i> codon in the combination &mdash; <b>unphased co-occurrence</b>, not a phased haplotype. For a single-clone infection the two are the
+      same, but in a polyclonal infection the changes may sit on different clones, so the figure is an upper bound on true haplotype prevalence. These rows therefore do
+      not carry the ${RES_PCT}% action flag, and their denominator counts only samples genotyped successfully at every constituent codon.</p>
       <ul style="font-size:13px;color:var(--ink2);margin:8px 0 0 18px;line-height:1.75">
         <li><b>Validated marker</b> &mdash; epidemiological, laboratory, and clinical evidence of association with reduced treatment response.</li>
         <li><b>Candidate marker</b> &mdash; some but not all of those lines of evidence; under WHO assessment.</li>

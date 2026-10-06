@@ -199,6 +199,9 @@ def load(call_tables, site_metadata=None, version=None, data_source=None, select
                 prev = rec['calls'].get(key)
                 rec['calls'][key] = (0, 1) if (state == 'alt' or (prev and prev[1])) else (1, 0)
 
+    for rec in samples.values():
+        G.add_haplotype_calls(rec['calls'])
+
     # resolve admin-2 and drop samples we cannot place
     placed = []
     for rec in samples.values():
