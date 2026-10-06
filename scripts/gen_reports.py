@@ -252,14 +252,19 @@ def dept_of_point(lat, lon):
     if lat is None or lon is None: return None
     x, y = project_point(lat, lon)
     for name, polys in _pip_rings():
+        # Even-odd across ALL of a unit's rings, not "inside any ring". That is what makes
+        # both multipart units and holes correct: a point in one island toggles once (inside),
+        # a point inside an enclave hole toggles twice (outside), so it falls through to the
+        # unit that actually encloses it. 14 of the 54 committed maps contain hole rings.
+        inside = False
         for pts in polys:
-            inside = False; n = len(pts); j = n - 1
+            n = len(pts); j = n - 1
             for i in range(n):
                 xi, yi = pts[i]; xj, yj = pts[j]
                 if ((yi > y) != (yj > y)) and (x < (xj - xi) * (y - yi) / ((yj - yi) or 1e-12) + xi):
                     inside = not inside
                 j = i
-            if inside: return name
+        if inside: return name
     return None
 
 def region_of(dept_name):
