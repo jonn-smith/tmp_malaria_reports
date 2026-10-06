@@ -909,24 +909,107 @@ function wireExport(){
 
 R.methods=()=>{
   const who='https://www.who.int/publications/m/item/compendium-of-molecular-markers-for-antimalarial-drug-resistance';
+  // a real row from this dataset, so the worked example below is never hypothetical
+  const byN=(a,b)=>b.n-a.n;
+  const ex=(D.markers.filter(m=>m.assessed&&m.n>0&&m.action).sort(byN)[0]
+         || D.markers.filter(m=>m.assessed&&m.n>0&&m.cls==='validated').sort(byN)[0]
+         || D.markers.filter(m=>m.assessed&&m.n>0).sort(byN)[0] || null);
+  const flagged=D.markers.filter(m=>m.assessed&&m.action);
   return `<h2 class="sec">Methods &amp; notes</h2>
+    <div class="sec-desc">How to read this report, where the numbers come from, and what they can and cannot tell you.</div>
+
     <div class="grid two">
-    <div class="card"><h3>Assay &amp; scope</h3><p style="font-size:13.5px;color:var(--ink2)">${esc(M.assay_full)}. ${esc(M.note)} Marker genes typed: ${(CAP.genes||[]).join(', ')||'—'}.</p></div>
-    <div class="card"><h3>Statistics &amp; suppression</h3><p style="font-size:13.5px;color:var(--ink2)">Prevalence = carriers ÷ QC pass infections typed at the locus; 95% CIs by the Wilson score method. Regions with fewer than the min-sample threshold (default ${M.min_samples}, adjustable) are suppressed so a single positive sample is never shown as "100%". Prevalence only — population case-rates are not reported.</p></div></div>
-    <div class="grid" style="margin-top:16px">
-      <div class="card"><h3>Pipelines &amp; data sources</h3><ul style="font-size:13px;color:var(--ink2);margin:6px 0 0 18px;line-height:1.9">${(M.links||[]).map(l=>`<li><a href="${l[1]}" target="_blank" rel="noopener">${esc(l[0])}</a></li>`).join('')||'<li>\u2014</li>'}</ul></div>
+      <div class="card"><h3>What this report shows</h3>
+        <p style="font-size:13.5px;color:var(--ink2)">For each genetic change linked to antimalarial resistance, the report shows
+        <b>the percentage of tested infections that carried it</b> &mdash; nationally, by district, and by year.</p>
+        <p style="font-size:13.5px;color:var(--ink2);margin-top:8px">It does <b>not</b> show how many malaria cases there were, and it does not
+        measure whether patients were cured. It describes the parasites in the samples that were sequenced, nothing more.</p>
+      </div>
+      <div class="card"><h3>Where these numbers come from</h3>
+        <table>
+          <tr><td>Test used</td><td><b>${esc(M.assay_full)}</b></td></tr>
+          <tr><td>Laboratory platform</td><td>${esc(M.platform)}</td></tr>
+          <tr><td>Samples included</td><td><b>${nf(M.n_qc)}</b> that passed quality checks${(M.n_called!=null&&M.n_called!==M.n_qc)?` (<b>${nf(M.n_called)}</b> produced at least one marker result)`:''}</td></tr>
+          <tr><td>Collected</td><td>${esc(M.period)}</td></tr>
+          <tr><td>Places</td><td>${M.n_units_sampled} of ${M.n_units_total} districts${D.sites&&D.sites.length?`, ${D.sites.length} collection sites`:''}</td></tr>
+          <tr><td>Markers reported</td><td>${D.markers.filter(m=>m.assessed).length}</td></tr>
+          ${REAL?`<tr><td>Data source</td><td>${esc(M.data_source||'')}</td></tr>`:''}
+        </table>
+      </div>
     </div>
-    <div class="card" style="margin-top:16px"><h3>Thresholds &amp; sources</h3>
-      <ul style="font-size:13px;color:var(--ink2);margin:6px 0 0 18px;line-height:1.7">
-        <li>Marker list &amp; classes: <a href="${who}" target="_blank" rel="noopener">WHO Compendium of molecular markers for antimalarial drug resistance</a>. Every class shown in this report is read from that compendium; each class label links to it.</li>
-        <li>Resistance action flag: ≥${RES_PCT}% — aligns with WHO's ≥10% treatment-failure threshold for changing first-line policy.</li>
-        <li>Marker classes use the WHO compendium&rsquo;s own names: <b>Validated marker</b>, <b>Candidate marker</b>, and <b>Potential marker</b> (with WHO&rsquo;s evidence qualifiers &mdash; e.g. &ldquo;Validated marker (Epi., Lab. &amp; Clin.)&rdquo; &mdash; shown on each row&rsquo;s tooltip). Where WHO lists a codon only inside a multi-codon haplotype, the row is labelled <b>Haplotype component</b> and names that haplotype, because WHO does not assign the single codon a class of its own. Loci absent from the compendium are labelled <b>Not in WHO compendium</b> (panel background, e.g. Pfarps10, Pffd, Pfmdr2, Pfexo, and Pfmdr1 Y184F; or research, e.g. Pfaat1, Pfcarl, Pfubp1, and Pfap2-mu). All are counted; only Validated markers carry the ≥${RES_PCT}% action flag.</li>
-        <li>Time periods: the Trends tab and the Resistance period filter group collection years into frames with a usable denominator — a year reaching n&ge;${TR?TR.min_frame_n:100} QC pass samples stands alone, sparser runs are merged. Every frame is summed from per-year counts, so the frames always add up to the pooled figure; the pooled view remains the default everywhere. Prevalence by period is subject to the same min-sample suppression as the pooled view, and a marker with no calls in a period reads "not assessed" rather than 0%.</li>
-        <li>Trend caveat: these cohorts were not sampled uniformly over time (districts enter and leave the sampling frame), so part of any national change over time reflects <i>where</i> samples came from, not only parasite population change. The samples-per-period chart is shown alongside every trend for that reason; scope a region to remove the composition effect.</li>
-        <li>Admin-2 boundaries: geoBoundaries (SEN ADM2). Admin-3 shown when available; collection dates assumed available (contingency messaging if absent).</li>
-      </ul></div>
-    ${M.sample_selection?`<div class="callout amber" style="margin-top:14px"><b>Sample selection.</b> This report covers an explicitly selected subset of samples (<b>${esc(M.sample_selection)}</b>): ${nf(M.n_matched)} of ${nf(M.n_requested)} requested samples were found in the inputs${M.n_requested_missing?`, ${nf(M.n_requested_missing)} were not`:''}. Every count and prevalence here is for that subset only.</div>`:''}
-    <div class="callout ${REAL?'':'amber'}" style="margin-top:14px"><b>Data status.</b> ${REAL?esc(M.data_source||'Real data.')+`. Prevalence = carriers ÷ QC pass infections typed at the locus. Thresholds and marker classes are the published WHO criteria.`:`Design mock-up (${M.version}) with synthetic prevalence values. Thresholds, WHO classes, and marker lists are real; the numbers are fabricated for layout review.`}</div>`;
+
+    <div class="card" style="margin-top:16px"><h3>How a percentage is worked out</h3>
+      <p style="font-size:13.5px;color:var(--ink2)">Only infections that the laboratory successfully tested for that marker are counted. An infection that
+      could not be read for a marker is left out of that marker's percentage, so each marker can have a slightly different number of samples behind it.</p>
+      ${ex?`<div class="callout"><b>Worked example from this dataset.</b> ${esc(ex.gene+' '+ex.aa)} was successfully tested in
+        <b>${nf(ex.n)}</b> infections, and <b>${nf(ex.x)}</b> of them carried it. ${nf(ex.x)} &divide; ${nf(ex.n)} = <b>${pct(ex.est)}</b>,
+        shown with a range of ${ci(ex.lo,ex.hi)}%.</div>`:''}
+      <p style="font-size:13.5px;color:var(--ink2);margin-top:8px"><b>The range in square brackets</b> says how much the percentage could move if a different
+      set of patients had happened to be sampled. A small number of samples gives a wide range, which means the percentage is uncertain and should not be acted on alone;
+      a large number gives a narrow range. Ranges are calculated with the Wilson score method, which stays sensible when a percentage is near 0% or 100%.</p>
+      <p style="font-size:13.5px;color:var(--ink2);margin-top:8px"><b>Why some cells are blank.</b> Where fewer than <b>${MINN}</b> samples were tested
+      (a figure you can change with the "Min samples" control), the percentage is hidden rather than shown, because one positive out of one sample would otherwise
+      read as 100%. Where a marker was never tested at all, the report says <i>not assessed</i> &mdash; which is different from 0%, meaning tested and not found.</p>
+    </div>
+
+    <div class="card" style="margin-top:16px"><h3>What the marker classes mean</h3>
+      <p style="font-size:13.5px;color:var(--ink2)">Not every genetic change is equally well established as a cause of drug resistance. WHO groups them by how much
+      evidence exists, and this report uses WHO's own groups, taken directly from the
+      <a href="${who}" target="_blank" rel="noopener">WHO Compendium of molecular markers for antimalarial drug resistance</a>.</p>
+      <ul style="font-size:13px;color:var(--ink2);margin:8px 0 0 18px;line-height:1.75">
+        <li><b>Validated marker</b> &mdash; the strongest evidence: the change has been linked to poorer treatment response in patients, in the laboratory, and in field studies.</li>
+        <li><b>Candidate marker</b> &mdash; good but incomplete evidence; WHO is still assessing it.</li>
+        <li><b>Potential marker</b> &mdash; early evidence only, usually from laboratory work. Treat as a watch item, not a finding.</li>
+        <li><b>Haplotype component</b> &mdash; WHO only recognises this change when it appears together with several others. On its own it carries no WHO class, so the report names the full combination it belongs to.</li>
+        <li><b>Background</b> &mdash; a position this laboratory test reads that WHO does not list as a resistance marker. Useful for interpretation and research; not evidence of resistance by itself.</li>
+      </ul>
+    </div>
+
+    <div class="card" style="margin-top:16px"><h3>The ${RES_PCT}% flag, and what it does not mean</h3>
+      <p style="font-size:13.5px;color:var(--ink2)">A marker is flagged when it is a <b>Validated marker</b> and reaches <b>${RES_PCT}% or more</b> of tested infections.
+      ${RES_PCT}% is the level at which WHO advises countries to review their first-line treatment, based on treatment-failure data.</p>
+      <p style="font-size:13.5px;color:var(--ink2);margin-top:8px">A flag is <b>a signal to look further</b> &mdash; for example with a therapeutic efficacy study &mdash; not a measurement of treatment failure
+      and not an instruction to change policy. Genetic markers and patient outcomes are related but not the same thing.
+      ${flagged.length?`In this dataset ${flagged.length} marker${flagged.length>1?'s are':' is'} flagged: ${flagged.map(m=>esc(m.gene+' '+m.aa)+' ('+pct(m.est)+')').join(', ')}.`:'No marker in this dataset is flagged.'}</p>
+    </div>
+
+    <div class="card" style="margin-top:16px"><h3>Reading the year-by-year figures</h3>
+      <p style="font-size:13.5px;color:var(--ink2)">Years with few samples are grouped into longer periods so that each figure rests on enough infections to be meaningful
+      (a year with ${TR?nf(TR.min_frame_n):100} or more samples is shown on its own). Grouped or not, the figures always add back up to the all-years total, and you can switch to single years
+      to see the raw series.</p>
+      <p style="font-size:13.5px;color:var(--ink2);margin-top:8px"><b>An important caution.</b> The same districts were not sampled every year. So a national figure that rises or falls over time
+      partly reflects <i>which districts were sampled</i>, not only a real change in the parasites. That is why the number of samples per period is shown beside every trend, and why you can
+      select a single district to compare it with itself over time &mdash; which is the safer comparison.</p>
+    </div>
+
+    <div class="card" style="margin-top:16px"><h3>What this report cannot tell you</h3>
+      <ul style="font-size:13px;color:var(--ink2);margin:6px 0 0 18px;line-height:1.75">
+        <li>It cannot say whether patients were cured. That needs a therapeutic efficacy study.</li>
+        <li>It cannot give case numbers or incidence; every figure is a percentage of infections tested.</li>
+        <li>It cannot speak for districts that were not sampled, or for years with too few samples.</li>
+        <li>A percentage from a handful of samples is not comparable to one from hundreds. Always read the sample count beside it.</li>
+      </ul>
+    </div>
+
+    <div class="grid two" style="margin-top:16px">
+      <div class="card"><h3>Sources</h3>
+        <ul style="font-size:13px;color:var(--ink2);margin:6px 0 0 18px;line-height:1.9">
+          <li>Marker list and classes: <a href="${who}" target="_blank" rel="noopener">WHO Compendium of molecular markers for antimalarial drug resistance</a></li>
+          <li>District boundaries: geoBoundaries (Senegal, admin level 2)</li>
+          <li>Gene names link to that gene's record on PlasmoDB</li>
+        </ul>
+      </div>
+      <div class="card"><h3>Laboratory pipelines</h3>
+        <ul style="font-size:13px;color:var(--ink2);margin:6px 0 0 18px;line-height:1.9">${(M.links||[]).map(l=>`<li><a href="${l[1]}" target="_blank" rel="noopener">${esc(l[0])}</a></li>`).join('')||'<li>&mdash;</li>'}</ul>
+      </div>
+    </div>
+
+    ${M.sample_selection?`<div class="callout amber" style="margin-top:14px"><b>Selected samples only.</b> This report covers a chosen subset of samples (<b>${esc(M.sample_selection)}</b>):
+      ${nf(M.n_matched)} of ${nf(M.n_requested)} requested samples were found${M.n_requested_missing?`, and ${nf(M.n_requested_missing)} were not`:''}.
+      Every count and percentage here refers to that subset only.</div>`:''}
+    <div class="callout ${REAL?'':'amber'}" style="margin-top:14px"><b>Data status.</b> ${REAL
+      ? `These are real results from ${esc(M.data_source||'the sequenced samples')}. Thresholds and marker classes follow published WHO criteria.`
+      : `This is a design mock-up (${M.version}). The thresholds, WHO classes and marker lists are real, but the percentages are invented for layout review and must not be used.`}</div>`;
 };
 
 /* render + wire */

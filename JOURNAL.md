@@ -620,3 +620,21 @@ See 2026-10-05T16:30Z, which recorded changing our section heading to "antimicro
 **Verify (jsdom).** Adding a marker earlier in the grid now leaves the map untouched (colours byte-identical once the per-render hatch pattern id is normalised) and only grows the dropdown; switching the dropdown repaints; unchecking the mapped marker falls back cleanly; stepping and difference mode still repaint. 0 errors on all four reports, 0 SVG geometry overflow.
 
 **Note on test rigour.** My first signature compared raw `fill` attributes and reported a change where there was none: `choropleth()` emits a unique hatch `<pattern>` id per render, so suppressed regions' `url(#ndN)` differs on every redraw. Normalising that id was needed to make the comparison meaningful — worth remembering for future map assertions.
+
+## 2026-10-06T11:20:00Z — Methods page rewritten for a national malaria control programme audience
+
+**Context.** Jonn: make Methods correct but readable for someone from an NMCP in Africa rather than a scientist.
+
+**What changed.** The page was three dense cards of statistics shorthand ("Prevalence = carriers ÷ QC pass infections typed at the locus; 95% CIs by the Wilson score method…"). It is now nine short cards organised around the questions a programme officer actually asks, with every fact preserved:
+1. *What this report shows* — percentage of tested infections carrying each change, and explicitly not case numbers or cure rates.
+2. *Where these numbers come from* — a plain table: test, platform, samples passing QC (and how many produced a marker result), collection years, districts/sites, markers reported, data source.
+3. *How a percentage is worked out* — includes a **worked example built from this dataset's own numbers** (WGS: "Pfcrt K76T was successfully tested in 1,906 infections, and 963 of them carried it. 963 ÷ 1,906 = 50.5%"), then explains the bracketed range in plain terms (how much the figure could move with a different sample), names Wilson once for auditability, and explains blank cells (min-sample suppression) and the difference between *not assessed* and 0%.
+4. *What the marker classes mean* — WHO's classes in programme language ("the strongest evidence: linked to poorer treatment response in patients, in the laboratory, and in field studies"), including why a Haplotype component has no class of its own and that Background markers are not evidence of resistance.
+5. *The 10% flag, and what it does not mean* — states plainly that a flag is a signal to look further, not a measurement of treatment failure or an instruction to change policy, and lists the markers actually flagged in this dataset with their percentages.
+6. *Reading the year-by-year figures* — why sparse years are grouped, that groups still add to the all-years total, and the sampling-composition caution in plain words with the advice to compare a district with itself.
+7. *What this report cannot tell you* — four blunt limits (no cure rates, no case counts, nothing for unsampled districts, small-n figures are not comparable to large-n ones).
+8–9. *Sources* and *Laboratory pipelines* as separate short link lists.
+
+**Detail worth noting.** The worked example picks a marker from the live data, and my first version chose by sample count alone — which selected Pfaat1 S258L, a research-class marker, a poor exemplar for this audience. It now prefers a flagged Validated marker, falling back to any Validated marker, then any assessed one; all four reports now illustrate with Pfcrt K76T.
+
+**Verify.** JS syntax checked via `node --check` on the extracted inline script; jsdom 0 errors on all 4 reports, 9 cards each, 2 WHO links each; the "validated only inside WHO's term" rule and the geometry/period-filter regressions still pass.
