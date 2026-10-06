@@ -28,3 +28,9 @@ fixture_wgs_samples.tsv
 fiss_downloads/
 rm/
 ad/
+
+# World ADM2 boundary downloads (geoBoundaries gbOpen). 457 MB staged outside the repo at
+# /workspace/geoboundaries_adm2; see JOURNAL for sizes. Not committed — decide per-country
+# what ships in the container.
+geoboundaries_adm2/
+reference/adm2/
