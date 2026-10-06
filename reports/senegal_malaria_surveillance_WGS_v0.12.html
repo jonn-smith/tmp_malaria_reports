@@ -981,9 +981,7 @@ R.methods=()=>{
     ${M.sample_selection?`<div class="callout amber" style="margin-top:14px"><b>Selected samples only.</b> This report covers a selected subset (<b>${esc(M.sample_selection)}</b>):
       ${nf(M.n_matched)} of ${nf(M.n_requested)} requested samples were found${M.n_requested_missing?`, ${nf(M.n_requested_missing)} were not`:''}.
       All counts and prevalences refer to that subset.</div>`:''}
-    <div class="callout ${REAL?'':'amber'}" style="margin-top:14px"><b>Data status.</b> ${REAL
-      ? `Observed results from ${esc(M.data_source||'the sequenced samples')}. Thresholds and marker classes follow published WHO criteria.`
-      : `Design mock-up (${M.version}). Thresholds, WHO classes, and marker lists are real; prevalence values are synthetic and must not be used.`}</div>`;
+    ${REAL?'':`<div class="callout amber" style="margin-top:14px"><b>Data status.</b> Design mock-up (${M.version}). Thresholds, WHO classes, and marker lists are real; prevalence values are synthetic and must not be used.</div>`}`;
 };
 
 /* render + wire */
