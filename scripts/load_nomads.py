@@ -207,7 +207,7 @@ def load(call_tables, site_metadata=None, version=None, data_source=None, select
             drop['no_location'] += 1
             continue
         rec['district'] = d
-        rec['region'] = (G.SEN_REGION.get(d, '—') if G.COUNTRY_ISO == 'SEN' else '—')
+        rec['region'] = (G.SEN_REGION.get(d) if G.COUNTRY_ISO == 'SEN' else None) or G.region_of(d) or '—'
         placed.append(rec)
 
     # aggregate to admin-2 units (same shape the other loaders emit)

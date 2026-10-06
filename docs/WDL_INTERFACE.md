@@ -48,12 +48,20 @@ Example inputs JSONs are in `wdl/inputs/`.
 | `country_iso3` | `String?` | ISO3 code selecting the admin-2 boundary set. Defaults to `SEN`. |
 | `country_name` | `String?` | Country name shown in the report; defaults to the name in the boundary file. |
 
-The image ships projected admin-2 maps for **51 malaria-endemic African countries**
-(`reference/adm2/<ISO3>_adm2_map.json.gz`, 4.0 MB in total), built from geoBoundaries
-gbOpen simplified boundaries by `scripts/build_maps.py`. Of 54 African countries, Libya,
-Mauritius and Mayotte have no ADM2 in gbOpen; other countries can be added with
+The image ships projected maps for **all 54 African countries**
+(`reference/adm2/<ISO3>_adm2_map.json.gz`, 4.2 MB in total), built by
+`scripts/build_maps.py` from geoBoundaries gbOpen for 51 of them and from OCHA COD-AB /
+gbOpen ADM4 for the three gbOpen lacks ADM2 for. Other countries can be added with
 `build_maps.py --geojson <file> --iso <ISO3>` and supplied through `reference_bundle_tar`
 without any WDL change.
+
+**The level is not always admin-2, and the report says which it is.** Each map records the
+level of the source file, and the report's headings follow it: Libya is admin-2 (22
+*mantika* districts), **Mauritius is admin-1** (12 districts — its first-level units are
+the finest national subdivision available), and **Mayotte is admin-4** (17 communes). The
+header tagline, the summary scope bar and the locations table all name the actual level, so
+an admin-1 map is never labelled admin-2. The export schemas keep their fixed column names
+(e.g. Africa CDC's "District (Admin Level 2)") because those belong to the schema.
 
 One artefact serves two purposes: the projected paths draw the choropleth, and because the
 projection is invertible the loaders use the same paths to assign each sample's
@@ -219,5 +227,7 @@ remains the development shortcut for the two real cohorts and goes through the s
 - Admin-2 geography now covers 51 malaria-endemic African countries via `country_iso3`;
   anything outside that set needs a map built with `build_maps.py` and supplied through
   `reference_bundle_tar`.
-- Admin-1 (region) names are Senegal-only, so region columns in the exports are blank for
-  other countries.
+- Admin-1 (region) names come from a curated lookup for Senegal and from the boundary
+  file's parent name where the source carries one (Libya's East/South/West, for example).
+  geoBoundaries ADM2 files carry no parent name, so region columns are blank for most
+  countries until an ADM1 lookup is added.

@@ -363,6 +363,12 @@ const R={};
 const markerLabel=m=>`${m.gene} ${m.aa}`;
 const RES_PCT=M.marker_action_pct;
 
+/* Geography wording follows the boundary file: these reports are not always admin-2
+   (Mauritius ships admin-1 districts, Mayotte admin-4 communes). */
+const ADM_LEVEL=(D.map&&D.map.level)||2;
+const UNIT=(()=>{const n=((D.map&&D.map.unit_noun)||'district');
+  const m=n.match(/\(([^)]+)\)/); return (m?m[1]:n).toLowerCase();})();
+const UNITS=UNIT+'s';
 const TR=D.trends||null;
 /* Wilson score CI, same formula/constant as gen_reports.wilson(). Needed client-side
    because year- and region-scoped slices are summed here from the per-year atoms; the
@@ -530,7 +536,7 @@ R.summary=()=>{
     html+=`<div class="light ${st}" onclick="showTab('${jump[s.cat]||'summary'}')">
       <div class="cat"><span class="dot"></span>${esc(s.cat)}</div>
       <div class="scopebar"><span>years <b>${esc(M.period)}</b></span>
-        <span>· all <b>${M.n_units_sampled}</b> sampled admin-2 area${M.n_units_sampled===1?'':'s'}${D.sites&&D.sites.length?` (${D.sites.length} collection sites)`:''}</span>
+        <span>· all <b>${M.n_units_sampled}</b> sampled ${UNIT}${M.n_units_sampled===1?'':'s'}${D.sites&&D.sites.length?` (${D.sites.length} collection sites)`:''}</span>
         <span>· <b>${nf(M.n_qc)}</b> QC pass samples</span>
         ${M.sample_selection?`<span class="scopechip filtered">selected samples: ${esc(M.sample_selection)}</span>`:''}</div>
       <div>${summaryTable()}</div>
@@ -538,7 +544,7 @@ R.summary=()=>{
   });
   html+=`</div>`;
   html+=`<div class="kpis" style="margin-top:18px">
-    <div class="kpi"><div class="lab">Samples analysed (QC pass)</div><div class="val">${nf(M.n_qc)}</div><div class="foot">${M.n_units_sampled}/${M.n_units_total} admin-2 units · ${M.qc_rate}% pass${(M.n_called!=null&&M.n_called!==M.n_qc)?` · ${nf(M.n_called)} with ≥1 marker call`:''}</div></div>
+    <div class="kpi"><div class="lab">Samples analysed (QC pass)</div><div class="val">${nf(M.n_qc)}</div><div class="foot">${M.n_units_sampled}/${M.n_units_total} ${UNITS} · ${M.qc_rate}% pass${(M.n_called!=null&&M.n_called!==M.n_qc)?` · ${nf(M.n_called)} with ≥1 marker call`:''}</div></div>
     <div class="kpi"><div class="lab">WHO compendium markers ≥${RES_PCT}%</div><div class="val">${D.markers.filter(m=>m.assessed&&m.who&&m.est>=RES_PCT).length}</div><div class="foot"><a onclick="showTab('resistance')" style="cursor:pointer;color:#2a6fb0;text-decoration:underline">of ${D.markers.filter(m=>m.assessed&&m.who).length} compendium markers assessed →</a></div></div>
 </div>`;
   // --- restored original summary elements (below the stoplight) ---
@@ -549,14 +555,14 @@ R.summary=()=>{
   const sampMap = hasSites
     ? `<div class="hint">One point per collection site (lat/long). Circle size ∝ QC pass samples. Regions shaded by total QC pass samples. Mouseover a site or region for more details. Click a site to pin its count, or a region for its total.</div>
        ${siteMap(null,null,M.color)}<div class="hint" style="margin:8px 0 0">Region shading — total QC pass samples per admin-2 unit:</div>${binnedLegend(nBreaks(Math.max(1,...D.map.depts.map(dp=>{const u0=unit(dp.name);return (u0&&u0.sampled)?u0.n:0;}))),BLU,'',null,false)}${siteLegend(M.color)}<div class="readout">Click a site or region…</div>`
-    : `<div class="hint">Circle size ∝ QC pass samples per admin-2 unit. Click a region to pin its sample count; hover for the number.</div>
+    : `<div class="hint">Circle size ∝ QC pass samples per ${UNIT}. Click a region to pin its sample count; hover for the number.</div>
        ${dotmap(u=>u&&u.sampled?u.n:0,M.color)}${dotLegend(u=>u&&u.sampled?u.n:0,M.color)}<div class="readout">Click a region…</div>`;
   html+=`<div class="grid two" style="margin-top:16px">
     <div class="card"><h3>${esc(sampTitle)}</h3>${sampMap}</div>
     <div class="card"><h3>${isComb?'Method / assays at a glance':'Method at a glance'}</h3>${methodTile()}</div></div>`;
-  html+=`<div class="card" style="margin-top:16px"><h3>Locations (Admin Level 2) by sample count</h3>
+  html+=`<div class="card" style="margin-top:16px"><h3>Locations (admin level ${ADM_LEVEL}) by sample count</h3>
     <div class="hint">Sampled units, most samples first — the denominator behind each unit's prevalence (small n ⇒ interpret cautiously).</div>
-    <div class="scroll"><table><thead><tr><th>Location (Admin Level 2)</th><th class="num"># samples (QC pass)</th><th class="num">Collection window</th></tr></thead><tbody>`+
+    <div class="scroll"><table><thead><tr><th>Location (admin level ${ADM_LEVEL})</th><th class="num"># samples (QC pass)</th><th class="num">Collection window</th></tr></thead><tbody>`+
     [...D.units].filter(u=>u.sampled).sort((a,b)=>b.n-a.n).slice(0,12).map(u=>`<tr><td>${esc(u.name)}</td><td class="num">${nf(u.n)}</td><td class="num">${esc(fmtYears(u.years||[u.date_min,u.date_max])||'—')}</td></tr>`).join('')
     +`<tr style="font-weight:700;border-top:2px solid var(--line)"><td>TOTAL</td><td class="num">${nf(M.n_qc)}</td><td class="num">${esc(M.period)}</td></tr>`
     +`</tbody></table></div></div>`;
@@ -573,7 +579,7 @@ R.resistance=()=>{
   html+=markerToggleGrid('mtoggles', cm, null);
   // map + controls (detail page = admin-2 choropleth only, no circles)
   const hasSites=false;
-  html+=`<div class="grid two"><div class="card"><h3>Prevalence by ${hasSites?'site':'admin-2'} — map shows: <select id="drsel">${cm.map(k=>{const m=D.markers.find(x=>x.key===k);return `<option value="${k}">${esc(markerLabel(m))}</option>`;}).join('')}</select> <span class="scopechip" id="drperiod"></span></h3>
+  html+=`<div class="grid two"><div class="card"><h3>Prevalence by ${hasSites?'site':UNIT} — map shows: <select id="drsel">${cm.map(k=>{const m=D.markers.find(x=>x.key===k);return `<option value="${k}">${esc(markerLabel(m))}</option>`;}).join('')}</select> <span class="scopechip" id="drperiod"></span></h3>
       <div class="controls">
         ${TR?`<label>Period: <select id="yrsel"><option value="">All years (pooled)</option>${
           TR.frames.map(f=>`<option value="f:${f.key}">${esc(f.label)} (n=${f.years.reduce((a,y)=>a+(TR.year_n[y]||0),0)})</option>`).join('')}${
@@ -583,7 +589,7 @@ R.resistance=()=>{
       <div class="yrnote" id="yrnote"></div>
       <div class="hint">Click a ${hasSites?'site':'region'} to pin its value; hover for the number. ${hasSites?'Small-n sites are greyed':'Hatched = n below threshold'} (suppressed).</div>
       <div id="drmap"></div><div id="drlegend"></div><div class="readout">Click a region…</div></div>
-    <div class="card"><h3>Samples per ${hasSites?'site':'admin-2 unit'} <span class="scopechip" id="drbarperiod"></span></h3><div class="hint">Number of samples collected (n) per ${hasSites?'site':'region'}. Small n means prevalence values are skewed.</div><div id="drbars"></div></div></div>`;
+    <div class="card"><h3>Samples per ${hasSites?'site':UNIT} <span class="scopechip" id="drbarperiod"></span></h3><div class="hint">Number of samples collected (n) per ${hasSites?'site':'region'}. Small n means prevalence values are skewed.</div><div id="drbars"></div></div></div>`;
   // table
   html+=`<div class="card" style="margin-top:16px"><h3>Marker table <span class="scopechip" id="mtperiod"></span></h3><div class="hint" id="dltbl"></div>
     <div class="controls">
@@ -944,7 +950,7 @@ R.methods=()=>{
           <tr><td>Platform</td><td>${esc(M.platform)}</td></tr>
           <tr><td>Samples (QC pass)</td><td><b>${nf(M.n_qc)}</b>${(M.n_called!=null&&M.n_called!==M.n_qc)?`, of which ${nf(M.n_called)} returned at least one marker call`:''}</td></tr>
           <tr><td>Collection years</td><td>${esc(M.period)}</td></tr>
-          <tr><td>Coverage</td><td>${M.n_units_sampled} of ${M.n_units_total} districts${D.sites&&D.sites.length?`, ${D.sites.length} collection sites`:''}</td></tr>
+          <tr><td>Coverage</td><td>${M.n_units_sampled} of ${M.n_units_total} ${UNITS}${D.sites&&D.sites.length?`, ${D.sites.length} collection sites`:''}</td></tr>
           <tr><td>Markers reported</td><td>${D.markers.filter(m=>m.assessed).length}</td></tr>
           ${REAL?`<tr><td>Source</td><td>${esc(M.data_source||'')}</td></tr>`:''}
         </table>

@@ -262,6 +262,12 @@ def dept_of_point(lat, lon):
             if inside: return name
     return None
 
+def region_of(dept_name):
+    """Admin-1 name for a unit, when the boundary source carried a parent name."""
+    for d in DEPTS:
+        if d['name'] == dept_name: return d.get('region') or ''
+    return ''
+
 def dept_prev(key,s):
     m=MK[key]['mean']
     if MK[key]['tok'] in ('dhfr','dhps','crt','mdr1') and key not in ('dhps_K540E','dhps_A581G'):
@@ -557,7 +563,7 @@ def assemble_report(name, spec, units, selection=None):
     for u in sampled: allyears|=set(u.get('years') or [])
     period=fmt_years(allyears) or 'n/a'
     meta=dict(assay=name,assay_full=spec['full'],platform=spec['platform'],
-              color=spec['color'],note=spec['note'],country=(COUNTRY_NAME or 'Senegal'),admin='Admin-2 (district)',
+              color=spec['color'],note=spec['note'],country=(COUNTRY_NAME or 'Senegal'),admin=(MAP.get('admin_label') or 'Admin-2 (district)'),
               admin_available=True,dates_available=bool(allyears),period=period,years=sorted(allyears),
               links=PIPELINE_LINKS.get(name,[]),
               generated='2026-09-23',version=VERSION,real=False,data_source='Synthetic design mock-up (illustrative values)',

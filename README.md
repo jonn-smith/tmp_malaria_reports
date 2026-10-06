@@ -80,7 +80,7 @@ scripts/
 templates/
   report_v05.template.html  shared, capability-gated renderers (the report UI)
 reference/                lookup data consumed by the pipeline
-  adm2/<ISO3>_adm2_map.json.gz  projected admin-2 maps, 51 African countries (4.0 MB)
+  adm2/<ISO3>_adm2_map.json.gz  projected admin maps, all 54 African countries (4.2 MB)
   sen_adm2*.json/.geojson   Senegal admin-2 boundaries + projection (+ dept metadata)
   who_*                     WHO marker compendium (xlsx + parsed json)
   m4h_*.tsv, mad_resmarker.tsv  MAD4HATTER v4 panel / resmarker references
@@ -123,8 +123,10 @@ progress popup), so the page stays small; the on-screen table shows a preview.
 - Validation is via jsdom + a static SVG-geometry check (no browser in the build env).
 
 Multi-country: pass `--country-iso3 <ISO3>` to `scripts/make_report.py` (or `country_iso3`
-in the WDL) to select the admin-2 boundary set. Projected maps for 51 malaria-endemic
-African countries are committed under `reference/adm2/`; rebuild or extend them with
+in the WDL) to select the admin-2 boundary set. Projected maps for all 54 African
+countries are committed under `reference/adm2/` (the level is whatever the source provides
+— admin-2 for most, admin-1 for Mauritius, admin-4 communes for Mayotte — and the report
+labels itself accordingly); rebuild or extend them with
 `scripts/build_maps.py --dir <geojson dir>`.
 
 Versioning: the version is always in the filename; current = **v0.12**.
