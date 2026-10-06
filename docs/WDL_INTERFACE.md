@@ -41,6 +41,29 @@ Example inputs JSONs are in `wdl/inputs/`.
 | NOMADS | `marker_calls_tables` | `Array[File]` | Assay-agnostic marker-calls table, schema in §5. |
 | NOMADS | `site_metadata` | `File?` | Optional; only needed when the calls tables carry no geography. |
 
+### Country / geography (identical across all three)
+
+| Input | Type | Purpose |
+|---|---|---|
+| `country_iso3` | `String?` | ISO3 code selecting the admin-2 boundary set. Defaults to `SEN`. |
+| `country_name` | `String?` | Country name shown in the report; defaults to the name in the boundary file. |
+
+The image ships projected admin-2 maps for **51 malaria-endemic African countries**
+(`reference/adm2/<ISO3>_adm2_map.json.gz`, 4.0 MB in total), built from geoBoundaries
+gbOpen simplified boundaries by `scripts/build_maps.py`. Of 54 African countries, Libya,
+Mauritius and Mayotte have no ADM2 in gbOpen; other countries can be added with
+`build_maps.py --geojson <file> --iso <ISO3>` and supplied through `reference_bundle_tar`
+without any WDL change.
+
+One artefact serves two purposes: the projected paths draw the choropleth, and because the
+projection is invertible the loaders use the same paths to assign each sample's
+latitude/longitude to a district. Paths are rounded to 0.1 px (about 100 m for a country
+the size of Senegal), so a sample essentially on a district boundary may fall either side.
+
+Region (admin-1) names are only available for Senegal, from a curated lookup; gbOpen ADM2
+features carry no parent name, so for other countries the region fields in the exports are
+blank until an ADM1 lookup is added.
+
 ### Sample selection (identical across all three)
 
 A report can cover every sample in the inputs (the default) or an explicit subset.
@@ -193,6 +216,8 @@ remains the development shortcut for the two real cohorts and goes through the s
 - **`site_metadata` for MAD4HATTER is required** because the UCSF resmarker outputs carry
   no geography. If a future run emits geography inline, the input becomes optional
   (a loader change, not an interface change).
-- Admin-2 geography is Senegal-specific (geoBoundaries SEN ADM2, baked into the image). A
-  different country needs a new reference bundle via `reference_bundle_tar` — the input is
-  already there.
+- Admin-2 geography now covers 51 malaria-endemic African countries via `country_iso3`;
+  anything outside that set needs a map built with `build_maps.py` and supplied through
+  `reference_bundle_tar`.
+- Admin-1 (region) names are Senegal-only, so region columns in the exports are blank for
+  other countries.

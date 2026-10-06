@@ -61,6 +61,12 @@ def parse_args(argv=None):
                    help='Human-readable name for the selection, shown in the report '
                         '(e.g. a Terra sample_set name)')
 
+    # country / geography
+    p.add_argument('--country-iso3', default=None,
+                   help='ISO3 country code selecting the admin-2 boundary set '
+                        '(reference/adm2/<ISO3>_adm2_map.json.gz). Default SEN.')
+    p.add_argument('--country-name', default=None, help='Country name shown in the report')
+
     # stable knobs
     p.add_argument('--version-label', default=None, help='Version string stamped on the report')
     p.add_argument('--data-source', default=None, help='Provenance line shown in the report banner')
@@ -104,6 +110,13 @@ def main(argv=None):
     for key, (const, cast) in MODEL_SETTINGS.items():
         if key in cfg:
             setattr(G, const, cast(cfg[key]))
+
+    # geography first: the model's districts, point-in-polygon index and map all derive
+    # from the selected country, and the loaders read them at import time
+    iso = a.country_iso3 or cfg.get('country_iso3')
+    cname = a.country_name or cfg.get('country_name')
+    if iso or cname:
+        G.set_country(iso or G.COUNTRY_ISO, cname)
 
     version = a.version_label or cfg.get('version') or G.VERSION
     G.set_version(version)
@@ -166,7 +179,8 @@ def main(argv=None):
                             if m.get('n_requested_missing') else '') + '\n')
         if not m.get('n_matched'):
             raise SystemExit('no samples matched --sample-ids; refusing to build an empty report')
-    sys.stderr.write(f"[make_report] {a.assay} {version}: {m['n_qc']} QC pass samples, "
+    sys.stderr.write(f"[make_report] {G.COUNTRY_ISO} ({m.get('country')}) "
+                     f"{a.assay} {version}: {m['n_qc']} QC pass samples, "
                      f"{m['n_units_sampled']}/{m['n_units_total']} admin-2 units, period {m['period']}\n")
     sys.stderr.write(f"[make_report] wrote {a.out_html} and {a.out_data_json}\n")
     return 0

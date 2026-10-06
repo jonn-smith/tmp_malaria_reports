@@ -29,6 +29,8 @@ task RenderWgsReport {
         render_config_json:       "JSON settings file; unrecognised keys pass through to the report metadata so new template features need no interface change"
         report_template_override: "Replacement report template (HTML); omit to use the template baked into the docker image"
         reference_bundle_tar:     "tar(.gz) of replacement reference data (admin boundaries, WHO compendium); omit to use the bundle baked into the docker image"
+        country_iso3:             "ISO3 code selecting the admin-2 boundary set baked into the image (reference/adm2/<ISO3>_adm2_map.json.gz); defaults to SEN"
+        country_name:             "Country name shown in the report; defaults to the name recorded in the boundary file"
         sample_ids_file:          "Optional allow-list of sample ids, one per line; omit to report on every sample in the inputs"
         selection_label:          "Human-readable name for the sample selection, shown in the report (e.g. a Terra sample_set name)"
         extra_args:               "Additional command-line args appended verbatim to the make_report.py invocation"
@@ -45,6 +47,8 @@ task RenderWgsReport {
         File? report_template_override
         File? reference_bundle_tar
 
+        String? country_iso3
+        String? country_name
         File? sample_ids_file
         String? selection_label
 
@@ -90,6 +94,8 @@ task RenderWgsReport {
             --sample-table ~{sample_table_tsv} \
             ~{"--version-label " + version_label} \
             ~{"--data-source '" + data_source + "'"} \
+            ~{"--country-iso3 " + country_iso3} \
+            ~{"--country-name '" + country_name + "'"} \
             ~{"--sample-ids " + sample_ids_file} \
             ~{"--selection-label '" + selection_label + "'"} \
             ~{"--config " + render_config_json} \
@@ -158,6 +164,8 @@ task RenderMad4hatterReport {
         render_config_json:       "JSON settings file; unrecognised keys pass through to the report metadata so new template features need no interface change"
         report_template_override: "Replacement report template (HTML); omit to use the template baked into the docker image"
         reference_bundle_tar:     "tar(.gz) of replacement reference data (admin boundaries, WHO compendium); omit to use the bundle baked into the docker image"
+        country_iso3:             "ISO3 code selecting the admin-2 boundary set baked into the image (reference/adm2/<ISO3>_adm2_map.json.gz); defaults to SEN"
+        country_name:             "Country name shown in the report; defaults to the name recorded in the boundary file"
         sample_ids_file:          "Optional allow-list of sample ids, one per line; omit to report on every sample in the inputs"
         selection_label:          "Human-readable name for the sample selection, shown in the report (e.g. a Terra sample_set name)"
         extra_args:               "Additional command-line args appended verbatim to the make_report.py invocation"
@@ -176,6 +184,8 @@ task RenderMad4hatterReport {
         File? report_template_override
         File? reference_bundle_tar
 
+        String? country_iso3
+        String? country_name
         File? sample_ids_file
         String? selection_label
 
@@ -224,6 +234,8 @@ task RenderMad4hatterReport {
             ~{if length(allele_tables) > 0 then "--allele-table " else ""}~{sep=' ' allele_tables} \
             ~{"--version-label " + version_label} \
             ~{"--data-source '" + data_source + "'"} \
+            ~{"--country-iso3 " + country_iso3} \
+            ~{"--country-name '" + country_name + "'"} \
             ~{"--sample-ids " + sample_ids_file} \
             ~{"--selection-label '" + selection_label + "'"} \
             ~{"--config " + render_config_json} \
@@ -291,6 +303,8 @@ task RenderNomadsReport {
         render_config_json:       "JSON settings file; unrecognised keys pass through to the report metadata so new template features need no interface change"
         report_template_override: "Replacement report template (HTML); omit to use the template baked into the docker image"
         reference_bundle_tar:     "tar(.gz) of replacement reference data (admin boundaries, WHO compendium); omit to use the bundle baked into the docker image"
+        country_iso3:             "ISO3 code selecting the admin-2 boundary set baked into the image (reference/adm2/<ISO3>_adm2_map.json.gz); defaults to SEN"
+        country_name:             "Country name shown in the report; defaults to the name recorded in the boundary file"
         sample_ids_file:          "Optional allow-list of sample ids, one per line; omit to report on every sample in the inputs"
         selection_label:          "Human-readable name for the sample selection, shown in the report (e.g. a Terra sample_set name)"
         extra_args:               "Additional command-line args appended verbatim to the make_report.py invocation"
@@ -308,6 +322,8 @@ task RenderNomadsReport {
         File? report_template_override
         File? reference_bundle_tar
 
+        String? country_iso3
+        String? country_name
         File? sample_ids_file
         String? selection_label
 
@@ -355,6 +371,8 @@ task RenderNomadsReport {
             ~{"--site-metadata " + site_metadata} \
             ~{"--version-label " + version_label} \
             ~{"--data-source '" + data_source + "'"} \
+            ~{"--country-iso3 " + country_iso3} \
+            ~{"--country-name '" + country_name + "'"} \
             ~{"--sample-ids " + sample_ids_file} \
             ~{"--selection-label '" + selection_label + "'"} \
             ~{"--config " + render_config_json} \

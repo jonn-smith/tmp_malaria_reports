@@ -14,7 +14,7 @@ Inputs (downloaded to a local dir):
 
 Per marker (MK): genotyped if the sample has any resmarker row at (Gene, CodonID); mutant carriage if
 any row has AA == the marker's alt AA with AARefAlt == ALT. Samples unioned across runs/repeats by
-base SampleID (strip _S##_L001). Site -> admin-2 by point-in-polygon on sen_adm2.geojson.
+base SampleID (strip _S##_L001). Site -> admin-2 by point-in-polygon on the projected map.
 COI/poly, hrp2/3, RH/cotx: not computed here (need allele_data / coverage / relatedness) -> null.
 
 Usage:  ./load_mad.py [resmarker_dir=/workspace/fiss_downloads/rm] [meta_csv] [-o out.json]
@@ -40,27 +40,13 @@ def load_meta(path):
         m[r['Sample_id']] = (r.get('Country', ''), f(r.get('Latitude')), f(r.get('Longitude')))
     return m
 
-# --- point-in-polygon dept assignment (sen ADM2) ---
-_FEATS = json.load(open(os.path.join(G.REF_DIR, 'sen_adm2.geojson')))['features']
-def _rings(g): return g['coordinates'] if g['type'] == 'MultiPolygon' else [g['coordinates']]
-def _pip(lon, lat, poly):
-    pts = poly[0]; n = len(pts); ins = False; j = n-1
-    for i in range(n):
-        xi, yi = pts[i][0], pts[i][1]; xj, yj = pts[j][0], pts[j][1]
-        if ((yi > lat) != (yj > lat)) and (lon < (xj-xi)*(lat-yi)/(yj-yi)+xi): ins = not ins
-        j = i
-    return ins
-_DEPT_CACHE = {}
+# admin-2 assignment comes from gen_reports, which works in the projected space of the
+# selected country's map, so the same paths that draw the choropleth assign the samples.
 def dept_of(lat, lon):
-    if lat is None or lon is None: return None
-    key = (round(lat, 4), round(lon, 4))
-    if key in _DEPT_CACHE: return _DEPT_CACHE[key]
-    d = None
-    for ft in _FEATS:
-        if any(_pip(lon, lat, poly) for poly in _rings(ft['geometry'])): d = ft['properties']['shapeName']; break
-    _DEPT_CACHE[key] = d; return d
+    return G.dept_of_point(lat, lon)
 
 base = lambda s: re.sub(r'_S\d+_L001$', '', s)
+isctrl = lambda b: b.upper().startswith(('DC', 'DD', '3D7', 'NTC')) or b == 'Undetermined'
 
 def coi_from_alleles(ad_dir):
     """base sample -> (COI, is_poly). Naive COI = max distinct microhaplotype alleles at any single
@@ -128,7 +114,7 @@ def load(rm_dir, meta_csv, ad_dir=None, selection=None):
         samples.append({'id': b, 'district': d, 'region': '—', 'site': site, 'lat': lat, 'lon': lon,
                         'coi': coi, 'poly': poly, 'date': (year_of(b) or ''), 'calls': calls})
     # region from SEN_REGION by dept
-    reg_na = {G._na(k): v for k, v in G.SEN_REGION.items()}
+    reg_na = {G._na(k): v for k, v in G.SEN_REGION.items()} if G.COUNTRY_ISO == 'SEN' else {}
     for s in samples: s['region'] = reg_na.get(G._na(s['district']), '—')
 
     # aggregate to admin-2 units
