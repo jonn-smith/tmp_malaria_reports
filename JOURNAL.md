@@ -638,3 +638,13 @@ See 2026-10-05T16:30Z, which recorded changing our section heading to "antimicro
 **Detail worth noting.** The worked example picks a marker from the live data, and my first version chose by sample count alone — which selected Pfaat1 S258L, a research-class marker, a poor exemplar for this audience. It now prefers a flagged Validated marker, falling back to any Validated marker, then any assessed one; all four reports now illustrate with Pfcrt K76T.
 
 **Verify.** JS syntax checked via `node --check` on the extracted inline script; jsdom 0 errors on all 4 reports, 9 cards each, 2 WHO links each; the "validated only inside WHO's term" rule and the geometry/period-filter regressions still pass.
+
+## 2026-10-06T12:00:00Z — Methods page re-pitched: professional register, not explanatory
+
+See 2026-10-06T11:20Z — that rewrite overshot. Jonn: "now patronizing. These people aren't children, they're just not day-to-day in the science."
+
+Cut the hand-holding while keeping every fact: removed the arithmetic worked example (963 ÷ 1,906 = 50.5% explains division to people who do not need it), the separate "What this report cannot tell you" card of four admonitions, the "What this report shows / does not show" framing with bolded NOTs, and the instructional phrasing in the class list ("Treat as a watch item, not a finding"). Nine cards became seven, 640 words became 497.
+
+What the facts look like now: prevalence defined once in a sentence that also states it is not a case count or incidence rate; denominators differ per marker because genotyping does not always succeed; Wilson named with the one-clause reason it is used (well behaved near 0% and 100%); suppression threshold and the not-assessed/0% distinction stated plainly; WHO classes listed with their evidence basis and no editorial advice; the 10% threshold given with one neutral sentence separating marker prevalence from treatment failure; period grouping and the district-composition caveat stated as facts rather than warnings.
+
+Register target: a technical annex for a competent public-health professional who does not work in sequencing day to day — definitions and caveats, no tutoring. jsdom 0 errors on all 4 reports; WHO-terminology rule and other regressions still pass.
