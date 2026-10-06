@@ -732,7 +732,10 @@ R.trends=()=>{
   return `<h2 class="sec">Trends in AMR markers over time</h2>
     <div class="sec-desc">Antimicrobial resistance (AMR) marker prevalence over time and space. Years with few samples are merged into larger periods of time for ease-of-visualization (switch to single years to see the raw series).</div>
     ${classLegend()}
-    <div class="sec-desc">Select markers to display on the map and prevalence tables below.</div>
+    <div class="sec-desc" style="display:flex;align-items:baseline;gap:12px;flex-wrap:wrap">
+      <span>Select markers to display on the map and prevalence tables below.</span>
+      <span><button class="btn" id="trselall">Select all</button> <button class="btn" id="trclearall">Clear all</button></span>
+    </div>
     ${markerToggleGrid('trtoggles', cm, [dflt])}
     <div class="controls">
       <label>Map shows: <select id="trmapsel"></select></label>
@@ -766,7 +769,7 @@ function wireTrends(){
   if(!gran) return;
   const allKeys=[...document.querySelectorAll('#trtoggles input[type=checkbox]')].map(cb=>cb.dataset.k);
   const TRCOL=['#2a78d6','#d03b3b','#1baf7a','#9a5b16','#6f42c1','#0b7285','#c2185b','#5b6067'];
-  const picked=()=>{const v=gridChecked('trtoggles'); return v.length?v:allKeys.slice(0,1);};
+  const picked=()=>gridChecked('trtoggles');
   /* The map can only show one marker at a time, so which one is an explicit choice rather
      than "whichever selected marker happens to sort first" - that silently hijacked the
      map whenever a marker earlier in the catalogue was added. */
@@ -792,7 +795,25 @@ function wireTrends(){
     const mx=Math.max(2,...vs); return mx<=10?[0,1,2,5,10,20,100]:[0,2,5,10,20,50,100];
   };
   const draw=()=>{
-    const keys=picked(); syncMapSel();
+    const keys=picked();
+    if(!keys.length){
+      const fs0=frames();
+      if(idx>=fs0.length) idx=fs0.length-1; if(idx<0) idx=0;
+      mapOpts=''; mapSel.innerHTML='';
+      $('#trbars').innerHTML=bars(fs0.map((x,i)=>({label:x.label,
+          v:(scope?x.years.reduce((a,y)=>a+trUnit(scope,[y],0).n,0):x.years.reduce((a,y)=>a+(TR.year_n[y]||0),0)),
+          color:i===idx?'var(--accent)':'var(--s1)'})),{w:1080});
+      const none=`<div class="hint" style="padding:6px 0">No markers selected \u2014 choose one or more above.</div>`;
+      $('#trchart').innerHTML=none; $('#trtable').innerHTML=none;
+      $('#trmap').innerHTML=''; $('#trlegend').innerHTML=''; $('#trdl').innerHTML='';
+      $('#trtitle').textContent='Prevalence over time';
+      $('#trtbltitle').textContent='By period';
+      $('#trmaplab').textContent=''; $('#trframe').textContent=fs0[idx]?fs0[idx].label:'\u2014';
+      $('#trframen').textContent='';
+      $('#trprev').disabled=idx===0; $('#trnext').disabled=idx===fs0.length-1;
+      return;
+    }
+    syncMapSel();
     const key=mapKeyNow(), mi=trIdx(key), fs=frames();
     if(idx>=fs.length) idx=fs.length-1; if(idx<0) idx=0;
     const f=fs[idx], prev=idx>0?fs[idx-1]:null;
@@ -877,6 +898,9 @@ function wireTrends(){
     scope=(scope===nm)?null:nm; draw();});
   wireToggleGrid('trtoggles', ()=>draw());
   mapSel.onchange=()=>{mapKey=mapSel.value; draw();};
+  const setAll=on=>{document.querySelectorAll('#trtoggles input[type=checkbox]').forEach(cb=>cb.checked=on); draw();};
+  $('#trselall').onclick=()=>setAll(true);
+  $('#trclearall').onclick=()=>setAll(false);
   gran.onchange=()=>{idx=0; draw();};
   mn.oninput=()=>{MINN=+mn.value; $('#trminlab').textContent=MINN; draw();};
   draw();

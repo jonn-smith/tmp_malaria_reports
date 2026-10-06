@@ -648,3 +648,11 @@ Cut the hand-holding while keeping every fact: removed the arithmetic worked exa
 What the facts look like now: prevalence defined once in a sentence that also states it is not a case count or incidence rate; denominators differ per marker because genotyping does not always succeed; Wilson named with the one-clause reason it is used (well behaved near 0% and 100%); suppression threshold and the not-assessed/0% distinction stated plainly; WHO classes listed with their evidence basis and no editorial advice; the 10% threshold given with one neutral sentence separating marker prevalence from treatment failure; period grouping and the district-composition caveat stated as facts rather than warnings.
 
 Register target: a technical annex for a competent public-health professional who does not work in sequencing day to day — definitions and caveats, no tutoring. jsdom 0 errors on all 4 reports; WHO-terminology rule and other regressions still pass.
+
+## 2026-10-06T13:30:00Z — Trends: global select all / clear all, and a real empty state
+
+Added "Select all" and "Clear all" buttons beside the Trends marker prompt, alongside the existing per-gene all/none links. They set the checkboxes directly and call `draw()` **once** rather than dispatching 56 change events, each of which would have triggered a full redraw (bins are recomputed across every frame and unit per draw).
+
+"Clear all" exposed a design question: `picked()` previously fell back to the first marker when nothing was checked, so clearing would have left the views showing a marker that no checkbox claimed. Removed the fallback and added an explicit empty state instead — chart and table read "No markers selected — choose one or more above", the map and its legend clear, the map dropdown empties, and the samples-per-period bars keep rendering because sample counts do not depend on marker choice. Stepping while empty is harmless.
+
+Verified (jsdom, all 4 reports): select all -> 56 checked / 56 chart lines / 57 table columns / 56 map-dropdown options; clear all -> 0 checked with the empty-state hint and bars still drawn; re-checking one marker restores 25 lines and a 7-column table; 0 errors through the whole sequence; geometry regression clean.
