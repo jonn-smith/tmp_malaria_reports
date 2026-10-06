@@ -16,6 +16,7 @@ Usage:
   build_maps.py --dir DIR [--only SEN,NGA,KEN]        # batch; files named <ISO3>_*.geojson
 """
 import argparse, glob, gzip, json, math, os, re, sys
+import re as _re
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
@@ -81,6 +82,7 @@ def project(feats, iso=None, country=None):
         return best
 
     depts = []
+    levels = set(); meanings = set()
     for ft in feats:
         gt = ft['geometry']['type']
         co = ft['geometry']['coordinates']
@@ -88,14 +90,36 @@ def project(feats, iso=None, country=None):
         c = centroid(co, gt)
         if not paths or not c: continue
         props = ft.get('properties') or {}
-        depts.append({'name': props.get('shapeName') or props.get('shapeID') or '',
-                      'path': ' '.join(paths),
-                      'cx': round(X(c[0]), 1), 'cy': round(Y(c[1]), 1),
-                      'lat': round(c[1], 3), 'lon': round(c[0], 3)})
+        name = (props.get('shapeName') or props.get('unit_name') or props.get('NAME_2')
+                or props.get('name') or props.get('shapeID') or '')
+        rec = {'name': name, 'path': ' '.join(paths),
+               'cx': round(X(c[0]), 1), 'cy': round(Y(c[1]), 1),
+               'lat': round(c[1], 3), 'lon': round(c[0], 3)}
+        # parent_name is the admin-1 unit in OCHA COD-AB files; ignore it when it is just
+        # the country itself (single-level sources), since that is not a region
+        parent = (props.get('parent_name') or '').strip()
+        if parent and parent.lower() not in ('', (country or '').lower(), (iso or '').lower()):
+            rec['region'] = parent
+        if props.get('admin_level') not in (None, ''): levels.add(str(props['admin_level']))
+        if props.get('level_meaning'): meanings.add(str(props['level_meaning']))
+        depts.append(rec)
 
     out = {'viewBox': f'0 0 {W} {H}', 'W': W, 'H': H, 'pad': PAD,
            'lonMin': lonMin, 'lonMax': lonMax, 'latMin': latMin, 'latMax': latMax,
            'depts': depts}
+    # record the level the source file actually is, so a report never calls admin-1
+    # districts "admin-2"
+    lvl = sorted(levels)[0] if len(levels) == 1 else None
+    noun = sorted(meanings)[0] if len(meanings) == 1 else None
+    out['level'] = int(lvl) if (lvl or '').isdigit() else 2
+    out['unit_noun'] = (noun or 'district')
+    # a source may give a local term like "mantika (district)"; label with the plain word
+    # and keep the full term for reference
+    m = _re.search(r'\(([^)]+)\)', out['unit_noun'])
+    short = (m.group(1) if m else out['unit_noun']).strip().lower()
+    out['unit_noun_full'] = out['unit_noun']
+    out['unit_noun'] = short
+    out['admin_label'] = f"Admin-{out['level']} ({short})"
     if iso: out['iso'] = iso
     if country: out['country'] = country
     return out

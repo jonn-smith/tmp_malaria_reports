@@ -116,7 +116,7 @@ def load(rm_dir, meta_csv, ad_dir=None, selection=None):
                         'coi': coi, 'poly': poly, 'date': (year_of(b) or ''), 'calls': calls})
     # region from SEN_REGION by dept
     reg_na = {G._na(k): v for k, v in G.SEN_REGION.items()} if G.COUNTRY_ISO == 'SEN' else {}
-    for s in samples: s['region'] = reg_na.get(G._na(s['district']), '—')
+    for s in samples: s['region'] = reg_na.get(G._na(s['district'])) or G.region_of(s['district']) or '—'
 
     # aggregate to admin-2 units
     by = {}
