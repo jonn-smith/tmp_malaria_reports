@@ -644,7 +644,7 @@ def assemble_report(name, spec, units, selection=None):
     res_hits=[m for m in natmarkers if m.get('assessed') and m.get('cls')=='validated' and m['est']>=MARKER_PCT]
     res_watch=[m for m in natmarkers if m.get('assessed') and m.get('cls')=='validated' and 5.0<=m['est']<MARKER_PCT]
     stoplight=[
-      dict(cat='Resistance Markers',status=('red' if res_hits else 'amber' if res_watch else 'green'),
+      dict(cat='Resistance Marker Prevalence',status=('red' if res_hits else 'amber' if res_watch else 'green'),
            findings=([f"{m['gene']} {m['aa']} = {m['est']}% (≥{int(MARKER_PCT)}%)" for m in res_hits]
                      +[f"{m['gene']} {m['aa']} = {m['est']}% (watch, 5–10%)" for m in res_watch]) or ['No WHO Validated marker at or above the action threshold']),
     ]
@@ -784,7 +784,7 @@ def build_combined(reports):
         natmarkers.append(base)
     res_hits=[m for m in natmarkers if m.get('assessed') and m.get('cls')=='validated' and m['est']>=MARKER_PCT]
     res_watch=[m for m in natmarkers if m.get('assessed') and m.get('cls')=='validated' and 5.0<=m['est']<MARKER_PCT]
-    stoplight=[dict(cat='Resistance Markers',status=('red' if res_hits else 'amber' if res_watch else 'green'),
+    stoplight=[dict(cat='Resistance Marker Prevalence',status=('red' if res_hits else 'amber' if res_watch else 'green'),
                     findings=([f"{m['gene']} {m['aa']} = {m['est']}% (≥{int(MARKER_PCT)}%)" for m in res_hits]
                               +[f"{m['gene']} {m['aa']} = {m['est']}% (watch)" for m in res_watch]) or ['No WHO Validated marker at or above the action threshold'])]
     tot_qc=sum(reports[a]['meta']['n_qc'] for a in ASSAYS); tot_col=sum(reports[a]['meta']['n_collected'] for a in ASSAYS)
