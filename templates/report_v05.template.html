@@ -530,7 +530,7 @@ R.summary=()=>{
   let html=`<h2 class="sec">Summary</h2>
     <div class="sec-desc">WHO Validated markers that reach ≥${RES_PCT}% in at least one collection year.</div>
     <div class="stoplight">`;
-  const jump={'Resistance Markers':'resistance'};
+  const jump={'Resistance Marker Prevalence':'resistance'};   // keyed on the stoplight category
   D.stoplight.forEach(s=>{
     const st=s.status, word={red:'Concern',amber:'Watch',green:'No flag',grey:'Not assessed'}[st];
     html+=`<div class="light ${st}" onclick="showTab('${jump[s.cat]||'summary'}')">
