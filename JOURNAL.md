@@ -740,3 +740,11 @@ Jonn raised three format-conversion risks and asked whether I had accounted for 
 **Regression.** Senegal is untouched: the legacy map is byte-identical, all 45 unit centroids still self-assign, both real loaders report their previous numbers (WGS 16/45, 2,161; MAD 9/45, 883, 13 sites), and all reports pass with 0 errors and 0 geometry overflow. No duplicate names remain in any of the 54 maps.
 
 **On Jonn's offer to run a conversion.** None is needed for this pipeline — GeoJSON in, projected JSON out. If an archival/interchange copy is wanted, GeoPackage or Parquet are the right call for the reasons given (no 10-char field limit, no silent truncation); shapefile would be the wrong target.
+
+## 2026-10-09T10:00:00Z — Version bump to v0.13
+
+Single-source bump v0.12 -> v0.13: gen_reports VERSION default, loader meta.version, both build scripts (filename `VER` and displayed `REPORT_VER`), container tag `lr-malaria-reports:0.13.0` and its image label, WDL task `tool_version` and docker defaults, the `version_label` examples in the three task/workflow parameter_meta blocks, wdl/inputs/*.json, WDL_INTERFACE.md, REPLICATION.md and README.
+
+Housekeeping found while bumping: the v0.11 synthetic reports were still committed — the v0.12 bump removed only the v0.11-real files, so four stale HTML files had been carried for a release. Removed those and the v0.12 set. Also corrected two .gitignore mistakes of mine: a `v0.1[0-2]*` glob I had just added would have matched `v0.13` as well (the bracket covers the character after `v0.1`, so `v0.13` is in range via `3`? no — but `v0.1` + `[0-2]` + `*` does match `v0.12...`, and the same pattern shape had already silently matched more than intended), so the superseded versions are now listed explicitly one per line; and the README's v0.11 note had been relabelled v0.13 by an earlier blanket replace, so the history now reads v0.11 (WHO terminology) and v0.13 (multi-country geography, haplotype units, Methods rewrite) correctly.
+
+Verified: all 5 reports rebuilt, rendered text contains only `v0.13`, 0 jsdom errors, 0 SVG geometry overflow, period-filter pooled restore intact, summary card reads "Resistance Marker Prevalence", `miniwdl check` clean on all three workflows.

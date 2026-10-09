@@ -122,7 +122,7 @@ you launch on a set entity, and it keeps each report's denominators self-contain
 | Input | Type | Purpose |
 |---|---|---|
 | `cohort_name` | `String` | Output filename + output directory component. |
-| `version_label` | `String?` | Version string stamped on the report, e.g. `v0.12`. |
+| `version_label` | `String?` | Version string stamped on the report, e.g. `v0.13`. |
 | `data_source` | `String?` | Provenance line in the report banner. |
 | `render_config_json` | `File?` | **Rendering settings. See §3.** |
 | `report_template_override` | `File?` | **Replacement template. See §3.** |
@@ -152,7 +152,7 @@ levers, in increasing order of effort:
 1. **New container tag.** The image carries the code *and* the rendering assets (template,
    reference data, export schemas), so the tag is what pins "how the report looks". Bump
    the default in `wdl/tasks/Malaria/SurveillanceReport.wdl`, or override per-run with
-   `runtime_attr_override = {"docker": "...:0.12.0"}` and touch no WDL at all.
+   `runtime_attr_override = {"docker": "...:0.14.0"}` and touch no WDL at all.
 2. **`report_template_override`.** Hand the task a different template file. The template is
    the entire presentation layer (layout, tabs, charts, labels, interactions), so a
    rendering experiment needs nothing but a new file in a bucket.
@@ -198,8 +198,8 @@ counted and reported in the task log rather than silently dropped.
 ## 6. Container
 
 ```bash
-docker build -t us.gcr.io/broad-dsp-lrma/lr-malaria-reports:0.12.0 -f docker/Dockerfile .
-docker push  us.gcr.io/broad-dsp-lrma/lr-malaria-reports:0.12.0
+docker build -t us.gcr.io/broad-dsp-lrma/lr-malaria-reports:0.13.0 -f docker/Dockerfile .
+docker push  us.gcr.io/broad-dsp-lrma/lr-malaria-reports:0.13.0
 ```
 
 Notes for whoever maintains it:
@@ -224,7 +224,7 @@ The task body is one command, so it can be reproduced outside WDL exactly:
 ```bash
 python3 scripts/make_report.py --assay WGS \
     --sample-table sample.tsv \
-    --version-label v0.12 \
+    --version-label v0.13 \
     --out-html report.html --out-data-json report.data.json --out-csv-dir csv/
 ```
 

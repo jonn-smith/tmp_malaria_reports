@@ -21,7 +21,7 @@ workflow MalariaSurveillanceReportMad4hatter {
         site_metadata:            "Per-sample site and coordinate table (Sample_id, site, Latitude, Longitude)"
         allele_tables:            "MAD4HATTER microhaplotype allele tables (allele_data.txt); optional"
         cohort_name:              "Cohort label; used in the output directory path and output filenames"
-        version_label:            "Version string stamped on the report (e.g. v0.12)"
+        version_label:            "Version string stamped on the report (e.g. v0.13)"
         data_source:              "Provenance line shown in the report banner"
         render_config_json:       "JSON settings file for the renderer; unrecognised keys pass through to the report metadata, so new rendering features need no change to this interface"
         report_template_override: "Replacement report template (HTML); omit to use the template pinned by the docker image"
