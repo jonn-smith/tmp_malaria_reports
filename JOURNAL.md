@@ -802,3 +802,40 @@ restore-the-file step has silently eaten adjacent edits.
 
 **Outcome.** Historical version references are now pinned and enforced on all
 three branches.
+
+## 2026-10-13T10:45:00Z  — Session summary: the branch split is ready, the push choice is not mine
+
+**Read first.** Nothing has been pushed. Four branches are ready and form two
+complete, interchangeable options; pick one and push two refs.
+
+**Option A — rewritten history (clean linear single-marker main).**
+`main` = `e58ecb9` (v0.12, single-marker), `feature/multi-locus-haplotypes` =
+`d011b8b` (v0.13, the feature as two commits on top of main). `main` must be pushed
+with `--force-with-lease`, because `origin/main` is at `c5bc5c9` and the eight
+commits that tip contains are replaced.
+
+**Option B — no rewriting.** `main-no-rewrite` = `06f3b52` and
+`feature/multi-locus-haplotypes-nr` = `930713b`, both fast-forwards from
+`origin/main`. The feature is removed on a forward commit rather than by dropping
+history. Rename `main-no-rewrite` to `main` locally before pushing it.
+
+**The two options produce identical code.** `main` vs `main-no-rewrite` and the two
+feature branches each differ in exactly one blob, `JOURNAL.md` — deliberate, since
+the option-B journals retain the haplotype entries (append-only) while option A's
+`main` journal does not.
+
+**Most important findings this session.**
+1. `origin/main` was already at the v0.13 tip, so the split as first executed would
+   have force-pushed over published commits. This is why option B exists.
+2. Blanket version replacement had been corrupting the README changelog for at
+   least three releases; the v0.9 entry's "superseded in vX" aside was already wrong
+   upstream. Now pinned and guarded at `build_reports.sh:9`.
+
+**Open question for the operator.** Which option. If published history does not
+matter (solo repo, nothing pulled downstream), option A is the nicer topology: a
+linear single-marker `main` with the feature rebasable forward. Otherwise option B.
+
+**Verification run on every branch.** Build and version guard pass; working trees
+clean; `main` lines carry 0 multi-codon units, the v0.13 lines carry 6; real reports
+rebuild at 56 (WGS) / 54 (MAD4HATTER) assessed markers on the single-marker line and
+61 / 60 with the haplotype units.
