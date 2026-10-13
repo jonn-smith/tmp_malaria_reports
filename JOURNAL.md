@@ -832,3 +832,32 @@ here. The push has to happen from this checkout.
 
 **Outcome.** Option B branches (`main-no-rewrite`, `feature/multi-locus-haplotypes-nr`)
 are kept locally but must not be pushed; they are redundant once option A lands.
+
+## 2026-10-13T11:25:00Z  — Option A pushed and verified
+
+**Context.** The operator ran the option-A push sequence from this checkout.
+
+**Verification.** The live remote cannot be queried from this container (no
+publickey), so verification is from the remote-tracking refs, which git only
+advances on a successful push. All three match their local branches exactly:
+`main` and `origin/main` at `781a3fa`, `feature/multi-locus-haplotypes` and its
+upstream at `1987451`, `backup/pre-split-v0.13` at `c5bc5c9`. The reflog of
+`refs/remotes/origin/main` records `c5bc5c9 -> 781a3fa  update by push`, so the
+force push landed and the lease held. Neither option-B branch was pushed.
+
+**Disclosure check, since the repo is now public at this state.** No `*-real.html`
+or `*_real.json` in any pushed tree, and no real per-sample inputs. The one
+real-looking tracked file, `reference/mad_resmarker.tsv` (162 rows), is the
+MAD4HATTER panel definition — gene, codon, chromosome, start/stop, strand — with no
+sample identifiers or genotypes, so it is reference data and correctly committed.
+The four real reports remain on local disk only, git-ignored.
+
+**Follow-up noted, not acted on.** `main-no-rewrite` still has `origin/main` as its
+upstream, so a `git pull`/`git push` while it is checked out would target the wrong
+branch. It and `feature/multi-locus-haplotypes-nr` are redundant now; left in place
+rather than deleted because each carries a journal variant, and deletion is the
+operator's call.
+
+**Outcome.** v0.12 single-marker is `main` on GitHub; v0.13 multi-locus is
+`feature/multi-locus-haplotypes`, two commits on top of it; the pre-split tip is
+preserved on the remote as `backup/pre-split-v0.13`.
