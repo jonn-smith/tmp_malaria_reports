@@ -806,3 +806,29 @@ linear single-marker `main` with the feature rebasable forward. Otherwise option
 clean; `main` lines carry 0 multi-codon units, the v0.13 lines carry 6; real reports
 rebuild at 56 (WGS) / 54 (MAD4HATTER) assessed markers on the single-marker line and
 61 / 60 with the haplotype units.
+
+## 2026-10-13T11:05:00Z  — Option A chosen; push order fixed to keep the old tip recoverable
+
+**Context.** Both split options were ready and the operator picked option A: the
+rewritten linear single-marker `main` plus the feature as commits on top, accepting
+a force push over published history.
+
+**Decision / action.** Recorded the push order: `backup/pre-split-v0.13` goes first,
+then `main --force-with-lease`, then the feature branch. The backup branch is pushed
+first on purpose — once `origin/main` moves off `c5bc5c9`, that commit is only
+reachable on the remote if some ref points at it, so publishing the backup ref
+before the force push is what makes the pre-split state recoverable from GitHub
+rather than from this container's reflog.
+
+**Why `--force-with-lease` and not `--force`.** The lease compares against the
+remote-tracking ref, so the push aborts if the remote has moved since it was last
+fetched. `git fetch origin` could not run from this container (no credentials), so
+the local `origin/main` is as of the clone; a `git fetch origin` immediately before
+pushing makes the lease meaningful instead of merely plausible.
+
+**Note for whoever reads this later.** All five branches exist only in this
+container's checkout at `/workspace/malaria_reports`; they were never pushed from
+here. The push has to happen from this checkout.
+
+**Outcome.** Option B branches (`main-no-rewrite`, `feature/multi-locus-haplotypes-nr`)
+are kept locally but must not be pushed; they are redundant once option A lands.
