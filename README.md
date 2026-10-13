@@ -24,17 +24,27 @@ bars, and a per-period table. The Resistance tab gains a period filter; **pooled
 >
 > **v0.9:** marker catalogue rebuilt from the WHO compendium plus the codons each
 > assay actually types — 80 markers, each labelled by evidence class (the class names
-> introduced here were superseded by WHO's own in v0.13).
+> introduced here were superseded by WHO's own in v0.11).
 >
 > **v0.10:** time dimension — Trends tab (trend chart with CI bands, period-stepper
 > choropleth, samples-per-period bars, per-period table) and a period filter on the
 > Resistance tab. Periods are built adaptively so each frame has a usable denominator,
 > and every frame sums from per-year counts back to the pooled figure.
 >
-> **v0.13:** marker classes switched to WHO's own terminology, derived from
+> **v0.11:** marker classes switched to WHO's own terminology, derived from
 > `reference/who_combined.json` rather than hand-typed, with every class label linking to
 > the WHO compendium. The word "validated" is used only inside WHO's defined class name,
 > enforced by a build check.
+>
+> **v0.12:** multi-country admin geography (all 54 African countries), and the Methods
+> page rewritten for a programme audience rather than a scientific one. `main` stops
+> here: it reports each WHO codon on its own.
+>
+> **v0.13 (this branch):** multi-codon haplotype units — the six WHO-listed combinations
+> (*pfdhfr* and *pfdhps* SP haplotypes, *pfcrt* 72–76) are reported as additional markers
+> alongside their component codons. Because the assays do not phase, a unit's prevalence
+> is the co-occurrence of its codons within a sample, which is an **upper bound** on the
+> true haplotype prevalence in polyclonal infections. See the Methods page.
 
 ## Two kinds of report
 

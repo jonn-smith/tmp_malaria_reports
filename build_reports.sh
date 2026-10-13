@@ -6,6 +6,13 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 VER="${1:-v0.13}"
+
+# The version lives in six files and is bumped by hand, so a blanket find-and-replace has
+# three times rewritten the README changelog labels, which are history and must not move.
+grep -q "current = \*\*$VER\*\*" README.md || { echo "README 'current =' is not $VER" >&2; exit 1; }
+for h in v0.9 v0.10 v0.11 v0.12; do
+  grep -q "^> \*\*$h:\*\*" README.md || { echo "README changelog entry $h was rewritten" >&2; exit 1; }
+done
 python3 scripts/gen_reports.py "$VER"   # reference/sen_admin2_map.json -> build/data_*.json (version stamped from $VER)
 python3 - "$VER" <<'PY'
 import sys
