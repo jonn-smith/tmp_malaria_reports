@@ -726,3 +726,46 @@ Jonn raised three format-conversion risks and asked whether I had accounted for 
 **Conflicts, and how they were resolved.** Only two classes, both expected: `JOURNAL.md` (append-only, so each cherry-pick's own entry was appended to our history and the haplotype entries were left for the branch) and the four generated `reports/*.html` artifacts (resolved to our side and then rebuilt from source at the end, since committing a merged HTML artifact would be meaningless).
 
 **Verified on main.** No `HAPLOTYPES`, `add_haplotype_calls`, `covers()`, `m.components`, `_hap` or "Multi-codon units" text anywhere; the three coverage call sites are back to the plain `MK[k]['tok'] in spec['genes']` form. Note that `noteFor`'s `cls==='haplotype'` branch stays — that is the v0.11 *single-codon* "Haplotype component" class (a codon WHO lists only inside a haplotype), which is not the multi-locus feature. Builds pass, and the real reports report 56 (WGS) and 54 (MAD) assessed markers with **zero** multi-codon rows. Version set to v0.12 across generator, loaders, build scripts, container tag 0.12.0, WDL tool_version, inputs and docs. Removed the stale v0.11 and v0.13 artifacts and corrected .gitignore so the v0.12 reports are tracked again.
+
+## 2026-10-13T00:30:00Z  — Version bumps had been corrupting the README changelog
+
+**Context.** Final checks on the v0.12/v0.13 branch split, auditing every version
+string in the docs on each branch against the published baseline `c5bc5c9`.
+
+**Observation.** Two README lines are history, not current state: the changelog
+entry `> **v0.11:** marker classes switched to WHO's own terminology...` and the
+v0.9 entry's aside "superseded by WHO's own in v0.11". Both had been rewritten by
+successive blanket version replacements — they read v0.12 on the rebuilt `main`,
+v0.13 on the feature branch, and the aside was already wrong at `c5bc5c9` (v0.13),
+so the drift predates the split and has happened at least three times. The
+`docs/WDL_INTERFACE.md` example `runtime_attr_override = {"docker": "...:0.12.0"}`
+had also been dragged down to the current version, which makes it a no-op example
+instead of demonstrating an override to a different image.
+
+**Decision / action.** Fixed the labels to their true versions, restored a v0.12
+changelog entry (multi-country geography and the Methods rewrite, the two things
+that actually landed on this line, with a pointer to the haplotype branch), set the
+docker example back to a next-version tag, and added a guard at
+`build_reports.sh:9` that fails the build if the current-version reference does not
+match `$VER` or if any of the v0.9/v0.10/v0.11 changelog labels have moved.
+
+**Why a guard rather than a bump script.** The version lives in six files and is
+bumped by hand; a script would still need the same list, and the failure mode here
+was not "forgot a file" but "replaced too much". A check that distinguishes
+current-version references from historical ones catches both directions, in six
+lines, with no new tooling.
+
+**Evidence.** Guard verified in both directions: passes on the corrected tree;
+with `> **v0.11:**` rewritten to `> **v0.12:**` it prints "README changelog entry
+v0.11 was rewritten" and exits 1 before building; with a mismatched argument
+(`./build_reports.sh v0.13`) it prints "README 'current =' is not v0.13". All four
+synthetic and both real reports rebuilt unchanged, since only docs moved.
+
+**Dead end worth recording.** While testing the guard I restored README.md with
+`git checkout -- README.md` to undo the simulated corruption, which also discarded
+the two uncommitted fixes in the same file; they had to be reapplied. Simulate a
+failure on a copy, or commit first — this is the third time in this project that a
+restore-the-file step has silently eaten adjacent edits.
+
+**Outcome.** Historical version references are now pinned and enforced on all
+three branches.

@@ -152,7 +152,7 @@ levers, in increasing order of effort:
 1. **New container tag.** The image carries the code *and* the rendering assets (template,
    reference data, export schemas), so the tag is what pins "how the report looks". Bump
    the default in `wdl/tasks/Malaria/SurveillanceReport.wdl`, or override per-run with
-   `runtime_attr_override = {"docker": "...:0.12.0"}` and touch no WDL at all.
+   `runtime_attr_override = {"docker": "...:0.13.0"}` and touch no WDL at all.
 2. **`report_template_override`.** Hand the task a different template file. The template is
    the entire presentation layer (layout, tabs, charts, labels, interactions), so a
    rendering experiment needs nothing but a new file in a bucket.
