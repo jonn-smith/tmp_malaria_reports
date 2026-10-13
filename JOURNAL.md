@@ -752,3 +752,11 @@ The Africa CDC Mutation/Haplotype sheet and the PHA4GE standard both have a dedi
 Applied on all four code paths (real export and synthetic export, each for Africa CDC and PHA4GE). The synthetic marker-centric rows needed an internal `_hap` flag to carry the distinction through to the mutation/haplotype view; it is popped before packing so it never reaches an output column — asserted in the verification.
 
 Verified across reports: no row ever populates both fields (MAD-real 1,310 haplotype / 7,314 alteration; WGS-real 1,703 / 10,753; synthetic 3 / 19; combined 10 / 49), the on-screen Africa CDC preview shows the combination under Haplotype with Gene Alteration blank, `_hap` does not leak, and the stale "AF-CDC Marker-Centric" sentence in the synthetic export note (that view was removed in v0.12) is gone.
+
+## 2026-10-13T09:40:00Z — Multi-locus haplotype branch created at v0.13
+
+`feature/multi-locus-haplotypes` branches from main's single-marker tip and carries the feature as two commits (the multi-codon units, then their routing to the Haplotype export column), re-applied cleanly onto the multi-country code — only the append-only journal and the generated HTML artefacts conflicted, and the artefacts are rebuilt from source rather than merged. Version set to v0.13 throughout this branch (container tag 0.13.0), while main stays v0.12.
+
+Verified side by side: main's real reports assess 56 (WGS) / 54 (MAD) markers with **zero** multi-codon rows; this branch assesses 61 / 60 with the **6** multi-codon units (Pfdhfr triple, Pfdhps A437G+K540E, SP quintuple and sextuple, Pfcrt M74I+N75E+K76T, Pfmdr1 triple) plus the Methods "Multi-codon units" paragraph. 0 jsdom errors on both lines.
+
+Because the branch sits directly on top of main, it can be rebased forward as main advances instead of diverging. Nothing is pushed; `backup/pre-split-v0.13` still holds the original pre-split tip.

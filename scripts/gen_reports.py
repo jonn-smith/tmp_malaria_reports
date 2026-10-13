@@ -38,7 +38,7 @@ def _na(x):  # accent- & case-insensitive key for name lookups (geoBoundaries na
 # Version label stamped into every report. Importers set it with set_version(); the CLI
 # below takes it as argv[1]. Not read from argv at import time so that this module can be
 # imported as a library (make_report.py) without inheriting the caller's arguments.
-VERSION = 'v0.12'
+VERSION = 'v0.13'
 def set_version(v):
     global VERSION
     if v: VERSION = v
