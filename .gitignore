@@ -20,6 +20,9 @@ senegal_malaria_surveillance_*_v0.10*.html
 # is private/cleared.
 senegal_malaria_surveillance_*-real.html
 sample.tsv
+# Terra sample-table exports: real sample identifiers, fastq paths and per-codon
+# genotypes. Re-export from the workspace rather than committing (see docs/TERRA_TABLES.md).
+testdata/terra/
 mad_meta*.csv
 mad_meta*.tsv
 mad_runs.tsv

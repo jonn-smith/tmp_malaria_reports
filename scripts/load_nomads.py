@@ -25,7 +25,8 @@ Location, at least one of:
 
 Time, at least one of:
   year        year | collection_year
-  date        date | collection_date | date_of_collection    (YYYY-MM-DD / YYYYMMDD / YYYY)
+  date        date | collection_date | date_of_collection
+              (YYYY-MM-DD / YYYYMMDD / YYYY, or day-first 28.07.2025 / 28-07-2025)
 
 Prevalence is carriage: samples whose call is alt or het, over samples typed at that marker.
 """
@@ -128,7 +129,11 @@ def _year_of(row, cm):
     y = _get(row, cm, 'year')
     if y[:4].isdigit(): return y[:4]
     d = _get(row, cm, 'date')
-    return d[:4] if d[:4].isdigit() else None
+    if d[:4].isdigit(): return d[:4]
+    # day-first forms (28.07.2025, 28/07/2025) - what the Nomadic experiment metadata
+    # CSVs use. Only the year is taken, so day/month order never has to be guessed.
+    m = re.match(r'^\d{1,2}[./-]\d{1,2}[./-](\d{4})$', d.strip())
+    return m.group(1) if m else None
 
 
 def _f(v):

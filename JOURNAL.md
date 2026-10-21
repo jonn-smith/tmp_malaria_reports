@@ -861,3 +861,64 @@ operator's call.
 **Outcome.** v0.12 single-marker is `main` on GitHub; v0.13 multi-locus is
 `feature/multi-locus-haplotypes`, two commits on top of it; the pre-split tip is
 preserved on the remote as `backup/pre-split-v0.13`.
+
+## 2026-10-21T00:00:00Z  — Terra sample tables as a marker source for NOMADS and MAD4HATTER
+
+**Context.** Both gates-malaria development workspaces now publish drug-resistance calls
+as columns on the `sample` table. The goal was to drive the Nomadic and Mad4Hatter
+reports from those columns and to find where location metadata lives.
+
+**What the tables actually hold.** Queried through FISS rather than the UI.
+`Nomadic_development.sample` is 48 rows x 45 columns, all of the form
+`aa_change_<gene>_<REF><POS><ALT>` with verdict values
+(`wt`/`mutant`/`mixed`/`unphased`/`absent`/`failed`); the samples are laboratory mocks
+(3D7, HB3, Dd2 mixtures). `Mad4Hatter_development.sample` is 3953 rows x 68 columns, with
+58 `resmarker_<gene>_<codon>` columns whose value is the OBSERVED amino acid, single
+letter or two separated by "/" for a mixed call. Only **5 of the 3953** rows carry marker
+calls; the other 3948 have just `Dataset`, `read1`, `read2`.
+
+**Decision / action.** Added `scripts/terra_samples.py`, a wide-to-long reshaper that
+emits the marker-calls table `load_nomads.py` already consumes, instead of teaching the
+loader a second input shape. One code path keeps selection, the site join, prevalence and
+the exports unchanged, and a future column added to a Terra table rides through as
+passthrough with no code change.
+
+**Why the mapping choices matter.** `absent` and `unphased` are mapped to not-typed
+rather than wild type: `absent` means the locus was not observed, `unphased` means the
+substitution needs two changes in one codon that the reads cannot phase. Treating either
+as wild type would enlarge every denominator and depress prevalence; on the real table
+that is 196 of 2160 calls. For the Mad4Hatter convention the verdict has to be derived by
+comparing the observed residue against the catalogue's reference and alternate, which
+creates a case with no clean answer: a residue that is neither (N where WHO tracks K76T)
+means WHO's mutation is absent, so it counts as reference even though the parasite does
+carry a substitution. Rather than bury that, `--audit` counts every mapping decision by
+category.
+
+**Evidence.** Both real tables exported to TSV and run end to end. Nomadic: 48 rows ->
+1962 calls, audit `969 mixed->het, 581 wt->ref, 412 mutant->alt, 128 unphased->missing,
+68 absent->missing, 2 failed->missing`. Mad4Hatter: 3953 rows -> 276 calls from the 5
+populated samples, `254 ref, 17 alt, 5 mixed_alt`, and `no_marker: 0` from the loader, so
+every call matched the catalogue. Panel coverage: 9 of Nomadic's 45 columns are WHO
+entries (23 `ama1` and 11 `csp` are antigens), against 56 of Mad4Hatter's 58.
+
+**The blocker, measured not assumed.** Neither workspace has geography anywhere - not on
+the sample tables, not on `experiment`, `sample_set`, or in the bucket manifests. Running
+the real Nomadic table produced `no_location: 48` and a report of zero samples. Adding a
+`district` column to a copy of the real experiment metadata CSV took it to 24 samples
+across 6 units, which both proves the existing `--site-metadata` join is the right hook
+and exposed that the Nomadic `sample` table spans two experiments (`A_*` and `B_*`), so
+one experiment CSV covers only half of it.
+
+**Dead end turned bug fix.** With geography supplied the report still said "period n/a".
+The experiment CSVs write dates day-first (`28.07.2025`) and `_year_of` only understood
+ISO forms, so every sample was year-less. Extended it at `scripts/load_nomads.py:127` to
+take the year out of day-first dates without guessing day/month order; period then
+resolved to 2025.
+
+**Not committed.** The exported tables carry real sample identifiers, fastq paths and
+per-codon genotypes, so `testdata/terra/` is git-ignored and the reader is pointed at
+re-exporting instead. This repo is public as of the v0.12 push.
+
+**Outcome.** Branch `feature/terra-sample-tables`. Marker ingestion works for both
+workspaces today; geography is the one thing the operator still has to supply, documented
+with the exact column names in `docs/TERRA_TABLES.md`.
