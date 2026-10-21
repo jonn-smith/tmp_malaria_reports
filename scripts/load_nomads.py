@@ -99,7 +99,16 @@ def _marker_key(row, cm):
     tok = _gene_tok(_get(row, cm, 'gene'))
     mo = re.match(r'^([A-Za-z])(\d+)([A-Za-z*])$', _get(row, cm, 'aa_change'))
     if mo:
-        return MK_BY_POS.get((tok, int(mo.group(2)), mo.group(3).upper()))
+        pos, alt = int(mo.group(2)), mo.group(3).upper()
+        key = MK_BY_POS.get((tok, pos, alt))
+        if key:
+            return key
+        # A panel locus the compendium does not list. Keep it, labelled by class, rather
+        # than dropping a column the programme paid to generate; see G.register_marker.
+        aa = f'{mo.group(1).upper()}{pos}{alt}'
+        key = G.register_marker(tok, aa)
+        MK_BY_POS[(tok, pos, alt)] = key
+        return key
     try:
         codon = int(_get(row, cm, 'codon'))
     except ValueError:

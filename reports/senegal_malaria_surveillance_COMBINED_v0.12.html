@@ -70,6 +70,7 @@ h2.sec{font-size:18px;font-weight:600;margin:6px 0 4px}
 .pill.cand{background:#eef4fc;color:#2a6fb0;border:1px solid #cfe0f4} .pill.pot{background:#f4f7fb;color:#4a6d92;border:1px solid #dde6f0}
 .pill.bg{background:#f1f2f4;color:#5b6067;border:1px solid #dcdfe3}
 .pill.hap{background:#eef7f2;color:#1f6b4a;border:1px solid #cfe8dc}
+.pill.ag{background:#f3eefa;color:#5b3d8f;border:1px solid #ddd0ee}
 a.pill:hover{filter:brightness(0.96)}
 .clshead{font-size:12px;color:var(--ink2);margin:0 0 14px}
 .pill.action{background:#fbe3e3;color:#a81e1e} .pill.mut{background:#eef1f4;color:#52514e}
@@ -405,21 +406,22 @@ function unitPrev(u,key){                   // per-unit prevalence under the cur
 }
 const unitNsel=u=>!u?0:(!YSEL?(u.sampled?u.n:0):trUnit(u.name,YSEL,0).n);
 const WHO_URL=M.who_url||'https://www.who.int/publications/m/item/compendium-of-molecular-markers-for-antimalarial-drug-resistance';
-const CLSPILL={validated:'who',candidate:'cand',potential:'pot',haplotype:'hap',background:'bg',research:'research'};
-const CLSABBR={validated:'VAL',candidate:'CAN',potential:'POT',haplotype:'HAP',background:'BKG',research:'RES'};
+const CLSPILL={validated:'who',candidate:'cand',potential:'pot',haplotype:'hap',background:'bg',research:'research',antigen:'ag'};
+const CLSABBR={validated:'VAL',candidate:'CAN',potential:'POT',haplotype:'HAP',background:'BKG',research:'RES',antigen:'AGN'};
 /* Class names are WHO's own, taken from the Compendium of molecular markers for
-   antimalarial drug resistance (see WHO_URL). Only the last two are ours, and they say
+   antimalarial drug resistance (see WHO_URL). Only the last three are ours, and they say
    explicitly that WHO does not list the locus. */
 const CLSFULL={validated:'Validated marker',candidate:'Candidate marker',potential:'Potential marker',
                haplotype:'Haplotype component',background:'Background',
-               research:'Background (research)'};
+               research:'Background (research)',antigen:'Antigen locus'};
 const CLSDESC={validated:'Association with reduced drug response is established on all three lines of evidence WHO weighs \u2014 epidemiological, laboratory, and clinical. Carries the \u2265'+M.marker_action_pct+'% action flag.',
                candidate:'Association is supported by some but not all of those lines of evidence; WHO treats it as under assessment.',
                potential:'An association has been reported, usually from laboratory work alone, and is not yet established.',
                haplotype:'WHO lists this codon only inside a multi-codon haplotype, so the class shown is the haplotype\u2019s; the codon alone carries no WHO class. The haplotype is named on the row.',
                background:'Typed by this assay panel as resistance genetic background or a partner-drug response modulator, not as a resistance marker in its own right. Not included in the WHO marker list.',
-               research:'Reported in the literature, including markers for investigational drugs. Not included in the WHO marker list.'};
-const CLSORDER=['validated','candidate','potential','haplotype','background','research'];
+               research:'Reported in the literature, including markers for investigational drugs. Not included in the WHO marker list.',
+               antigen:'An immune-target locus (such as ama1 or csp) that the panel types to track antigen diversity, not drug response. It is not a resistance marker, so it falls outside the WHO marker list rather than being missing from it. Prevalence here means how often the variant residue was seen, and carries no treatment implication.'};
+const CLSORDER=['validated','candidate','potential','haplotype','background','research','antigen'];
 const clsPill=m=>CLSPILL[m.cls]||(m.who?'who':'research');
 // spelled-out key for the coloured class pills (abbreviation -> full label -> meaning)
 function classLegend(){
@@ -442,6 +444,9 @@ function noteFor(m){
   if(m.who){
     const ev=(m.who_cls||'').match(/\(([^)]*)\)/);
     return ev?`WHO evidence: ${esc(ev[1])}`:'';
+  }
+  if(m.cls==='antigen'){
+    return 'Antigen diversity, not drug resistance — no treatment implication';
   }
   // background / research: the role, minus the clause the class column already carries
   return esc((m.crit||'').replace(/[;,]?\s*(not listed in the WHO compendium|not WHO-tracked)\.?$/i,'')

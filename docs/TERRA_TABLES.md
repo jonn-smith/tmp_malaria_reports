@@ -72,12 +72,25 @@ Two smaller things found while testing:
 
 ## Panel coverage
 
-Nomadic's 45 columns are mostly antigens, not resistance markers: 23 `ama1` and 11 `csp`
-columns have no WHO entry and are dropped. What remains is `crt K76T`, `dhfr N51I/C59R/S108N`,
-`dhps A437G/A613S`, and `mdr1 N86Y/Y184F/N1042D` — 9 markers. Two columns look like
-near-misses worth a second opinion upstream: `aa_change_dhps_S436F` (WHO lists S436A and
-S436H) and `aa_change_mdr1_N86F` (WHO lists N86Y, and the table also has a separate
-`N86Y` column).
+Nomadic's 45 columns are mostly antigens rather than resistance markers, but **nothing is
+dropped** — a locus the panel types is kept and labelled by class:
+
+| class | pill | count | what it is |
+|---|---|---|---|
+| WHO entries | `VAL`/`CAN`/`POT`/`HAP` | 9 | `crt K76T`, `dhfr N51I/C59R/S108N`, `dhps A437G/A613S`, `mdr1 N86Y/Y184F/N1042D` |
+| Antigen locus | `AGN` | 34 | 23 `ama1` and 11 `csp` — immune targets typed for antigen diversity |
+| Background | `BKG` | 2 | resistance-gene codons the compendium does not list |
+
+`ama1` and `csp` get their own class rather than "not in WHO compendium" because that
+phrasing implies a gap: the compendium is a *drug resistance* compendium, and these are
+not resistance markers, so their absence from it is correct rather than missing. The class
+description says so on the page, the Notes column reads "Antigen diversity, not drug
+resistance — no treatment implication", and an antigen locus can never raise the ≥10%
+action flag (that remains `cls == 'validated'` only) or appear in the summary table.
+
+The two `BKG` rows are `aa_change_dhps_S436F` (WHO lists S436A and S436H) and
+`aa_change_mdr1_N86F` (WHO lists N86Y, and the table carries a separate `N86Y` column).
+Both look like upstream near-misses worth a second opinion.
 
 Mad4Hatter's 58 columns map cleanly: all 56 that correspond to single codons are WHO
 entries, spanning `k13` (21), `crt` (14), `dhps` (7), `dhfr` (5), `mdr1` (5), and one each

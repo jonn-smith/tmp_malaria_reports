@@ -204,9 +204,54 @@ MARKERS = [
 ]
 CLS_LABEL = {'validated':'Validated marker','candidate':'Candidate marker','potential':'Potential marker',
              'haplotype':'Haplotype component','background':'Not in WHO compendium (panel locus)',
-             'research':'Not in WHO compendium (research)'}
+             'research':'Not in WHO compendium (research)','antigen':'Antigen locus (not a resistance marker)'}
+
+# Loci an amplicon panel types for immune-escape / vaccine-relevant diversity rather than
+# for drug resistance. They are not in the WHO compendium and never will be - it is a drug
+# resistance compendium - so calling them "not in WHO compendium" would imply a gap that
+# does not exist. ama1 and csp are the two the nomadic panel carries.
+ANTIGEN_TOKS = {'ama1', 'csp', 'msp1', 'msp2', 'msp3', 'glurp', 'trap', 'eba175', 'celtos', 'rh5'}
 MK = {m[0]:dict(gene=m[1],gene_id=m[2],aa=m[3],drug=m[4],cls=m[5],who=(m[5] in ('confirmed','candidate','potential')),
                 tok=m[6],mean=m[7],crit=m[8]) for m in MARKERS}
+
+
+def register_marker(tok, aa, gene_label=None):
+    """Add a panel locus the WHO catalogue does not list, and return its marker id.
+
+    A panel types what it types; dropping the columns WHO happens not to track throws away
+    data the programme paid to generate and silently shrinks the panel. These are kept and
+    labelled instead, in one of two classes:
+
+      antigen     an immune-target locus (ama1, csp) - not a resistance marker at all
+      background  a codon in a resistance gene that the compendium does not list
+
+    Returns an existing id unchanged, so calling it twice is safe.
+    """
+    mid = f'{tok}_{aa}'
+    if mid in MK:
+        return mid
+    is_ag = tok in ANTIGEN_TOKS
+    MK[mid] = dict(
+        gene=gene_label or ('Pf' + tok), gene_id='', aa=aa,
+        drug='Not applicable' if is_ag else 'Not established',
+        cls='antigen' if is_ag else 'background', who=False, tok=tok, mean=0.0,
+        crit=('Immune-target locus typed by the panel for antigen diversity. Not a drug '
+              'resistance marker and not part of the WHO compendium.' if is_ag else
+              'Typed by the panel. Not included in the WHO marker list, so there is no '
+              'WHO evidence class for it.'))
+    TREND_SLOPE[mid] = 0.0
+    EXTRA_MARKERS.add(mid)
+    return mid
+
+
+# Markers registered from the data rather than declared in a panel spec. The coverage
+# gates below ask whether an assay types a marker by looking up its gene in ASSAYS; a
+# locus that arrived in the input is by definition typed, so it is admitted here too.
+EXTRA_MARKERS = set()
+
+
+def in_panel(mid, genes):
+    return MK[mid]['tok'] in genes or mid in EXTRA_MARKERS
 
 # synthetic-only: fixed per-marker drift so the mock-up trend charts show something
 # (sign and magnitude are arbitrary illustration, not an epidemiological claim)
@@ -535,7 +580,7 @@ def assemble_report(name, spec, units, selection=None):
     (load_wgs.py, ...). Each unit dict: name, sampled(bool), n(QC pass denom),
     n_col?(collected), date_min?/date_max?, mk{k:pct}, mkx{k:mutant_ct},
     mkn{k:genotyped_ct}, hrp2/hrp3(pct) + hrp2x/hrp3x/hrpn(cts), div{coi,poly,mono,rh,cotx}."""
-    covered=[k for k in MK if MK[k]['tok'] in spec['genes']]
+    covered=[k for k in MK if in_panel(k, spec['genes'])]
     sampled=[u for u in units if u.get('sampled')]
     chosen_names={u['name'] for u in sampled}
     tot_col=sum(u.get('n_col',u.get('n',0)) for u in sampled); tot_qc=sum(u.get('n',0) for u in sampled)
@@ -548,7 +593,7 @@ def assemble_report(name, spec, units, selection=None):
         base=dict(key=k,gene=m['gene'],gene_id=m['gene_id'],aa=m['aa'],drug=m['drug'],who=m['who'],
                   cls=m['cls'],category=CLS_LABEL[m['cls']],crit=m['crit'],
                   who_cls=m.get('who_cls'),who_how=m.get('who_how'))
-        if m['tok'] not in spec['genes'] or natn.get(k,0)==0: base['assessed']=False; natmarkers.append(base); continue
+        if not in_panel(k, spec['genes']) or natn.get(k,0)==0: base['assessed']=False; natmarkers.append(base); continue
         est,lo,hi=wilson(natx[k],natn[k])
         base.update(assessed=True,x=natx[k],n=natn[k],est=est,lo=lo,hi=hi,action=(m['cls']=='validated' and est>=MARKER_PCT))
         natmarkers.append(base)
@@ -601,7 +646,7 @@ def build_assay(name, spec):
     chosen=(random.sample([d for d in DEPTS if EPI[d['name']]['pop']>250000],spec['n_depts'])
             if name=='WGS' else order[:spec['n_depts']])
     chosen_names={d['name'] for d in chosen}
-    covered=[k for k in MK if MK[k]['tok'] in spec['genes']]
+    covered=[k for k in MK if in_panel(k, spec['genes'])]
     units=[]
     for d in DEPTS:
         s=EPI[d['name']]['s']; rec={'name':d['name']}
@@ -673,7 +718,7 @@ def build_combined(reports):
                         slot['d'][k]=slot['d'].get(k,0)+v['d'][i]
             if by: rec['by_year']=by
         units.append(rec)
-    genes=set().union(*[ASSAYS[a]['genes'] for a in ASSAYS]); covered=[k for k in MK if MK[k]['tok'] in genes]
+    genes=set().union(*[ASSAYS[a]['genes'] for a in ASSAYS]); covered=[k for k in MK if in_panel(k, genes)]
     natmarkers=[]
     for k,m in MK.items():
         contrib=[a for a in ASSAYS if m['tok'] in ASSAYS[a]['genes']]

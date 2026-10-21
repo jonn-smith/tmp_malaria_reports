@@ -922,3 +922,39 @@ re-exporting instead. This repo is public as of the v0.12 push.
 **Outcome.** Branch `feature/terra-sample-tables`. Marker ingestion works for both
 workspaces today; geography is the one thing the operator still has to supply, documented
 with the exact column names in `docs/TERRA_TABLES.md`.
+
+## 2026-10-21T01:00:00Z  — Panel loci outside the WHO compendium are kept, not dropped
+
+**Context.** The first pass at the Terra tables dropped the 36 Nomadic columns with no
+WHO entry (`no_marker: 1550` of 1962 calls). The operator asked for them to be kept and
+labelled instead.
+
+**Decision / action.** Two classes rather than one, because the 36 are not one thing:
+
+  antigen     23 `ama1` and 11 `csp` columns - immune-target loci the panel types for
+              antigen diversity. Not resistance markers at all.
+  background  `dhps S436F` and `mdr1 N86F` - codons in resistance genes that the
+              compendium does not list. The existing class already fits.
+
+**Why a new class instead of reusing `research` or `background`.** Both existing labels
+read "Not in WHO compendium", which implies a gap. The compendium is a *drug resistance*
+compendium, so `ama1` and `csp` are not missing from it - they are outside its scope. The
+new class says that: "Antigen locus (not a resistance marker)", with a page description
+and a Notes column reading "Antigen diversity, not drug resistance - no treatment
+implication". An antigen locus can never raise the action flag, which stays
+`cls == 'validated'` only, and never reaches the summary table, which is validated-only.
+
+**A gate I did not predict.** After registering the markers the loader reported
+`no_marker: 0`, but only 11 markers were assessed and none of the antigens rendered. The
+coverage gates ask whether the assay types a marker by looking its gene up in the static
+`ASSAYS[...]['genes']` panel list, and `ama1`/`csp` are not in it. A locus that arrived in
+the input is by definition typed by the panel, so `in_panel()` now admits registered
+markers at all three gate sites (`gen_reports.py:583,596,649,721`). Assessed went 11 -> 45.
+
+**Evidence.** Rendered in jsdom rather than trusting a grep, since the tables are built
+client-side: pills `{VAL:11, >=10%:5, CAN:6, POT:12, HAP:9, BKG:12, AGN:105}`, the legend
+carries "Antigen locus" and its explanation, no antigen row carries an action flag, and
+the validated set is unchanged (`Pfcrt`, `Pfmdr1`). `node --check` passes on the extracted
+inline script; the synthetic build is unaffected because nothing registers there.
+
+**Outcome.** All 45 Nomadic columns now reach the report, 34 of them as antigen loci.

@@ -37,3 +37,8 @@ ad/
 # what ships in the container.
 geoboundaries_adm2/
 reference/adm2/
+
+# ad-hoc jsdom render checks
+node_modules/
+package.json
+package-lock.json
