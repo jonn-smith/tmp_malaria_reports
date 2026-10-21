@@ -36,7 +36,6 @@ ad/
 # /workspace/geoboundaries_adm2; see JOURNAL for sizes. Not committed — decide per-country
 # what ships in the container.
 geoboundaries_adm2/
-reference/adm2/
 
 # ad-hoc jsdom render checks
 node_modules/

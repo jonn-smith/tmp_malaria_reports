@@ -958,3 +958,29 @@ the validated set is unchanged (`Pfcrt`, `Pfmdr1`). `node --check` passes on the
 inline script; the synthetic build is unaffected because nothing registers there.
 
 **Outcome.** All 45 Nomadic columns now reach the report, 34 of them as antigen loci.
+
+## 2026-10-21T01:20:00Z  — The committed boundary maps were never actually committed
+
+**Context.** Noticed while staging the antigen work: `git status` showed none of
+`reference/adm2/`.
+
+**Observation.** `README.md:132` says the projected maps for all 54 African countries
+"are committed under `reference/adm2/`", `docker/Dockerfile:25` does `COPY reference/`,
+and `gen_reports.load_country_map` raises `SystemExit` when a map is absent - but
+`.gitignore` carried `reference/adm2/` and `git ls-files` returned **0 of the 54 files**.
+So the public repo, as pushed at v0.12, cannot build a container that supports any
+country, and `--country-iso3` fails for every ISO3 including the Senegal default's
+siblings. The ignore rule appears to be a leftover from when the world download was being
+staged and sized, and it outlived the decision to ship the African subset.
+
+**Decision / action.** Un-ignored the directory and committed the 54 files, 4.2 MB total.
+Kept as its own commit so it can be dropped independently of the marker work if the
+operator would rather ship the maps in the image another way.
+
+**Why commit rather than fix the README.** Three places already assume the files are
+present, and the alternative - documenting that every user must run `build_maps.py`
+against a 351 MB geoBoundaries download before the tool works for any country - is a much
+worse default for an outward-facing repo. 4.2 MB is a reasonable price.
+
+**Outcome.** Multi-country geography works from a fresh clone. Note for the push: this
+adds 4.2 MB to the repository.
