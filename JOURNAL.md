@@ -984,3 +984,26 @@ worse default for an outward-facing repo. 4.2 MB is a reasonable price.
 
 **Outcome.** Multi-country geography works from a fresh clone. Note for the push: this
 adds 4.2 MB to the repository.
+
+## 2026-10-26T00:00:00Z  — Minimum required field set, established by experiment
+
+**Context.** Operator asked what the minimal metadata set is, recalling "about 4 fields".
+Rather than quote the `load_nomads.py` docstring, I measured it.
+
+**Method.** Built two-sample fixtures varying only which columns are present, and ran each
+through `make_report.py`: markers alone, plus `district`, plus `year`, `lat`/`lon` in place
+of `district`, and `site` alone.
+
+**Result.** Six fields. `sample_id`, `gene`, `aa_change`, `call` carry the genotype;
+`district` (or `lat`+`lon`) and `year` (or `date`) place it. The four marker fields alone
+yield **zero** samples - every one drops as `no_location`, so the report is empty. Adding
+`district` gives samples and units but `period n/a` and zero Trends frames; adding `year`
+completes it. `lat`/`lon` substitutes for `district` and additionally places site-map pins.
+
+**The trap worth recording.** `site` alone reports zero samples. It reads like a location
+field and is accepted by the column mapper, but it is only a display label - placement goes
+through `_dept(district_raw, lat, lon)`, which never consults it. Anyone supplying a
+facility name and nothing else gets a silently empty report.
+
+**Outcome.** Written up as a "Minimum fields" table at the top of
+`docs/TERRA_TABLES.md:21` so the next person does not have to re-derive it.

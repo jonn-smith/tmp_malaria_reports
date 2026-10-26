@@ -14,6 +14,27 @@ how they reach a report, and what is still missing.
 | of those, in the WHO catalogue | **9** | **56** |
 | geography | none | none |
 
+## Minimum fields
+
+Six, measured rather than assumed. Four describe the genotype, two place it in space and
+time. They can all live in one table, or the last two can arrive in a separate
+`--site-metadata` file keyed by sample id.
+
+| field | alternatives accepted | leaving it out |
+|---|---|---|
+| `sample_id` | `sample`, `specimen_id` | row ignored |
+| `gene` | `Pfcrt`, `kelch13`, … | call dropped (`no_marker`) |
+| `aa_change` e.g. `K76T` | `codon` + `alt_aa` | call dropped (`no_marker`) |
+| `call` | `mutant_reads` + `wildtype_reads` | call dropped (`not_typed`) |
+| `district` | `admin2`, `dept`, or `lat` + `lon` | **every sample dropped** (`no_location`) |
+| `year` | `date`, including day-first `28.07.2025` | builds, but `period n/a` and no Trends frames |
+
+`site` is a display label, not a location: a table with `site` but no district or
+coordinates places nothing and reports zero samples. Coordinates do double duty — they
+resolve the admin unit by point-in-polygon *and* put pins on the site map. No QC-status
+field is required; every placed sample counts toward the QC-pass total. Sample selection
+is optional.
+
 ## Getting a report out
 
 `scripts/terra_samples.py` reshapes the wide table into the marker-calls table that
