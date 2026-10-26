@@ -37,7 +37,9 @@ META_PASSTHROUGH_SKIP = set(MODEL_SETTINGS)
 
 def parse_args(argv=None):
     p = argparse.ArgumentParser(description='Build a malaria molecular-surveillance report.')
-    p.add_argument('--assay', required=True, choices=['WGS', 'MAD4HATTER', 'NOMADS'])
+    p.add_argument('--assay', required=True,
+                   choices=['WGS', 'MAD4HATTER', 'NOMADS', 'PFPHAST'],
+                   help='PFPHAST is an amplicon panel and takes the MAD4HATTER inputs')
 
     # WGS
     p.add_argument('--sample-table', help='WGS: Terra export of the sample table (TSV)')
@@ -79,6 +81,10 @@ def parse_args(argv=None):
     p.add_argument('--out-html', required=True)
     p.add_argument('--out-data-json', required=True)
     p.add_argument('--out-csv-dir', default=None, help='Write each export view out as CSV')
+    p.add_argument('--out-location-audit', default=None,
+                   help='Write the location-resolution audit as TSV: how each sample was '
+                        'placed, every unplaced name with spelling suggestions, and every '
+                        'coordinate/name disagreement')
     return p.parse_args(argv)
 
 
@@ -130,9 +136,10 @@ def main(argv=None):
             raise SystemExit('--assay WGS requires --sample-table')
         import load_wgs
         rep = load_wgs.load(a.sample_table, selection)
-    elif a.assay == 'MAD4HATTER':
+    elif a.assay in ('MAD4HATTER', 'PFPHAST'):
         if not a.resmarker_table or not a.site_metadata:
-            raise SystemExit('--assay MAD4HATTER requires --resmarker-table and --site-metadata')
+            raise SystemExit(f'--assay {a.assay} requires --resmarker-table and '
+                             f'--site-metadata')
         import load_mad
         # load_mad takes directories; stage the listed files into one
         rm_dir = _stage('resmarker', a.resmarker_table)
@@ -170,6 +177,14 @@ def main(argv=None):
     if a.out_csv_dir:
         write_export_csvs(rep, a.out_csv_dir)
 
+    # The audit is written whether or not it found anything, so a clean run is positive
+    # evidence rather than an absent file.
+    audit = (rep.get('meta') or {}).get('location_audit') or {}
+    if a.out_location_audit:
+        _write_audit(audit, a.out_location_audit)
+        sys.stderr.write(f'[make_report] location audit -> {a.out_location_audit}\n')
+    _warn_location(audit)
+
     m = rep['meta']
     if selection:
         sys.stderr.write(f"[make_report] selection '{m.get('sample_selection')}': "
@@ -194,6 +209,72 @@ def main(argv=None):
             'See docs/TERRA_TABLES.md for the six required fields.')
     sys.stderr.write(f"[make_report] wrote {a.out_html} and {a.out_data_json}\n")
     return 0
+
+
+def _write_audit(audit, path):
+    """The audit as TSV, so a pipeline can gate on it instead of reading a log."""
+    rows = [('finding', 'value', 'n_samples', 'detail')]
+    for how, n in sorted((audit.get('placed_by') or {}).items()):
+        rows.append(('placed', how, n, ''))
+    for u in audit.get('unplaced') or []:
+        detail = u.get('reason', '')
+        if u.get('suggest'):
+            detail += '; suggest ' + ', '.join(u['suggest'])
+        rows.append(('unplaced_district', u.get('name', ''), u.get('n', 0), detail))
+    if audit.get('coords_outside_country'):
+        rows.append(('unplaced_coords_outside_country', '', audit['coords_outside_country'],
+                     'check lat/lon order and sign'))
+    for d in audit.get('coords_vs_name') or []:
+        rows.append(('coords_disagree_with_district', f"{d['given']} / {d['from_coords']}",
+                     d['n'], 'coordinates used'))
+    for d in audit.get('district_not_in_boundaries') or []:
+        rows.append(('district_not_in_boundary_file', f"{d['given']} / {d['from_coords']}",
+                     d['n'], 'coordinates used'))
+    for d in audit.get('region_mismatch') or []:
+        rows.append(('region_mismatch', f"{d['district']} / {d['given']}", d['n'],
+                     f"boundary file says {d['expected']}"))
+    for c, n in sorted((audit.get('other_country') or {}).items()):
+        rows.append(('country_not_report_country', c, n, ''))
+    for raw, unit in sorted((audit.get('aliases_used') or {}).items()):
+        rows.append(('health_district_alias', raw, 0, f'resolved to {unit}'))
+
+    os.makedirs(os.path.dirname(os.path.abspath(path)) or '.', exist_ok=True)
+    with open(path, 'w', encoding='utf-8') as fh:
+        for r in rows:
+            fh.write('\t'.join(str(c) for c in r) + '\n')
+    return path
+
+
+def _warn_location(audit):
+    """Repeat the headline location problems at the very end of the log.
+
+    The loaders already print the detail, but that scrolls past; a run that dropped
+    samples or placed them against a disagreeing name should say so as the last thing
+    anyone reads, because both failures are invisible in the rendered numbers.
+    """
+    n_unplaced = sum(u.get('n', 0) for u in audit.get('unplaced') or [])
+    n_unplaced += audit.get('coords_outside_country') or 0
+    n_dis = sum(d['n'] for d in (audit.get('coords_vs_name') or []))
+    n_notin = sum(d['n'] for d in (audit.get('district_not_in_boundaries') or []))
+    n_reg = sum(d['n'] for d in (audit.get('region_mismatch') or []))
+    if not (n_unplaced or n_dis or n_notin or n_reg):
+        return
+    sys.stderr.write('[make_report] LOCATION WARNINGS\n')
+    if n_unplaced:
+        sys.stderr.write(f'[make_report]   {n_unplaced} sample(s) could not be placed and are '
+                         f'absent from every denominator in this report\n')
+    if n_dis:
+        sys.stderr.write(f'[make_report]   {n_dis} sample(s) have a district name that '
+                         f'disagrees with their coordinates\n')
+    if n_notin:
+        sys.stderr.write(f'[make_report]   {n_notin} sample(s) name a district that is not a '
+                         f'unit in this boundary file - the file may be the wrong admin '
+                         f'level for this data\n')
+    if n_reg:
+        sys.stderr.write(f'[make_report]   {n_reg} sample(s) give a region that disagrees '
+                         f'with the boundary file\n')
+    sys.stderr.write('[make_report]   full detail: --out-location-audit, and the '
+                     'location_audit block in the data JSON\n')
 
 
 def _stage(kind, files):

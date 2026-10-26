@@ -434,6 +434,58 @@ const clsLabel=m=>m.category||CLSFULL[m.cls]||'Not in WHO compendium';
 /* Notes column: only what the row does not already state. Haplotype rows name the
    haplotype WHO lists the codon in; WHO-listed rows give WHO's evidence qualifier (the
    substance behind the class); background/research rows give the locus's role. */
+/* Location data quality. A sample that could not be placed is missing from every
+   denominator on every page, and a district name that disagrees with its coordinates
+   means the geography is not what the data says it is. Neither is visible in any number
+   the report draws, so both are stated here in full. */
+function locationAudit(){
+  const A=M.location_audit; if(!A) return '';
+  const un=(A.unplaced||[]).reduce((s,u)=>s+(u.n||0),0)+(A.coords_outside_country||0);
+  const dis=(A.coords_vs_name||[]).reduce((s,d)=>s+d.n,0);
+  const notin=(A.district_not_in_boundaries||[]).reduce((s,d)=>s+d.n,0);
+  const reg=(A.region_mismatch||[]).reduce((s,d)=>s+d.n,0);
+  const al=Object.keys(A.aliases_used||{}).length;
+  if(!(un||dis||notin||reg||al)) return '';
+  let b='';
+  if(un){
+    const names=(A.unplaced||[]).filter(u=>u.n).map(u=>
+      `${esc(u.name)} (${nf(u.n)}${u.suggest&&u.suggest.length?`, did you mean ${u.suggest.map(esc).join(' / ')}?`:''})`);
+    b+=`<li><b>${nf(un)} sample${un===1?'':'s'} could not be placed</b> and are absent from every
+        count and prevalence in this report${names.length?`: ${names.join('; ')}`:''}
+        ${A.coords_outside_country?`. ${nf(A.coords_outside_country)} had coordinates outside ${esc(M.country||'the country')}`:''}.</li>`;
+  }
+  if(notin){
+    const ex=(A.district_not_in_boundaries||[]).slice(0,6).map(d=>
+      `${esc(d.given)} &rarr; ${esc(d.from_coords)} (${nf(d.n)})`).join('; ');
+    b+=`<li><b>${nf(notin)} samples name a ${UNIT} that is not a unit in the boundary file.</b>
+        They were placed by their coordinates instead: ${ex}${(A.district_not_in_boundaries||[]).length>6?', &hellip;':''}.
+        This usually means the boundary file is a different administrative division than the
+        one the data was recorded against, so treat the unit names below as the boundary
+        file's, not the programme's.</li>`;
+  }
+  if(dis){
+    const ex=(A.coords_vs_name||[]).slice(0,6).map(d=>
+      `${esc(d.given)} vs ${esc(d.from_coords)} (${nf(d.n)})`).join('; ');
+    b+=`<li><b>${nf(dis)} samples have a ${UNIT} name that disagrees with their coordinates.</b>
+        Coordinates were used: ${ex}.</li>`;
+  }
+  if(reg){
+    const ex=(A.region_mismatch||[]).slice(0,5).map(d=>
+      `${esc(d.district)}: data says ${esc(d.given)}, boundary file says ${esc(d.expected)} (${nf(d.n)})`).join('; ');
+    b+=`<li>${nf(reg)} samples give a region that disagrees with the boundary file: ${ex}.</li>`;
+  }
+  if(al){
+    const ex=Object.entries(A.aliases_used).map(([k,v])=>`${esc(k)} &rarr; ${esc(v)}`).join('; ');
+    b+=`<li>Health-district names mapped onto the admin unit containing them: ${ex}.</li>`;
+  }
+  const bad=un||notin||dis;
+  return `<div class="callout ${bad?'amber':''}" style="margin-top:14px">
+    <b>Location data quality.</b> ${nf(A.n_placed||0)} samples were placed
+    ${Object.entries(A.placed_by||{}).map(([k,v])=>`${nf(v)} by ${esc(k.replace(/_/g,' '))}`).join(', ')}.
+    ${A.coords_overrode_name?`Where a sample had both coordinates and a ${UNIT} name, the coordinates were used (${nf(A.coords_overrode_name)} samples).`:''}
+    <ul style="margin:8px 0 0 18px;line-height:1.8">${b}</ul></div>`;
+}
+
 function noteFor(m){
   if(m.cls==='haplotype'){
     const hap=(m.who_how||'').replace(/^component of the WHO-listed haplotype\s*/i,'');
@@ -1013,6 +1065,7 @@ R.methods=()=>{
       </div>
     </div>
 
+    ${locationAudit()}
     ${M.sample_selection?`<div class="callout amber" style="margin-top:14px"><b>Selected samples only.</b> This report covers a selected subset (<b>${esc(M.sample_selection)}</b>):
       ${nf(M.n_matched)} of ${nf(M.n_requested)} requested samples were found${M.n_requested_missing?`, ${nf(M.n_requested_missing)} were not`:''}.
       All counts and prevalences refer to that subset.</div>`:''}

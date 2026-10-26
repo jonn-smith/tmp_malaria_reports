@@ -12,6 +12,7 @@ workflow MalariaSurveillanceReportWgs {
             report_html:      "Self-contained single-file HTML surveillance report",
             report_data_json: "The report's data model (every number the report draws)",
             export_csvs:      "Dashboard-ready export tables, one CSV per view",
+            location_audit:   "Location-resolution audit: how samples were placed, and every unplaced name, coordinate/name disagreement and region mismatch",
             finalized_dir:    "GCS directory the outputs were copied into, when gcs_out_root_dir was given"
         }
     }
@@ -83,6 +84,7 @@ workflow MalariaSurveillanceReportWgs {
         File report_html         = t_01_RenderReport.report_html
         File report_data_json    = t_01_RenderReport.report_data_json
         Array[File] export_csvs  = t_01_RenderReport.export_csvs
+        File location_audit      = t_01_RenderReport.location_audit
         String? finalized_dir    = t_02_FinalizeReport.gcs_dir
     }
 }

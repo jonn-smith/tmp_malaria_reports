@@ -22,6 +22,7 @@ Usage:  ./load_mad.py [resmarker_dir=/workspace/fiss_downloads/rm] [meta_csv] [-
 import sys, os, csv, re, json, glob
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import gen_reports as G
+import geoloc
 
 csv.field_size_limit(10**7)
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -32,12 +33,28 @@ MK_TGT = {k: (G.MK[k]['tok'], _codon(G.MK[k]['aa']), G.MK[k]['aa'][-1])
           for k in G.MK if G.MK[k]['tok'] in ('k13','crt','mdr1','dhfr','dhps','cytb')}
 
 def load_meta(path):
+    """sample id -> location fields. Any of country/region/district/site/lat/lon may be
+    absent; geoloc decides what is usable and records what is not."""
+    def f(v):
+        try: return float(v)
+        except (TypeError, ValueError): return None
+
+    def pick(r, *names):
+        for n in names:
+            for k in (n, n.lower(), n.upper(), n.title()):
+                if r.get(k) not in (None, ''):
+                    return str(r[k]).strip()
+        return ''
+
     m = {}
     for r in csv.DictReader(open(path)):
-        def f(v):
-            try: return float(v)
-            except (TypeError, ValueError): return None
-        m[r['Sample_id']] = (r.get('Country', ''), f(r.get('Latitude')), f(r.get('Longitude')))
+        sid = pick(r, 'Sample_id', 'sample_id', 'sample', 'specimen_id') or r.get('Sample_id')
+        if not sid:
+            continue
+        m[sid] = {'country': pick(r, 'Country'), 'region': pick(r, 'Region', 'admin1'),
+                  'district': pick(r, 'District', 'admin2', 'dept'),
+                  'site': pick(r, 'Site', 'facility'),
+                  'lat': f(pick(r, 'Latitude', 'lat')), 'lon': f(pick(r, 'Longitude', 'lon'))}
     return m
 
 # admin-2 assignment comes from gen_reports, which works in the projected space of the
@@ -101,11 +118,14 @@ def load(rm_dir, meta_csv, ad_dir=None, selection=None):
                     if aa == altaa: mut.setdefault(b, set()).add(k)
     # build per-sample records (real samples joined to site + coords)
     samples = []; drop = {'ctrl': 0, 'no_meta': 0, 'no_dept': 0}
+    resolver = geoloc.Resolver()
     for b in cov:
         if isctrl(b): drop['ctrl'] += 1; continue
-        site, lat, lon = meta.get(b, ('', None, None))
-        if lat is None: drop['no_meta'] += 1; continue
-        d = dept_of(lat, lon)
+        mm = meta.get(b)
+        if not mm: drop['no_meta'] += 1; continue
+        site, lat, lon = mm.get('site', ''), mm.get('lat'), mm.get('lon')
+        d, _how = resolver.resolve(district=mm.get('district'), lat=lat, lon=lon,
+                                   region=mm.get('region'), country=mm.get('country'))
         if not d: drop['no_dept'] += 1; continue
         # sorted(): cov[b] is a set, and its iteration order would otherwise leak
         # PYTHONHASHSEED into the per-sample export row order.
@@ -116,6 +136,7 @@ def load(rm_dir, meta_csv, ad_dir=None, selection=None):
     # region from SEN_REGION by dept
     reg_na = {G._na(k): v for k, v in G.SEN_REGION.items()} if G.COUNTRY_ISO == 'SEN' else {}
     for s in samples: s['region'] = reg_na.get(G._na(s['district'])) or G.region_of(s['district']) or '—'
+    resolver.report(tag='load_mad')
 
     # aggregate to admin-2 units
     by = {}
@@ -158,6 +179,7 @@ def load(rm_dir, meta_csv, ad_dir=None, selection=None):
     rep['meta']['n_called'] = sum(1 for s_ in samples if s_.get('calls'))
     rep['meta']['version'] = 'v0.12'   # gen_reports reads sys.argv on import; set explicitly
     rep['meta']['data_source'] = 'MAD4HATTER v4 amplicon · UCSF mad4hatter outputs (runs 1–10)'
+    rep['meta']['location_audit'] = resolver.audit.meta()
     G.real_export(rep, samples, 'Amplicon sequencing')
     rep['sites'] = G.sites_from_samples(samples)
     sys.stderr.write(f"[load_mad] site points={len(rep['sites'])}\n")

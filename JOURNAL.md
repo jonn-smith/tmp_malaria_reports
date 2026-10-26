@@ -1048,3 +1048,64 @@ explicit authorization; until it is pushed, Terra cannot pull it.
 
 **Outcome.** Branch `feature/terra-sample-tables` now runs end to end from a Terra sample
 table through the WDL to a rendered report, locally.
+
+## 2026-10-26T19:40:00Z  — One location resolver for every assay, and an audit that cannot be missed
+
+**Context.** Two requests: accept location as either lat/lon or country/region/district
+(district = admin-2) across all report types with coordinates taking precedence, and stop
+handling spelling errors and mismatches silently. Plus: the amplicon rendering path should
+also serve PfPhast data.
+
+**Starting state.** All three loaders resolved location differently and all of them had
+the *wrong* precedence: `load_wgs` and `load_nomads` tried the district name first and only
+fell back to coordinates, and `load_mad` accepted coordinates only. `load_mad.load_meta`
+also read the `Country` column into the variable used as `site`, a pre-existing mislabel.
+
+**Decision / action.** Added `scripts/geoloc.py`: one `Resolver` with strict precedence
+(coordinates, then district name exact -> normalised -> health-district alias, then nothing;
+country and region are cross-checks and never place a sample) and an `Audit` that
+accumulates findings. Wired all three loaders onto it. `PFPHAST` is now an accepted assay
+that shares the amplicon path, with a `MalariaSurveillanceReportPfphast` pipeline passing
+`assay = "PFPHAST"` to the existing task, since the panel differs but the input shape does
+not.
+
+**Why not fail on a mismatch.** Refusing to build would make a 24-sample disagreement
+block a 402-sample report. Instead every finding is surfaced four ways: the loader prints
+it, `make_report.py` repeats a headline block at the very end of the log (the loader detail
+scrolls past), `--out-location-audit` writes a TSV a pipeline can gate on, and the report
+renders a "Location data quality" callout on the Methods page. The audit TSV is written
+even when clean, so a good run is positive evidence rather than an absent file.
+
+**What the audit found immediately, and it matters.** Running the real PfPhast table
+(`pfphast_sample`, 429 rows, Uganda) against the committed `UGA_adm2` map:
+
+  - 402 placed by coordinates, 27 unplaced (no location at all - controls).
+  - **236 samples name a district that is not a unit in the boundary file**: Kitgum ->
+    Chua, Mayuge -> Bunya, Kanungu -> Kinkiizi, Kisoro -> Bufumbira, and 16 more.
+  - 24 samples whose district name disagrees with their coordinates: Moroto vs Matheniko,
+    Omoro vs Oyam, Tororo vs West Budama.
+
+The explanation is that geoBoundaries gbOpen UGA ADM2 is an older **county** division -
+Matheniko is a county inside Moroto district, West Budama inside Tororo - while the data is
+recorded against modern districts. The map self-labels `Admin-2 (district)`, so without
+this audit the report would have shown county names under a "district" heading and nobody
+would have known. Uganda needs a proper district boundary file; coordinates keep it usable
+in the meantime. Senegal by contrast is clean: all 90 afCDC samples placed, 70 by exact
+name and 20 through the health-district aliases, which are listed rather than applied
+quietly.
+
+**Dead end.** Patching the three WDL tasks with `str.replace(old, new, 1)` in a loop put
+all three `location_audit` output declarations into the first task, because each pass
+matched the same first occurrence. Caught by grepping the line numbers rather than trusting
+the edit - the same over-reach class as the earlier index-splice failures. Redone by
+walking the lines and appending after each task's `export_csvs` output.
+
+**Evidence.** `geoloc.py` self-check covers exact name, alias, coordinate override,
+misspelling with suggestion ("Bakeel" -> suggests "Bakel"), coordinates in the ocean,
+admin-0/1 alone, and a region disagreement. All five pipelines pass `miniwdl check`.
+`miniwdl run` of the NOMADS pipeline on the Uganda data: exit 0, 402 samples, 33/151 units,
+and `location_audit` emitted as a first-class WDL output alongside the HTML, data JSON and
+export CSVs. The Methods callout verified rendered in jsdom.
+
+**Outcome.** Location handling is identical across WGS, MAD4HATTER, NOMADS and PFPHAST,
+coordinates win where present, and nothing about location fails quietly any more.

@@ -26,6 +26,7 @@ Usage:  ./load_wgs.py [sample.tsv] [out.json]
 import sys, os, csv, re, json
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import gen_reports as G
+import geoloc
 
 csv.field_size_limit(10**7)
 
@@ -70,15 +71,18 @@ def marker_columns(header):
         if col: out[k] = col
     return out
 
+# One resolver per load, so the audit covers the whole cohort. Coordinates beat the
+# district name; see geoloc for the precedence and the mismatch findings.
+RESOLVER = None
+
 def dept_of(row):
-    d = (row.get('District') or '').strip()
-    name = _dept_by_na().get(G._na(HEALTH2DEPT.get(d.upper(), d)))
-    if name: return name
-    # fall back to coordinates when the district name is absent or unrecognised
     def _f(v):
         try: return float(v)
         except (TypeError, ValueError): return None
-    return G.dept_of_point(_f(row.get('Latitude')), _f(row.get('Longitude')))
+    unit, _how = RESOLVER.resolve(district=row.get('District'),
+                                  lat=_f(row.get('Latitude')), lon=_f(row.get('Longitude')),
+                                  region=row.get('Region'), country=row.get('Country'))
+    return unit
 
 def qc_pass(row):
     s = (row.get('qc_status') or '').strip().lower()
@@ -104,6 +108,7 @@ def load(sample_tsv, selection=None):
         mcols = marker_columns(rdr.fieldnames)
         sys.stderr.write(f"[load_wgs] mapped {len(mcols)}/{len(G.MK)} report markers to columns: "
                          f"{sorted(mcols)}\n")
+        globals()['RESOLVER'] = geoloc.Resolver()
         by_dept = {}; drop = {'not_sen':0,'no_dept':0}; unmatched = set(); samples = []
         for row in rdr:
             sid = (row.get('entity:sample_id') or '').strip()
@@ -181,6 +186,7 @@ def load(sample_tsv, selection=None):
     rep['meta']['n_called'] = sum(1 for s_ in samples if s_.get('calls'))
     rep['meta']['version'] = 'v0.12'   # gen_reports reads sys.argv on import; set explicitly
     rep['meta']['data_source'] = 'Illumina WGS · broad-firecloud-dsde-methods/sr-malaria (Senegal joint call)'
+    rep['meta']['location_audit'] = RESOLVER.audit.meta()
     G.real_export(rep, samples, 'Whole genome sequencing')   # real-only export (no fabrication)
     rep['sites'] = G.sites_from_samples(samples)             # site-level points (finer than admin-2)
     sys.stderr.write(f"[load_wgs] sites={len(rep['sites'])}\n")

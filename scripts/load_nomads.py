@@ -36,9 +36,13 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 import gen_reports as G
 import terra_samples
+import geoloc
 dept_of_coords = lambda lat, lon: G.dept_of_point(lat, lon)   # projected-space PIP, any country
 
 csv.field_size_limit(10**7)
+
+# the location audit from the most recent load, picked up by make_report.py
+LAST_AUDIT = {}
 
 ALIASES = {
     'sample_id': ('sample_id', 'sample', 'sampleid', 'specimen_id', 'specimen'),
@@ -50,6 +54,8 @@ ALIASES = {
     'mut_reads': ('mutant_reads', 'alt_reads', 'mut_reads', 'mutant_count', 'alt_count'),
     'wt_reads':  ('wildtype_reads', 'ref_reads', 'wt_reads', 'wildtype_count', 'ref_count'),
     'district':  ('district', 'admin2', 'adm2', 'dept', 'department', 'admin_2'),
+    'region':    ('region', 'admin1', 'adm1', 'admin_1', 'province', 'state'),
+    'country':   ('country', 'admin0', 'adm0', 'country_name'),
     'site':      ('site', 'facility', 'location', 'facility_name'),
     'lat':       ('lat', 'latitude'),
     'lon':       ('lon', 'long', 'longitude'),
@@ -151,13 +157,6 @@ def _f(v):
     except (TypeError, ValueError): return None
 
 
-def _dept(name, lat, lon):
-    if name:
-        d = _dept_by_na().get(G._na(HEALTH2DEPT.get(name.upper(), name)))
-        if d: return d
-    if lat is not None and lon is not None:
-        return dept_of_coords(lat, lon)
-    return None
 
 
 def _read_calls(path):
@@ -192,6 +191,8 @@ def load(call_tables, site_metadata=None, version=None, data_source=None, select
                 if sid:
                     smeta[sid] = {'site': _get(r, cm, 'site'), 'lat': _f(_get(r, cm, 'lat')),
                                   'lon': _f(_get(r, cm, 'lon')), 'district': _get(r, cm, 'district'),
+                                  'region': _get(r, cm, 'region'),
+                                  'country': _get(r, cm, 'country'),
                                   'year': _year_of(r, cm)}
 
     samples = {}
@@ -224,6 +225,8 @@ def load(call_tables, site_metadata=None, version=None, data_source=None, select
                     'lat': _f(_get(row, cm, 'lat')) if cm.get('lat') else sm.get('lat'),
                     'lon': _f(_get(row, cm, 'lon')) if cm.get('lon') else sm.get('lon'),
                     'district_raw': _get(row, cm, 'district') or sm.get('district', ''),
+                    'region_raw': _get(row, cm, 'region') or sm.get('region', ''),
+                    'country_raw': _get(row, cm, 'country') or sm.get('country', ''),
                     'date': _year_of(row, cm) or sm.get('year') or '',
                     'calls': {},
                 })
@@ -231,16 +234,24 @@ def load(call_tables, site_metadata=None, version=None, data_source=None, select
                 prev = rec['calls'].get(key)
                 rec['calls'][key] = (0, 1) if (state == 'alt' or (prev and prev[1])) else (1, 0)
 
-    # resolve admin-2 and drop samples we cannot place
+    # resolve admin-2 and drop samples we cannot place. Precedence and every mismatch
+    # finding live in geoloc, shared with the WGS and amplicon loaders.
+    resolver = geoloc.Resolver()
     placed = []
     for rec in samples.values():
-        d = _dept(rec.pop('district_raw', ''), rec.get('lat'), rec.get('lon'))
+        given_region = rec.pop('region_raw', '')
+        d, _how = resolver.resolve(district=rec.pop('district_raw', ''),
+                                   lat=rec.get('lat'), lon=rec.get('lon'),
+                                   region=given_region, country=rec.pop('country_raw', ''))
         if not d:
             drop['no_location'] += 1
             continue
         rec['district'] = d
-        rec['region'] = (G.SEN_REGION.get(d) if G.COUNTRY_ISO == 'SEN' else None) or G.region_of(d) or '—'
+        rec['region'] = ((G.SEN_REGION.get(d) if G.COUNTRY_ISO == 'SEN' else None)
+                         or G.region_of(d) or given_region or '—')
         placed.append(rec)
+    resolver.report(tag='load_nomads')
+    LAST_AUDIT['nomads'] = resolver.audit
 
     # aggregate to admin-2 units (same shape the other loaders emit)
     by = {}
@@ -281,6 +292,7 @@ def load(call_tables, site_metadata=None, version=None, data_source=None, select
     rep['meta']['version'] = version or G.VERSION
     rep['meta']['data_source'] = data_source or 'NOMADS ONT amplicon · nomadic marker calls'
     rep['meta']['n_called'] = sum(1 for s in placed if s.get('calls'))
+    rep['meta']['location_audit'] = resolver.audit.meta()
     G.real_export(rep, placed, 'ONT amplicon sequencing')
     rep['sites'] = G.sites_from_samples(placed)
     sys.stderr.write(f"[load_nomads] site points={len(rep['sites'])}\n")

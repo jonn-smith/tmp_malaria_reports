@@ -17,7 +17,8 @@ task RenderWgsReport {
         outputs: {
             report_html:      "Self-contained single-file HTML surveillance report",
             report_data_json: "The report's data model (every number the report draws)",
-            export_csvs:      "Dashboard-ready export tables, one CSV per view (who_threat_map.csv, dhis2_datavalueset.csv, ...)"
+            export_csvs:      "Dashboard-ready export tables, one CSV per view (who_threat_map.csv, dhis2_datavalueset.csv, ...)",
+            location_audit:   "How every sample was placed, plus each unplaced location name with spelling suggestions, each coordinate/name disagreement, and each region mismatch"
         }
     }
 
@@ -104,6 +105,7 @@ task RenderWgsReport {
             --out-html "~{cohort_name}.wgs_surveillance_report.html" \
             --out-data-json "~{cohort_name}.wgs_surveillance_report.data.json" \
             --out-csv-dir export_csvs \
+            --out-location-audit "~{cohort_name}.location_audit.tsv" \
             ~{extra_args}
     >>>
 
@@ -111,6 +113,7 @@ task RenderWgsReport {
         File report_html      = "~{cohort_name}.wgs_surveillance_report.html"
         File report_data_json = "~{cohort_name}.wgs_surveillance_report.data.json"
         Array[File] export_csvs = glob("export_csvs/*.csv")
+        File location_audit = "~{cohort_name}.location_audit.tsv"
     }
 
     #########################
@@ -150,12 +153,14 @@ task RenderMad4hatterReport {
         outputs: {
             report_html:      "Self-contained single-file HTML surveillance report",
             report_data_json: "The report's data model (every number the report draws)",
-            export_csvs:      "Dashboard-ready export tables, one CSV per view (who_threat_map.csv, dhis2_datavalueset.csv, ...)"
+            export_csvs:      "Dashboard-ready export tables, one CSV per view (who_threat_map.csv, dhis2_datavalueset.csv, ...)",
+            location_audit:   "How every sample was placed, plus each unplaced location name with spelling suggestions, each coordinate/name disagreement, and each region mismatch"
         }
     }
 
     parameter_meta {
-        resmarker_tables:         "MAD4HATTER resistance-marker tables (resmarker_table.txt), one per sequencing run"
+        assay:                    "Which amplicon panel produced the tables: MAD4HATTER (default) or PFPHAST. Both use the same input shape; the value is recorded in the report."
+        resmarker_tables:         "Amplicon resistance-marker tables (resmarker_table.txt), one per sequencing run"
         site_metadata:            "Per-sample site and coordinate table (Sample_id, site, Latitude, Longitude)"
         allele_tables:            "MAD4HATTER microhaplotype allele tables (allele_data.txt); optional"
         cohort_name:              "Cohort label used for output filenames"
@@ -188,6 +193,8 @@ task RenderMad4hatterReport {
         String? country_name
         File? sample_ids_file
         String? selection_label
+
+        String assay = "MAD4HATTER"
 
         String extra_args = ""
 
@@ -228,7 +235,7 @@ task RenderMad4hatterReport {
         fi
 
         python3 /opt/malaria_reports/scripts/make_report.py \
-            --assay MAD4HATTER \
+            --assay ~{assay} \
             --resmarker-table ~{sep=' ' resmarker_tables} \
             --site-metadata ~{site_metadata} \
             ~{if length(allele_tables) > 0 then "--allele-table " else ""}~{sep=' ' allele_tables} \
@@ -244,6 +251,7 @@ task RenderMad4hatterReport {
             --out-html "~{cohort_name}.mad4hatter_surveillance_report.html" \
             --out-data-json "~{cohort_name}.mad4hatter_surveillance_report.data.json" \
             --out-csv-dir export_csvs \
+            --out-location-audit "~{cohort_name}.location_audit.tsv" \
             ~{extra_args}
     >>>
 
@@ -251,6 +259,7 @@ task RenderMad4hatterReport {
         File report_html      = "~{cohort_name}.mad4hatter_surveillance_report.html"
         File report_data_json = "~{cohort_name}.mad4hatter_surveillance_report.data.json"
         Array[File] export_csvs = glob("export_csvs/*.csv")
+        File location_audit = "~{cohort_name}.location_audit.tsv"
     }
 
     #########################
@@ -290,7 +299,8 @@ task RenderNomadsReport {
         outputs: {
             report_html:      "Self-contained single-file HTML surveillance report",
             report_data_json: "The report's data model (every number the report draws)",
-            export_csvs:      "Dashboard-ready export tables, one CSV per view (who_threat_map.csv, dhis2_datavalueset.csv, ...)"
+            export_csvs:      "Dashboard-ready export tables, one CSV per view (who_threat_map.csv, dhis2_datavalueset.csv, ...)",
+            location_audit:   "How every sample was placed, plus each unplaced location name with spelling suggestions, each coordinate/name disagreement, and each region mismatch"
         }
     }
 
@@ -381,6 +391,7 @@ task RenderNomadsReport {
             --out-html "~{cohort_name}.nomads_surveillance_report.html" \
             --out-data-json "~{cohort_name}.nomads_surveillance_report.data.json" \
             --out-csv-dir export_csvs \
+            --out-location-audit "~{cohort_name}.location_audit.tsv" \
             ~{extra_args}
     >>>
 
@@ -388,6 +399,7 @@ task RenderNomadsReport {
         File report_html      = "~{cohort_name}.nomads_surveillance_report.html"
         File report_data_json = "~{cohort_name}.nomads_surveillance_report.data.json"
         Array[File] export_csvs = glob("export_csvs/*.csv")
+        File location_audit = "~{cohort_name}.location_audit.tsv"
     }
 
     #########################
