@@ -1007,3 +1007,44 @@ facility name and nothing else gets a silently empty report.
 
 **Outcome.** Written up as a "Minimum fields" table at the top of
 `docs/TERRA_TABLES.md:21` so the next person does not have to re-derive it.
+
+## 2026-10-26T13:10:00Z  — The WDL runs on the real Terra tables; two bugs found by running it
+
+**Context.** Operator asked whether a WDL exists to run this on real data. The three
+pipelines existed and validated, but took only the long-format marker-calls table, so they
+could not consume the wide Terra sample tables the workspaces now publish.
+
+**Decision / action.** Rather than add an input or a conversion step to the pipeline, I
+taught `load_nomads._read_calls` to sniff the header and reshape a wide table in memory
+(`scripts/load_nomads.py:163`). A Terra export *is* a marker-calls table, so the frozen
+WDL input list needed no change at all, and the reshape output is byte-identical to
+running `terra_samples.py` as a separate step (verified by comparing the two data JSONs).
+
+**Two bugs that only a real run would have found.**
+
+1. *The pipeline pinned a stale image.* The default was
+   `lr-malaria-reports:0.12.0`, built before any of this work, so the first miniwdl run
+   used code with no `terra_samples` in it. Bumped all six references to `0.12.1` and
+   rebuilt.
+
+2. *An empty report exited 0.* That first run finished green and produced an HTML
+   report with **zero** samples: the old loader wrote
+   `skipping ...: no sample_id column` to stderr and carried on. In Terra that is a
+   successful submission with a useless artefact, which is worse than a failure because
+   nobody looks. `make_report.py:182` now exits non-zero when no sample reaches the
+   report, naming the two usual causes (unrecognised sample-id column, or site metadata
+   with no district/lat+lon) and pointing at the six required fields. Verified it fires on
+   a location-less table and does not fire on a good one.
+
+**Evidence.** `miniwdl run` of `MalariaSurveillanceReportNomads.wdl` against the real
+`Nomadic_development` sample table with the geography fixture: image `0.12.1`, exit 0,
+24 samples, 6/45 units, period 2025, 45 assessed markers (34 antigen), and all four
+export CSVs plus the HTML and data JSON emitted. All three pipelines pass
+`miniwdl check`.
+
+**Still blocked on the operator.** The `0.12.1` image exists only in this container's
+local docker. Pushing to `us.gcr.io/broad-dsp-lrma` is a registry write, so it needs
+explicit authorization; until it is pushed, Terra cannot pull it.
+
+**Outcome.** Branch `feature/terra-sample-tables` now runs end to end from a Terra sample
+table through the WDL to a rendered report, locally.

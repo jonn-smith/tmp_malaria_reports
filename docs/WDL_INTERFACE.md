@@ -38,7 +38,7 @@ Example inputs JSONs are in `wdl/inputs/`.
 | MAD4HATTER | `resmarker_tables` | `Array[File]` | One `resmarker_table.txt` per sequencing run. Both the 11-column and the `Locus`-column variants are handled. |
 | MAD4HATTER | `site_metadata` | `File` | Per-sample site + coordinates (`Sample_id`, site, `Latitude`, `Longitude`). Admin-2 is resolved by point-in-polygon. |
 | MAD4HATTER | `allele_tables` | `Array[File]` | Optional `allele_data.txt` files. Currently unused by the rendered report (COI was removed in v0.8) but accepted so the interface does not change when it returns. |
-| NOMADS | `marker_calls_tables` | `Array[File]` | Assay-agnostic marker-calls table, schema in §5. |
+| NOMADS | `marker_calls_tables` | `Array[File]` | Assay-agnostic marker-calls table, schema in §5. A **wide Terra sample-table export** (one column per marker) is also accepted and reshaped automatically — see `docs/TERRA_TABLES.md`. |
 | NOMADS | `site_metadata` | `File?` | Optional; only needed when the calls tables carry no geography. |
 
 ### Country / geography (identical across all three)

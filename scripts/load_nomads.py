@@ -35,6 +35,7 @@ import csv, json, os, re, sys
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 import gen_reports as G
+import terra_samples
 dept_of_coords = lambda lat, lon: G.dept_of_point(lat, lon)   # projected-space PIP, any country
 
 csv.field_size_limit(10**7)
@@ -159,6 +160,25 @@ def _dept(name, lat, lon):
     return None
 
 
+def _read_calls(path):
+    """Read a marker-calls table, reshaping a wide Terra sample table if that is what it is.
+
+    Terra workspaces publish one COLUMN per marker. Sniffing that here, rather than making
+    the caller run a conversion first, means the WDL and its frozen input list work on a
+    Terra export unchanged - the pipeline takes "marker calls tables" and this is one.
+    """
+    delim = '\t' if path.lower().endswith(('.tsv', '.txt')) else ','
+    with open(path, newline='', encoding='utf-8-sig') as fh:
+        rd = csv.DictReader(fh, delimiter=delim)
+        rows, fields = list(rd), list(rd.fieldnames or [])
+    if any(terra_samples.AA_COL.match(c) or terra_samples.RES_COL.match(c) for c in fields):
+        calls, passthrough = terra_samples.reshape(rows, fields)
+        sys.stderr.write(f'[load_nomads] {os.path.basename(path)} is a wide Terra sample '
+                         f'table: {len(rows)} rows -> {len(calls)} marker calls\n')
+        return calls, ['sample_id', 'gene', 'aa_change', 'call'] + passthrough
+    return rows, fields
+
+
 def load(call_tables, site_metadata=None, version=None, data_source=None, selection=None):
     # optional per-sample geography/date table, for calls tables that carry none
     smeta = {}
@@ -177,14 +197,12 @@ def load(call_tables, site_metadata=None, version=None, data_source=None, select
     samples = {}
     drop = {'rows': 0, 'no_marker': 0, 'not_typed': 0, 'no_location': 0, 'not_selected': 0}
     for path in call_tables:
-        with open(path, newline='') as fh:
-            delim = '\t' if path.lower().endswith(('.tsv', '.txt')) else ','
-            rd = csv.DictReader(fh, delimiter=delim)
-            cm = _colmap(rd.fieldnames)
+            rows, fields = _read_calls(path)
+            cm = _colmap(fields)
             if 'sample_id' not in cm:
                 sys.stderr.write(f'[load_nomads] skipping {path}: no sample_id column\n')
                 continue
-            for row in rd:
+            for row in rows:
                 drop['rows'] += 1
                 sid = _get(row, cm, 'sample_id')
                 if not sid: continue

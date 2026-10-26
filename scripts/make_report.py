@@ -182,6 +182,16 @@ def main(argv=None):
     sys.stderr.write(f"[make_report] {G.COUNTRY_ISO} ({m.get('country')}) "
                      f"{a.assay} {version}: {m['n_qc']} QC pass samples, "
                      f"{m['n_units_sampled']}/{m['n_units_total']} admin-2 units, period {m['period']}\n")
+    # A report with no samples is not a result, it is a failed run that looks like a
+    # successful one: the task exits 0, Terra shows green, and the HTML renders empty.
+    # Every way of getting here is a misconfiguration worth stopping on - an unreadable
+    # table, a column the loader did not recognise, or site metadata that places nobody.
+    if not m['n_qc']:
+        raise SystemExit(
+            'no samples made it into the report. Check the loader warnings above: the '
+            'usual causes are an unrecognised sample-id column, or site metadata with no '
+            'district/lat+lon, which drops every sample as no_location. '
+            'See docs/TERRA_TABLES.md for the six required fields.')
     sys.stderr.write(f"[make_report] wrote {a.out_html} and {a.out_data_json}\n")
     return 0
 
