@@ -444,8 +444,11 @@ const clsLabel=m=>m.category||CLSFULL[m.cls]||'Not in WHO compendium';
 function panelCard(){
   const D2=M.panel_detection; if(!D2||!D2.n_observed) return '';
   if(D2.recognised){
-    let s=`<b>Panel.</b> ${esc(D2.label||D2.panel)} &mdash; ${nf(D2.n_shared)} of ${nf(D2.n_panel)}
-      catalogued loci were typed, out of ${nf(D2.n_observed)} loci seen in the input.`;
+    const pools=(D2.pools||[]);
+    let s=`<b>Panel.</b> ${esc(D2.label||D2.panel)}${pools.length?` &mdash; primer pools
+      ${pools.map(esc).join(' + ')}`:''} &mdash; accounts for ${nf(D2.n_shared)} of the
+      ${nf(D2.n_observed)} loci this run typed; ${nf(D2.n_panel_loci_absent)} of the panel's
+      ${nf(D2.n_panel)} loci were not typed, which is normal where coverage failed.`;
     if(D2.ambiguous) s+=` <b>This is ambiguous:</b> ${esc(D2.runner_up)} scores almost as well,
       so the panels cannot be told apart from their loci alone.`;
     const C=D2.combination;

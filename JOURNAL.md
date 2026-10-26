@@ -1213,3 +1213,53 @@ nesting case, the pooled-run case, the unknown panel, the declared/detected mism
 the crt:97/dhps:613 canary. Real data: best M1.1 0.47 ambiguous with R1.2, combination
 R1.2+R2.1, 883 samples. PfPhast-shaped input still detects PFPHAST at 1.00. All four
 pipelines pass `miniwdl check`; Methods callout verified in jsdom.
+
+## 2026-10-26T23:30:00Z  — Panels are pool combinations; registry corrected again
+
+**Context.** The operator pointed out that what I had catalogued as separate panels are
+primer *pools*, and that the difference between panels is which pools are run. They told
+me to read the Mad4Hatter Terra workspace documentation.
+
+**What the documentation says.** The dashboard of
+`broad-firecloud-dsde-methods/JTS_COPY_20261024_Malaria_..._Mad4Hatter_CLONE_2` defines the
+two panels explicitly: `01_Mad4Hatter` presets pools `["D1.1", "R1.2", "R2.1"]` and
+`01_PfPhast` presets `["M1.1", "M2.1"]`. The same page carries the full pool table with
+each pool's target count, shorthand and legacy name: D1.1 is 165 diversity targets plus
+ldh, R1.1 is 82 resistance/species/immune targets, R1.2 is the reduced 47-target
+replacement for R1.1, R2.1 is 31 targets "complementing R1, covering missing codons", M1.1
+is the 41-target minimal set, M2.1 is 15 targets "complement[ing] M1.1 for missing codons",
+M1.addon is 4 non-falciparum cytb targets. So my previous entry was wrong twice over: I
+had treated pools as panels, and invented a MAD4HATTER panel that was the whole principal
+marker list.
+
+**Rebuilt registry.** `reference/panels.json` now has two levels: fifteen `pools` with
+their derived resistance loci, and ten `panels` that are named pool combinations.
+MAD4HATTER = D1.1+R1.2+R2.1 = 147 loci; PFPHAST = M1.1+M2.1 = 82 loci; MAD4HATTER_R1.1
+keeps the legacy R1.1 variant at 150; the standalone panels (AMPLseq, 4cast, v1, v2,
+spotmalaria_grc1/grc2) are single pools. D1.1, ama1, M1.addon and spotmalaria_spec type no
+principal resistance marker, so they stay in the pool table but are not detection targets
+- PFPHAST_ADDON was dropped for exactly that reason, since M1.addon adds no resistance
+locus and its only effect was to manufacture a tie with PFPHAST.
+
+**Two checks that validate the model rather than my code.** First, the 19 curated PfPhast
+loci in `loci_of_interest.bed` are *all* inside M1.1+M2.1, and the two that M1.1 alone
+lacks - `dhps:613` and `k13:622` - are supplied by M2.1 exactly as the documentation says
+it complements M1.1 for missing codons. Second, the real resmarker runs now detect
+MAD4HATTER = D1.1+R1.2+R2.1, which matches the earlier greedy cover that had independently
+picked R1.2 + R2.1. The `crt:97`/`dhps:613` oddity from the previous entry is explained:
+those codons are outside R1.2 but inside R2.1, which is the pool whose stated job is
+covering what R1 misses. Nothing was wrong with the coordinates.
+
+**Ranking had to change.** Under pure Jaccard the real MAD4HatTeR data scored PFPHAST
+(0.59, 81 of its 82 loci shared) above MAD4HATTER (0.52, 97 shared of 147), because a
+larger panel is penalised for loci that coverage never reached. Ranking now takes
+`explains_observed` first - the share of the *observed* loci the panel accounts for - with
+Jaccard as the tie-break. That gets both cases right: MAD4HatTeR data picks MAD4HATTER
+(0.71 vs 0.60), and the curated PfPhast loci, which sit inside MAD4HatTeR as well so both
+explain 1.00, pick PFPHAST because it is the tighter panel.
+
+**Evidence.** Self-check now asserts the documented pool compositions, that a panel equals
+the union of its pools' loci, and that the M2.1 gap-filling contains dhps:613 and k13:622.
+Real data: MAD4HATTER via pools D1.1+R1.2+R2.1, explaining 97 of 136 observed, 39 outside
+it and all 39 non-principal. Curated PfPhast loci: PFPHAST via M1.1+M2.1, 19 of 19. The
+report card names the pools. All four pipelines pass `miniwdl check`.

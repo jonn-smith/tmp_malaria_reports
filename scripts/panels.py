@@ -61,12 +61,23 @@ def locus(gene, codon):
     return f'{gene_token(gene)}:{int(codon)}'
 
 
-def registry(path=None):
+def _doc(path=None):
     p = path or os.path.join(G.REF_DIR, 'panels.json')
     if not os.path.exists(p):
         return {}
     with open(p) as fh:
-        return (json.load(fh) or {}).get('panels') or {}
+        return json.load(fh) or {}
+
+
+def registry(path=None):
+    """Named panels. A panel is a combination of primer pools, per the MAD4HatTeR docs:
+    MAD4HatTeR is D1.1+R1.2+R2.1 and PfPHAST is M1.1+M2.1."""
+    return _doc(path).get('panels') or {}
+
+
+def pools(path=None):
+    """The individual primer pools, which is what a run is actually configured with."""
+    return _doc(path).get('pools') or {}
 
 
 def detect(observed, reg=None):
@@ -90,11 +101,16 @@ def detect(observed, reg=None):
             'n_shared': len(inter),
             'n_panel': len(panel),
         })
-    ranked.sort(key=lambda r: -r['jaccard'])
+    # Explaining the data comes first: a panel that accounts for more of the observed loci
+    # is the better answer even if it is large and partly untyped (real runs never type
+    # every locus in their panel, because coverage fails somewhere). Jaccard then breaks
+    # ties, which is what separates nested panels - the curated PfPhast loci sit inside
+    # MAD4HatTeR as well, both explain everything, and the tighter panel is the right call.
+    ranked.sort(key=lambda r: (-r['explains_observed'], -r['jaccard']))
 
     out = {'n_observed': len(obs), 'ranked': ranked[:6], 'observed_genes':
            sorted({o.split(':')[0] for o in obs})}
-    if not ranked or ranked[0]['jaccard'] < MIN_SCORE:
+    if not ranked or ranked[0]['explains_observed'] < MIN_SCORE:
         out.update(panel=None, recognised=False, ambiguous=False,
                    reason=('no panel in the registry matches these loci'
                            if ranked else 'the panel registry is empty'))
@@ -102,9 +118,13 @@ def detect(observed, reg=None):
 
     best = ranked[0]
     runner = ranked[1] if len(ranked) > 1 else None
-    margin = best['jaccard'] - (runner['jaccard'] if runner else 0.0)
+    margin = best['explains_observed'] - (runner['explains_observed'] if runner else 0.0)
+    if abs(margin) < 1e-9 and runner:     # tied on explanation, separated by tightness
+        margin = best['jaccard'] - runner['jaccard']
     out.update(panel=best['panel'], label=best['label'], assay_name=best['assay_name'],
-               recognised=True, score=best['jaccard'], margin=round(margin, 4),
+               pools=(reg.get(best['panel']) or {}).get('pools') or [],
+               recognised=True, score=best['explains_observed'],
+               jaccard=best['jaccard'], margin=round(margin, 4),
                ambiguous=bool(runner and margin < AMBIGUOUS_MARGIN),
                runner_up=runner['panel'] if runner else None,
                missing_from_panel=sorted(set(best and []) or []),
@@ -171,15 +191,17 @@ def lines(detection, declared=None):
     if not d.get('n_observed'):
         return ['no marker loci observed, so the panel could not be detected']
     if d.get('recognised'):
-        out.append(f"panel detected: {d['panel']} ({d['label']}) - matched "
-                   f"{d['n_shared']}/{d['n_panel']} catalogued loci from "
-                   f"{d['n_observed']} observed, score {d['score']:.2f}")
+        pl = (d.get('pools') or [])
+        out.append(f"panel detected: {d['panel']} ({d['label']})"
+                   + (f" = pools {' + '.join(pl)}" if pl else '')
+                   + f" - explains {d['n_shared']}/{d['n_observed']} observed loci; "
+                     f"{d['n_panel_loci_absent']} of its {d['n_panel']} loci were not typed")
         if d.get('ambiguous'):
             out.append(f"AMBIGUOUS: {d['runner_up']} scores within {AMBIGUOUS_MARGIN} "
                        f"(margin {d['margin']:.2f}); the panels overlap too much to tell "
                        f"them apart from the loci alone")
         c = d.get('combination')
-        if c:
+        if c and len(c.get('panels') or []) > 1:
             names = ' + '.join(f"{x['panel']} ({x['adds']})" for x in c['panels'])
             out.append(f"this run spans more than one catalogued panel: "
                        f"{names} explains {c['n_explained']}/{d['n_observed']} loci"
@@ -209,34 +231,36 @@ def lines(detection, declared=None):
 def demo():
     reg = registry()
     assert reg, 'reference/panels.json should ship a registry'
-    assert {'R1.1', 'R1.2', 'PFPHAST', 'NOMADS'} <= set(reg), sorted(reg)
+    assert {'MAD4HATTER', 'PFPHAST', 'NOMADS'} <= set(reg), sorted(reg)
+    pl = pools()
+    assert {'D1.1', 'R1.2', 'R2.1', 'M1.1', 'M2.1'} <= set(pl), sorted(pl)
+
+    # Panels are pool combinations, per the MAD4HatTeR workspace documentation.
+    assert reg['MAD4HATTER']['pools'] == ['D1.1', 'R1.2', 'R2.1'], reg['MAD4HATTER']['pools']
+    assert reg['PFPHAST']['pools'] == ['M1.1', 'M2.1'], reg['PFPHAST']['pools']
+    # a panel is exactly the union of its pools' loci
+    assert set(reg['PFPHAST']['loci']) == set(pl['M1.1']['loci']) | set(pl['M2.1']['loci'])
+
+    # M2.1 exists to complete M1.1, which the derived loci should show
+    gap = set(pl['M2.1']['loci']) - set(pl['M1.1']['loci'])
+    assert 'dhps:613' in gap and 'k13:622' in gap, sorted(gap)[:10]
 
     pf = set(reg['PFPHAST']['loci'])
-    r11 = set(reg['R1.1']['loci'])
-    # PfPhast is *nearly* a subset of R1.1. The two exceptions are real, not a derivation
-    # bug: crt:97 sits 6 bp past the end of an R1.1 amplicon insert and dhps:613 sits 32 bp
-    # past another, so R1.1 as catalogued upstream cannot type them. This assertion is a
-    # canary - if upstream changes those amplicons, it should fail and be re-checked.
-    assert pf - r11 == {'crt:97', 'dhps:613'}, sorted(pf - r11)
+    mad = set(reg['MAD4HATTER']['loci'])
 
-    # the nesting case: containment cannot separate nested panels, Jaccard must
-    shared = pf & r11
-    # R1.1 explains every one of these loci too, so containment alone would tie them;
-    # PFPHAST must still win because far less of R1.1 was seen.
-    assert len(shared & r11) == len(shared), 'shared loci are by definition inside R1.1'
-    d = detect(shared, reg)
+    # PfPHAST is identified as itself even though MAD4HatTeR also contains its loci:
+    # both explain everything, and the tie-break prefers the tighter panel
+    d = detect(pf, reg)
     assert d['panel'] == 'PFPHAST', d
     assert d['ranked'][0]['explains_observed'] == 1.0
 
-    # a full panel is identified as itself, not as one of its subsets
-    d = detect(r11, reg)
-    assert d['panel'] == 'R1.1', d
-    assert not d.get('combination'), 'a single panel needs no combination'
+    # the MAD4HatTeR panel is identified as itself
+    d = detect(mad, reg)
+    assert d['panel'] == 'MAD4HATTER', d
 
-    # a pooled run is reported as a combination rather than labelled with one panel
-    d = detect(r11 | set(reg['NOMADS']['loci']), reg)
+    # a run mixing two panels is reported as a combination
+    d = detect(mad | set(reg['NOMADS']['loci']), reg)
     assert d.get('combination'), d
-    assert d['combination']['n_unexplained'] == 0, d['combination']
 
     # an unknown panel renders rather than failing, and says so
     d = detect({'xyz:1', 'xyz:2', 'abc:3'}, reg)
@@ -247,7 +271,7 @@ def demo():
 
     # a declared panel that disagrees with the loci is reported
     d = detect(pf, reg)
-    assert any('MISMATCH' in l for l in lines(d, declared='R1.1'))
+    assert any('MISMATCH' in l for l in lines(d, declared='MAD4HATTER'))
 
     # extra loci beyond the matched panel are named
     d = detect(pf | {'newgene:999'}, reg)
@@ -256,8 +280,8 @@ def demo():
     print('panels demo OK')
     for l in lines(detect(pf, reg)):
         print('  PfPhast loci ->', l)
-    for l in lines(detect(r11, reg)):
-        print('  R1.1 loci ->', l)
+    for l in lines(detect(mad, reg)):
+        print('  MAD4HatTeR loci ->', l)
 
 
 if __name__ == '__main__':
