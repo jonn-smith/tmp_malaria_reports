@@ -1160,3 +1160,56 @@ panel. Real-data runs: MAD4HATTER 0.48 (883 samples), PfPhast-shaped 1.00 (272 s
 uncatalogued panel renders with 40 samples and a "not recognised" callout, and declaring
 PFPHAST over MAD4HATTER loci prints the mismatch. Methods callout verified in jsdom for
 both the recognised and unrecognised cases. All four pipelines pass `miniwdl check`.
+
+## 2026-10-26T22:30:00Z  — Panel loci rebuilt from upstream; correcting the "stale reference" claim
+
+**Context.** The operator asked me to verify the loci and to pull from the latest
+information in the original MAD4HATTER repository rather than from whatever copy I had.
+
+**First finding: my previous claim was wrong.** The entry at 2026-10-26T21:00Z said
+`reference/mad_resmarker.tsv` was stale and "missing 39 loci the real runs type". It is
+not stale. I fetched
+`panel_information/principal_resistance_marker_info_table.tsv` from
+github.com/EPPIcenter/mad4hatter and it is **byte-identical** to the committed file
+(md5 `5e2bb197ac865a125d455e8685e17a73`, 161 loci). The older copy is the one sitting in
+the Mad4Hatter dev workspace bucket (md5 `e803ad02...`, 142 rows). What is actually true is
+that the pipeline's resmarker output covers loci *beyond* the principal resistance-marker
+list, which is a different statement and not a defect in the reference.
+
+**Second finding: my registry was wrong in a more basic way.** I had invented a single
+`MAD4HATTER` panel equal to all 161 principal markers. No such panel exists. Upstream
+`panel_information/` holds fifteen panels, and a panel's resistance loci are the principal
+markers whose codon interval lies inside one of that panel's amplicon inserts. Rebuilt
+`reference/panels.json` on that basis: eleven upstream panels type at least one resistance
+marker (R1.1 134, R1.2 131, v2 96, AMPLseq 90, spotmalaria_grc2 82, v1 81, M1.1 65,
+spotmalaria_grc1 43, R2.1 39, M2.1 27, 4cast 16), and four type none (D1.1, ama1,
+M1.addon, spotmalaria_spec) so they are deliberately absent. PFPHAST and NOMADS keep their
+own locus lists. The upstream commit (`bbd31ccbdb75...`) is recorded in a `_provenance`
+block so the derivation is reproducible.
+
+**Third finding, from an assertion I expected to pass.** I asserted PfPhast's 19 loci
+were a subset of R1.1's 134; it failed on `crt:97` and `dhps:613`. Checking the
+coordinates, this is not an off-by-one in my interval test: `crt:97` (403686-403689) falls
+6 bp past the end of R1.1 amplicon 403499-403683 and before the next at 403833, and
+`dhps:613` (550211-550214) falls 32 bp past amplicon 549988-550182. R1.1 as catalogued
+genuinely cannot type either, yet the real runs report both. So the panel the real data
+came from is not R1.1 exactly - worth asking upstream. Kept as a canary assertion that
+will fail if those amplicons change.
+
+**Fourth finding: a real run is pooled, not a single panel.** Against the corrected
+registry the real data's best single match is M1.1 at 0.47, ambiguous with R1.2 (margin
+0.02), and it leaves 72 of 136 loci outside M1.1. Added a greedy cover so the detector
+reports the combination instead of asserting one panel: R1.2 + R2.1 explains 97 of 136.
+Classified the 39 remainder: **all 39 are absent from the principal resistance-marker
+table entirely** (coronin 50/100/107, rh5 147/170/197/203, ripr 985, ubp1 1525, extra
+crt/k13/arps10/mdr1 codons) and **zero principal markers are unexplained**. So the story
+is coherent: catalogued panels account for every principal marker the run types, and the
+rest are loci the assay reports that are not principal resistance markers and carry no WHO
+class. The report's panel callout now says that instead of the earlier, wrong
+"either that reference is out of date or this is a variant of the panel".
+
+**Evidence.** `panels.py` self-check passes against the rebuilt registry including the
+nesting case, the pooled-run case, the unknown panel, the declared/detected mismatch and
+the crt:97/dhps:613 canary. Real data: best M1.1 0.47 ambiguous with R1.2, combination
+R1.2+R2.1, 883 samples. PfPhast-shaped input still detects PFPHAST at 1.00. All four
+pipelines pass `miniwdl check`; Methods callout verified in jsdom.

@@ -448,9 +448,15 @@ function panelCard(){
       catalogued loci were typed, out of ${nf(D2.n_observed)} loci seen in the input.`;
     if(D2.ambiguous) s+=` <b>This is ambiguous:</b> ${esc(D2.runner_up)} scores almost as well,
       so the panels cannot be told apart from their loci alone.`;
-    if(D2.n_unexpected) s+=` ${nf(D2.n_unexpected)} typed locus/loci are not in the
-      ${esc(D2.panel)} reference (${(D2.unexpected_loci||[]).slice(0,8).map(esc).join(', ')}${D2.n_unexpected>8?', &hellip;':''}),
-      so either that reference is out of date or this is a variant of the panel.`;
+    const C=D2.combination;
+    if(C&&C.panels&&C.panels.length>1) s+=` This run types loci from more than one catalogued
+      panel &mdash; ${C.panels.map(x=>esc(x.panel)).join(' + ')} together account for
+      ${nf(C.n_explained)} of ${nf(D2.n_observed)} &mdash; so it is a pooled run rather than
+      a single panel.`;
+    if(D2.n_unexpected) s+=` ${nf(D2.n_unexpected)} typed locus/loci fall outside
+      ${esc(D2.panel)} (${(D2.unexpected_loci||[]).slice(0,8).map(esc).join(', ')}${D2.n_unexpected>8?', &hellip;':''}).
+      Loci the assay types that are not principal resistance markers are reported here but
+      carry no WHO class.`;
     return `<div class="callout ${D2.ambiguous?'amber':''}" style="margin-top:14px">${s}</div>`;
   }
   return `<div class="callout amber" style="margin-top:14px"><b>Panel not recognised.</b>
