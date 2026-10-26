@@ -23,6 +23,7 @@ import sys, os, csv, re, json, glob
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import gen_reports as G
 import geoloc
+import panels
 
 csv.field_size_limit(10**7)
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -90,11 +91,15 @@ def year_of(b):
     if re.search(r'SEN[-_]20\d{2}', b): return re.search(r'(20\d{2})', b).group(1)
     return '20'+m.group(1) if m else None
 
+DECLARED_PANEL = None   # set by make_report when --assay named a panel explicitly
+
+
 def load(rm_dir, meta_csv, ad_dir=None, selection=None):
     meta = load_meta(meta_csv)
     coi_map = coi_from_alleles(ad_dir) if ad_dir and os.path.isdir(ad_dir) else {}
     # union marker calls across all runs, per base sample
     cov = {}; mut = {}      # base -> set(mk covered) / set(mk mutant)
+    seen_loci = set()
     files = 0
     for fp in sorted(glob.glob(os.path.join(rm_dir, '*.txt'))):
         rd = csv.DictReader(open(fp), delimiter='\t')
@@ -109,6 +114,8 @@ def load(rm_dir, meta_csv, ad_dir=None, selection=None):
             g = (row.get('Gene') or '').strip();
             try: c = int(row.get('CodonID'))
             except (TypeError, ValueError): continue
+            # the panel is whatever loci the input types, catalogued or not
+            seen_loci.add(panels.locus(g, c))
             aa = (row.get('AA') or '').strip()
             for k, (tok, codon, altaa) in MK_TGT.items():
                 if g == tok and c == codon:
@@ -116,6 +123,13 @@ def load(rm_dir, meta_csv, ad_dir=None, selection=None):
                     # carriage = sample shows the resistance amino acid, regardless of REF/ALT polarity
                     # (the panel reference encodes the mutant at some codons, e.g. dhps 437 Ref=Gly).
                     if aa == altaa: mut.setdefault(b, set()).add(k)
+    # Which panel is this? Decided from the loci, not from what the caller claimed, and
+    # registered so an uncatalogued panel still renders.
+    detection = panels.detect(seen_loci)
+    panels.register(detection)
+    for line in panels.lines(detection, declared=DECLARED_PANEL):
+        sys.stderr.write(f'[load_mad] {line}\n')
+
     # build per-sample records (real samples joined to site + coords)
     samples = []; drop = {'ctrl': 0, 'no_meta': 0, 'no_dept': 0}
     resolver = geoloc.Resolver()
@@ -180,6 +194,10 @@ def load(rm_dir, meta_csv, ad_dir=None, selection=None):
     rep['meta']['version'] = 'v0.12'   # gen_reports reads sys.argv on import; set explicitly
     rep['meta']['data_source'] = 'MAD4HATTER v4 amplicon · UCSF mad4hatter outputs (runs 1–10)'
     rep['meta']['location_audit'] = resolver.audit.meta()
+    rep['meta']['panel_detection'] = detection
+    if detection.get('recognised'):
+        rep['meta']['panel'] = detection['panel']
+        rep['meta']['panel_label'] = detection.get('label')
     G.real_export(rep, samples, 'Amplicon sequencing')
     rep['sites'] = G.sites_from_samples(samples)
     sys.stderr.write(f"[load_mad] site points={len(rep['sites'])}\n")

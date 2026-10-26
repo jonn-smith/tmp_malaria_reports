@@ -1109,3 +1109,54 @@ export CSVs. The Methods callout verified rendered in jsdom.
 
 **Outcome.** Location handling is identical across WGS, MAD4HATTER, NOMADS and PFPHAST,
 coordinates win where present, and nothing about location fails quietly any more.
+
+## 2026-10-26T21:00:00Z  — Amplicon panel detected from the data, tolerant of panels nobody catalogued
+
+**Context.** The amplicon path accepted only `MAD4HATTER` or `PFPHAST` as a declared
+assay. The operator asked for it to detect the panel instead, and to tolerate others.
+
+**Decision / action.** A panel is the set of loci it types, so `scripts/panels.py` detects
+it by comparing the observed `gene:codon` set against `reference/panels.json`. `--assay
+AMPLICON` (now the WDL default) detects; `MAD4HATTER` and `PFPHAST` still work and are
+treated as *declarations* that are honoured but cross-checked.
+
+**Why Jaccard and not containment.** PfPhast's 19 loci are a complete subset of
+MAD4HATTER's 161, so "how much of what we saw does this panel explain" is 1.00 for both
+and cannot separate them. Jaccard also asks how much of the panel was seen: 19 observed
+loci score 1.00 against PFPHAST and 0.12 against MAD4HATTER. Verified both directions on
+real data - a resmarker table restricted to the PfPhast loci detects PFPHAST at 1.00, the
+full table detects MAD4HATTER at 0.48.
+
+**Tolerance is the point.** An unrecognised panel is not an error: the observed genes are
+registered as an ASSAYS entry so every coverage gate works, the report renders from the
+loci actually present, and both the log and a Methods callout say the panel was not
+recognised and name what was seen. Refusing to render would make the catalogue a gate on
+new assays. A detection within 0.15 of its runner-up is reported as ambiguous rather than
+guessed.
+
+**Registry built from real panel definitions, not invented.** MAD4HATTER from
+`reference/mad_resmarker.tsv`; PFPHAST from `loci_of_interest.bed`, found in the Uganda
+PfPhast drug-resistance outputs at
+`gs://fc-b949770f.../ug_test_dataset/drugres/refs/`; NOMADS from the Nomadic sample-table
+columns.
+
+**Finding worth acting on.** Detection reports that **39 loci the real MAD4HATTER runs
+type are absent from `reference/mad_resmarker.tsv`** - coronin 50/100/107, crt
+48/52/93/101/145/218/343/353, a dozen further k13 codons. That is why the score is 0.48
+rather than near 1.0. The committed panel reference is stale relative to the pipeline;
+left as a reported finding rather than silently unioned, since which loci belong in the
+panel reference is the operator's call.
+
+**Bug found by the test, not by reading.** The PfPhast-restricted run reported numbers
+identical to the full run. `make_report._stage()` symlinks the listed input files into a
+fixed `_staged_resmarker/` directory and never emptied it, so the second run globbed the
+first run's 15 files as well - 21 files where 6 were asked for, silently reporting on a
+cohort nobody requested. A WDL task gets a fresh directory and never saw this; running
+twice by hand does. Fixed to empty the directory first.
+
+**Evidence.** `panels.py` self-check covers the subset case, full-panel identification,
+an unknown panel, a declared/detected disagreement, and extra loci beyond the matched
+panel. Real-data runs: MAD4HATTER 0.48 (883 samples), PfPhast-shaped 1.00 (272 samples),
+uncatalogued panel renders with 40 samples and a "not recognised" callout, and declaring
+PFPHAST over MAD4HATTER loci prints the mismatch. Methods callout verified in jsdom for
+both the recognised and unrecognised cases. All four pipelines pass `miniwdl check`.

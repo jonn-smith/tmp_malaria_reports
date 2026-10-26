@@ -159,7 +159,7 @@ task RenderMad4hatterReport {
     }
 
     parameter_meta {
-        assay:                    "Which amplicon panel produced the tables: MAD4HATTER (default) or PFPHAST. Both use the same input shape; the value is recorded in the report."
+        assay:                    "AMPLICON (default) detects the panel from the loci in the tables and tolerates panels that are not catalogued. Naming MAD4HATTER or PFPHAST instead declares it: the declaration is kept and any disagreement with the detected panel is reported."
         resmarker_tables:         "Amplicon resistance-marker tables (resmarker_table.txt), one per sequencing run"
         site_metadata:            "Per-sample site and coordinate table (Sample_id, site, Latitude, Longitude)"
         allele_tables:            "MAD4HATTER microhaplotype allele tables (allele_data.txt); optional"
@@ -194,7 +194,7 @@ task RenderMad4hatterReport {
         File? sample_ids_file
         String? selection_label
 
-        String assay = "MAD4HATTER"
+        String assay = "AMPLICON"
 
         String extra_args = ""
 

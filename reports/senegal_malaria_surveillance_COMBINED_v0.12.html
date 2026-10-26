@@ -438,6 +438,28 @@ const clsLabel=m=>m.category||CLSFULL[m.cls]||'Not in WHO compendium';
    denominator on every page, and a district name that disagrees with its coordinates
    means the geography is not what the data says it is. Neither is visible in any number
    the report draws, so both are stated here in full. */
+/* Which panel produced this report, and how confident that is. An uncatalogued panel
+   still renders, so the page has to say that the panel was not recognised rather than
+   leave the reader assuming it was. */
+function panelCard(){
+  const D2=M.panel_detection; if(!D2||!D2.n_observed) return '';
+  if(D2.recognised){
+    let s=`<b>Panel.</b> ${esc(D2.label||D2.panel)} &mdash; ${nf(D2.n_shared)} of ${nf(D2.n_panel)}
+      catalogued loci were typed, out of ${nf(D2.n_observed)} loci seen in the input.`;
+    if(D2.ambiguous) s+=` <b>This is ambiguous:</b> ${esc(D2.runner_up)} scores almost as well,
+      so the panels cannot be told apart from their loci alone.`;
+    if(D2.n_unexpected) s+=` ${nf(D2.n_unexpected)} typed locus/loci are not in the
+      ${esc(D2.panel)} reference (${(D2.unexpected_loci||[]).slice(0,8).map(esc).join(', ')}${D2.n_unexpected>8?', &hellip;':''}),
+      so either that reference is out of date or this is a variant of the panel.`;
+    return `<div class="callout ${D2.ambiguous?'amber':''}" style="margin-top:14px">${s}</div>`;
+  }
+  return `<div class="callout amber" style="margin-top:14px"><b>Panel not recognised.</b>
+    The input types ${nf(D2.n_observed)} loci across ${(D2.observed_genes||[]).map(esc).join(', ')},
+    which does not match any panel in the reference catalogue. The report was built from the
+    loci actually present, so the numbers are sound, but the panel is unnamed and the WHO
+    classes shown cover only those loci the compendium lists.</div>`;
+}
+
 function locationAudit(){
   const A=M.location_audit; if(!A) return '';
   const un=(A.unplaced||[]).reduce((s,u)=>s+(u.n||0),0)+(A.coords_outside_country||0);
@@ -1065,6 +1087,7 @@ R.methods=()=>{
       </div>
     </div>
 
+    ${panelCard()}
     ${locationAudit()}
     ${M.sample_selection?`<div class="callout amber" style="margin-top:14px"><b>Selected samples only.</b> This report covers a selected subset (<b>${esc(M.sample_selection)}</b>):
       ${nf(M.n_matched)} of ${nf(M.n_requested)} requested samples were found${M.n_requested_missing?`, ${nf(M.n_requested_missing)} were not`:''}.

@@ -37,9 +37,13 @@ META_PASSTHROUGH_SKIP = set(MODEL_SETTINGS)
 
 def parse_args(argv=None):
     p = argparse.ArgumentParser(description='Build a malaria molecular-surveillance report.')
+    # AMPLICON detects the panel from the loci in the input. MAD4HATTER and PFPHAST still
+    # work and are treated as declarations: they are honoured, and a disagreement with the
+    # detected panel is reported rather than silently accepted.
     p.add_argument('--assay', required=True,
-                   choices=['WGS', 'MAD4HATTER', 'NOMADS', 'PFPHAST'],
-                   help='PFPHAST is an amplicon panel and takes the MAD4HATTER inputs')
+                   choices=['WGS', 'AMPLICON', 'MAD4HATTER', 'PFPHAST', 'NOMADS'],
+                   help='AMPLICON detects which amplicon panel produced the input from its '
+                        'loci; MAD4HATTER and PFPHAST declare it explicitly')
 
     # WGS
     p.add_argument('--sample-table', help='WGS: Terra export of the sample table (TSV)')
@@ -136,11 +140,13 @@ def main(argv=None):
             raise SystemExit('--assay WGS requires --sample-table')
         import load_wgs
         rep = load_wgs.load(a.sample_table, selection)
-    elif a.assay in ('MAD4HATTER', 'PFPHAST'):
+    elif a.assay in ('AMPLICON', 'MAD4HATTER', 'PFPHAST'):
         if not a.resmarker_table or not a.site_metadata:
             raise SystemExit(f'--assay {a.assay} requires --resmarker-table and '
                              f'--site-metadata')
         import load_mad
+        # a declared panel is a cross-check for the detector, not an instruction
+        load_mad.DECLARED_PANEL = None if a.assay == 'AMPLICON' else a.assay
         # load_mad takes directories; stage the listed files into one
         rm_dir = _stage('resmarker', a.resmarker_table)
         ad_dir = _stage('allele', a.allele_table) if a.allele_table else None
@@ -278,8 +284,19 @@ def _warn_location(audit):
 
 
 def _stage(kind, files):
-    """load_mad globs a directory; link the explicitly listed files into one."""
+    """load_mad globs a directory; link the explicitly listed files into one.
+
+    The directory is emptied first. It is a fixed path in the working directory, so a
+    second run in the same directory would otherwise glob the previous run's files as
+    well, silently reporting on a cohort nobody asked for. A WDL task gets a fresh
+    directory and never saw this; running twice by hand does.
+    """
     d = os.path.abspath(f'_staged_{kind}')
+    if os.path.isdir(d):
+        for old in os.listdir(d):
+            op = os.path.join(d, old)
+            if os.path.islink(op) or os.path.isfile(op):
+                os.unlink(op)
     os.makedirs(d, exist_ok=True)
     for i, f in enumerate(files):
         # keep the original basename when unique so run-specific names survive in logs
