@@ -1877,3 +1877,47 @@ clean.
 match PFPHAST exactly but sit within 0.10 of MAD4HATTER, because 19 loci is a small
 signature and both panels contain them. It chose PFPHAST, which is right, and said so
 rather than asserting.
+
+## 2026-10-27T18:30:00Z  — Admin-name lookup added; the country default removed entirely
+
+**Context.** Operator asked for a stored list of admin-1 and admin-2 names for all
+countries, used as the *last* lookup step, and for the Senegal default to be removed so
+that an undeterminable country fails loudly instead.
+
+**Where the names came from, and a dead end.** The obvious source was the maps already
+shipped, but they are nearly useless for this: of 54 projected maps only **2** carry
+admin-1 parent names (7 names in total), because geoBoundaries ADM2 features have no
+parent field - only the OCHA-derived ones do. So the index is built from GeoNames'
+names-only tables instead, `admin1CodesASCII.txt` (3,865 rows) and `admin2Codes.txt`
+(47,762 rows), which cover every country, with the shipped maps' own unit names folded in
+on top so that a unit the report actually aggregates into always resolves. Result:
+`reference/admin_names.json.gz`, 291 KB, 3,778 admin-1 and 46,905 admin-2 names, of which
+**46,205 are unique to a single country**.
+
+**Why names are last.** They are not unique - there is a Kolda in more than one country,
+and "Central"/"North"/"District" are everywhere. So only a name occurring in exactly one
+country counts as evidence, generic names are excluded by a stopword list, a trailing unit
+noun is stripped ("Kolda District" = "Kolda"), and an even split between two countries
+resolves to **nothing** rather than to a coin toss.
+
+**The chain, now with no default.** Explicit `country_iso3`; then a country column; then
+coordinates; then admin names; then **failure**. A country column that matches nothing no
+longer ends the chain - it is recorded and the next signal is tried, which matters because
+`mad_meta.csv` has a column named `Country` holding site names (`DALABA`) and that dataset
+now resolves correctly via its coordinates instead. A recognised country with no shipped
+map still fails immediately, since that is actionable.
+
+The failure message lists what was tried, in order, rather than just saying no:
+"could not determine which country this data is from, and there is no default. Tried, in
+order: a column named country holding 'Wakanda', which matches no country even
+approximately; no latitude/longitude columns; no region or district columns."
+
+**Evidence, all four paths run inside image 0.12.7.** Country column: pfphast resolves
+`'Uganda' -> UGA via exact`. Coordinates: the Nairobi table, which has no country column,
+gives `12 of 12 sampled points fall inside UGA`. Admin names: the same table with
+Latitude/Longitude deleted gives `Agago, Amolatar, Amuria, Amuru, Apac occur only in UGA`,
+and still reports 353 samples across 34/135 units. Failure: with country, coordinates,
+district and region all removed, exit 1 with the message above. Senegal long tables still
+build (883 samples) now via coordinates. Self-checks cover UGA and SEN by name, by
+centroid and by district name, a mid-Atlantic point belonging to no shipped set, shared
+names like "Central", and unrecognisable gibberish.

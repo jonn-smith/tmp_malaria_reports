@@ -27,6 +27,7 @@ time. They can all live in one table, or the last two can arrive in a separate
 | `aa_change` e.g. `K76T` | `codon` + `alt_aa` | call dropped (`no_marker`) |
 | `call` | `mutant_reads` + `wildtype_reads` | call dropped (`not_typed`) |
 | `district` | `admin2`, `dept`, or `lat` + `lon` | **every sample dropped** (`no_location`) |
+| the country | see below — four ways, no default | **the run fails** |
 | `year` | `date`, including day-first `28.07.2025` | builds, but `period n/a` and no Trends frames |
 
 `site` is a display label, not a location: a table with `site` but no district or
@@ -34,6 +35,33 @@ coordinates places nothing and reports zero samples. Coordinates do double duty 
 resolve the admin unit by point-in-polygon *and* put pins on the site map. No QC-status
 field is required; every placed sample counts toward the QC-pass total. Sample selection
 is optional.
+
+## Which country, and what happens when that cannot be answered
+
+The country selects the admin boundary set every number is aggregated against, so getting
+it wrong silently discards every sample that falls outside. **There is no default.** It is
+resolved in this order, strongest signal first:
+
+1. **`country_iso3`** passed explicitly. Always wins.
+2. **A country column** (`country`, `admin0`, `adm0`, `country_name`), matched against
+   `reference/countries.json` — 249 ISO 3166-1 entries plus common names (`DRC`,
+   `Ivory Coast`, `Tanzania`, `The Gambia`), tolerant of case, accents and spelling
+   (`Ugannda` resolves, and the report says it was a guess). A value that matches nothing
+   is reported and the chain continues; a real country with no shipped boundary map fails
+   immediately with that specific message.
+3. **Coordinates.** Each shipped map's bounding box is screened first, then
+   point-in-polygon on the survivors. Unambiguous, and it answers exactly the right
+   question: which boundary set contains these samples.
+4. **Admin-1 / admin-2 place names** (`region`/`district` and their aliases), against
+   `reference/admin_names.json.gz` — GeoNames' global admin-1 and admin-2 name tables plus
+   the unit names from the shipped maps. Last, because place names are **not** unique
+   across countries: only a name occurring in exactly one country counts as evidence, and
+   an even split between countries resolves to nothing.
+
+If all four fail the run **stops**, listing what it tried. A report built against the wrong
+boundary set is worse than no report, because every number in it looks reasonable. However
+the country was chosen, the report records it in `meta.country_resolution` and shows it on
+the Methods page.
 
 ## Getting a report out
 

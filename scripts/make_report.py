@@ -127,35 +127,20 @@ def main(argv=None):
     cname = a.country_name or cfg.get('country_name')
     country_note = None
 
-    # No country given? Read it out of the data rather than defaulting to Senegal and
-    # dropping every sample. A country column is already required-ish for a surveillance
-    # table, and this is the failure the default caused in the first real Terra run.
+    # No country given? Work it out from the data. There is deliberately NO default:
+    # the country selects the boundary set every number is aggregated against, and
+    # guessing Senegal for Ugandan data drops every sample. Four steps, strongest first,
+    # and if all of them fail the run stops rather than producing a report about the
+    # wrong country.
+    tried = []
     if not iso:
         import countries as C
         tables = ([a.sample_table] if a.sample_table else []) + \
                  list(a.resmarker_table or []) + list(a.marker_calls or []) + \
                  ([a.site_metadata] if a.site_metadata else [])
+
+        # 1. a country column
         raw, counts = C.sniff(tables)
-        if not raw:
-            # No country column at all - some workspaces carry Region/District/Latitude/
-            # Longitude and no Country. Coordinates answer the question directly: which
-            # shipped boundary set actually contains these samples. Screening by each map's
-            # bounding box first keeps this cheap.
-            pts = C.sniff_points(tables)
-            hit = C.from_coordinates(pts) if pts else None
-            if hit:
-                iso, cname = hit['iso3'], cname or hit['name']
-                country_note = (f"country inferred from coordinates: {hit['n_inside']} of "
-                                f"{hit['n_tested']} sampled points fall inside "
-                                f"{hit['iso3']} ({hit['name']})")
-                if hit['runners_up']:
-                    country_note += f"; also partly matched {', '.join(hit['runners_up'])}"
-                sys.stderr.write(f'[make_report] {country_note}\n')
-            elif pts:
-                sys.stderr.write(
-                    f'[make_report] no country column, and none of the shipped boundary '
-                    f'sets contains the {len(pts)} sampled coordinates; using '
-                    f'{G.COUNTRY_ISO}. Pass --country-iso3.\n')
         if raw:
             hit = C.resolve(raw)
             if hit and hit['has_map']:
@@ -169,7 +154,6 @@ def main(argv=None):
                     others = ', '.join(f'{k!r} x{v}' for k, v in
                                        sorted(counts.items(), key=lambda kv: -kv[1])[1:4])
                     country_note += f'; the table also names {others}'
-                sys.stderr.write(f'[make_report] {country_note}\n')
             elif hit:
                 raise SystemExit(
                     f'the data says country {raw!r} ({hit["iso3"]} {hit["name"]}), but no '
@@ -177,15 +161,57 @@ def main(argv=None):
                     f'scripts/build_maps.py and supply it through reference_bundle_tar, '
                     f'or pass --country-iso3 for a country that does have a map.')
             else:
-                # Sniffing is a convenience, so an unreadable value must not become a new
-                # way for the run to die. Some tables have a column named "country" that
-                # holds something else entirely - mad_meta.csv names sites in it. Say so
-                # and carry on with the default; a genuinely wrong country still fails
-                # later, when every sample lands outside it, with a message that says so.
-                sys.stderr.write(
-                    f'[make_report] the column named country holds {raw!r}, which matches '
-                    f'no country even approximately; ignoring it and using '
-                    f'{G.COUNTRY_ISO}. Pass --country-iso3 to be explicit.\n')
+                tried.append(f'a column named country holding {raw!r}, which matches no '
+                             f'country even approximately')
+
+        # 2. coordinates: unambiguous, and they answer exactly the right question
+        if not iso:
+            pts = C.sniff_points(tables)
+            hit = C.from_coordinates(pts) if pts else None
+            if hit:
+                iso, cname = hit['iso3'], cname or hit['name']
+                country_note = (f"country inferred from coordinates: {hit['n_inside']} of "
+                                f"{hit['n_tested']} sampled points fall inside "
+                                f"{hit['iso3']} ({hit['name']})")
+                if hit['runners_up']:
+                    country_note += f"; also partly matched {', '.join(hit['runners_up'])}"
+            elif pts:
+                tried.append(f'{len(pts)} sampled coordinates, none of which fall inside '
+                             f'any shipped boundary set')
+            else:
+                tried.append('no latitude/longitude columns')
+
+        # 3. admin names, last because place names are not unique across countries
+        if not iso:
+            regions = C.sniff_values(tables, ('region', 'admin1', 'adm1', 'province',
+                                              'state'))
+            districts = C.sniff_values(tables, ('district', 'admin2', 'adm2', 'dept',
+                                                'department'))
+            hit = C.from_admin_names(regions, districts) if (regions or districts) else None
+            if hit:
+                iso, cname = hit['iso3'], cname or hit['name']
+                country_note = (f"country inferred from admin names: "
+                                f"{', '.join(hit['from_names'][:5])} occur only in "
+                                f"{hit['iso3']} ({hit['name']})")
+                if hit['runners_up']:
+                    country_note += f"; runners-up {', '.join(hit['runners_up'])}"
+            elif regions or districts:
+                tried.append(f'{len(regions)} region and {len(districts)} district names, '
+                             f'none of which identify a single country')
+            else:
+                tried.append('no region or district columns')
+
+        if country_note:
+            sys.stderr.write(f'[make_report] {country_note}\n')
+
+        # 4. nothing worked: stop. A report built against the wrong boundary set is worse
+        # than no report, because every number in it looks reasonable.
+        if not iso:
+            raise SystemExit(
+                'could not determine which country this data is from, and there is no '
+                'default. Tried, in order: ' + '; '.join(tried) + '. '
+                'Fix one of those, or pass --country-iso3 (country_iso3 in the WDL) '
+                'explicitly. See docs/TERRA_TABLES.md.')
 
     if iso or cname:
         G.set_country(iso or G.COUNTRY_ISO, cname)

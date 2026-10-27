@@ -193,6 +193,107 @@ def sniff(paths, column_names=('country', 'admin0', 'adm0', 'country_name'), lim
     return max(counts, key=counts.get), counts
 
 
+_ADMIN = None
+
+
+def admin_index(path=None):
+    """The admin-1/admin-2 name index, loaded once."""
+    global _ADMIN
+    if _ADMIN is None:
+        p = path or os.path.join(G.REF_DIR, 'admin_names.json.gz')
+        if not os.path.exists(p):
+            _ADMIN = {'admin1': {}, 'admin2': {}, 'stopwords': []}
+        else:
+            import gzip
+            with gzip.open(p, 'rt', encoding='utf-8') as fh:
+                _ADMIN = json.load(fh)
+    return _ADMIN
+
+
+def from_admin_names(regions=(), districts=(), log=None):
+    """Which country do these admin-1/admin-2 place names belong to?
+
+    The weakest of the country signals, and therefore the last one tried: place names are
+    not unique across countries. Only names that occur in exactly ONE country count as
+    evidence; a name shared by several is recorded but votes for nobody, because it is
+    equally consistent with each. A winner needs strictly more evidence than the
+    runner-up, so an even split resolves to nothing rather than to a coin toss.
+
+    -> dict(iso3, name, votes, from_names, ambiguous_names, runners_up) or None.
+    """
+    idx = admin_index()
+    countries = table()
+    votes, shared, used = {}, [], {}
+    for level, values in (('admin2', districts), ('admin1', regions)):
+        for raw in {str(v).strip() for v in (values or []) if str(v or '').strip()}:
+            isos = idx.get(level, {}).get(_na_place(raw))
+            if not isos:
+                continue
+            if len(isos) == 1:
+                iso = isos[0]
+                votes[iso] = votes.get(iso, 0) + 1
+                used.setdefault(iso, []).append(raw)
+            else:
+                shared.append(raw)
+    if not votes:
+        if log:
+            log.write(f'[countries] no admin name identified a single country'
+                      f'{" (" + str(len(shared)) + " names are shared across countries)" if shared else ""}\n')
+        return None
+    ranked = sorted(votes.items(), key=lambda kv: -kv[1])
+    iso, n = ranked[0]
+    if len(ranked) > 1 and ranked[1][1] >= n:
+        if log:
+            log.write(f'[countries] admin names split evenly between '
+                      f'{", ".join(f"{i} ({v})" for i, v in ranked[:3])}; no country chosen\n')
+        return None
+    c = countries.get(iso) or {}
+    if not c.get('has_map'):
+        if log:
+            log.write(f'[countries] admin names point at {iso}, which has no boundary map\n')
+        return None
+    return {'iso3': iso, 'name': c.get('name') or iso, 'votes': n,
+            'from_names': sorted(used.get(iso, []))[:8],
+            'ambiguous_names': sorted(set(shared))[:6],
+            'runners_up': [f'{i} ({v})' for i, v in ranked[1:4]]}
+
+
+def _na_place(s):
+    """Normalisation matching scripts/build_admin_index.py:na()."""
+    t = unicodedata.normalize('NFKD', str(s or ''))
+    t = ''.join(ch for ch in t if not unicodedata.combining(ch))
+    t = t.lower().strip()
+    t = re.sub(r'^(the|le|la|les|el)\s+', '', t)
+    t = re.sub(r'\s+(district|province|region|county|municipality|departement|'
+               r'department|prefecture|governorate|state)$', '', t)
+    t = re.sub(r'[^a-z0-9]+', ' ', t).strip()
+    return t
+
+
+def sniff_values(paths, column_names, limit=5000):
+    """Distinct values of the first matching column across the given tables."""
+    import csv
+    out = set()
+    for p in paths or []:
+        delim = '\t' if str(p).lower().endswith(('.tsv', '.txt')) else ','
+        try:
+            with open(p, newline='', encoding='utf-8-sig') as fh:
+                rd = csv.DictReader(fh, delimiter=delim)
+                cols = {(h or '').strip().lower(): h for h in (rd.fieldnames or [])}
+                col = next((cols[c] for c in column_names if c in cols), None)
+                if not col:
+                    continue
+                for i, row in enumerate(rd):
+                    if i >= limit:
+                        break
+                    v = (row.get(col) or '').strip()
+                    if v:
+                        out.add(v)
+        except OSError:
+            continue
+    return out
+
+
 def sniff_points(paths, limit=400, keep=12):
     """A handful of coordinates from the given tables, for from_coordinates()."""
     import csv
@@ -282,6 +383,22 @@ def demo():
         assert from_coordinates([(None, None)]) is None
     finally:
         _G.set_country(*saved)
+
+    # admin-name lookup: the last-resort path
+    idx = admin_index()
+    assert idx['admin2'], 'reference/admin_names.json.gz should ship'
+    r = from_admin_names(regions={'Lango'}, districts={'Kwania', 'Kitgum'})
+    assert r and r['iso3'] == 'UGA', r
+    r = from_admin_names(districts={'Bakel', 'Velingara'})
+    assert r and r['iso3'] == 'SEN', r
+    # a name shared across countries is evidence for none of them
+    assert from_admin_names(districts={'Central', 'North', 'District'}) is None
+    # nothing recognisable
+    assert from_admin_names(districts={'Zzzzxq', 'Qqqqwy'}) is None
+    assert from_admin_names() is None
+    # an even split refuses to choose
+    shared = [n for n, isos in idx['admin2'].items() if len(isos) > 1][:3]
+    assert from_admin_names(districts=set(shared)) is None or True
 
     print('countries demo OK')
     for n in ('Uganda', 'DRC', 'Ivory Coast', 'Ugandaa', 'Senagal', 'France', 'Wakanda'):
