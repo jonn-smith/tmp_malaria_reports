@@ -54,7 +54,11 @@ GENE_ALIAS = {'dhfr-ts': 'dhfr', 'dhfrts': 'dhfr', 'kelch13': 'k13', 'k-13': 'k1
 
 def gene_token(raw):
     g = re.sub(r'^pf', '', str(raw or '').strip().lower())
-    return GENE_ALIAS.get(g, g)
+    g = GENE_ALIAS.get(g, g)
+    # Separators are not meaningful and the sources disagree: the published bed writes
+    # PF3D7-1322700 where the upstream marker table writes PF3D7_1322700. Alias lookup
+    # happens first so dhfr-ts still resolves to dhfr.
+    return g.replace('-', '_')
 
 
 def locus(gene, codon):

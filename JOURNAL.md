@@ -1921,3 +1921,41 @@ district and region all removed, exit 1 with the message above. Senegal long tab
 build (883 samples) now via coordinates. Self-checks cover UGA and SEN by name, by
 centroid and by district name, a mid-Atlantic point belonging to no shipped set, shared
 names like "Central", and unrecognisable gibberish.
+
+## 2026-10-27T21:30:00Z  — Per-panel resistance-marker inputs generated
+
+**Context.** The two workspaces produced reports with different marker sets for the same
+429 samples - 19 loci in the Nairobi copy against 43 in CLONE_2 - and the Nairobi table was
+missing nine WHO *Validated* K13 codons including C580Y and R539T. The operator asked where
+to find the right extraction inputs for each panel.
+
+**Finding: they do not exist.** `gs://broad-malaria-public/mad4hatter_workspace_data/`
+publishes exactly one pair, `default_principal_resistance_marker_info_table.bed` (74 loci)
+and `default_loci_groups.tsv`, and it is panel-agnostic. PfPHAST can type 41 of those
+against its own reach of 82; MAD4HatTeR 51 against 147. CLONE_2's 43 columns are that
+default intersected with what had coverage; Nairobi's 19 came from the narrow curated
+`loci_of_interest.bed` in the Uganda drugres outputs, which is a TES/triage subset.
+
+**Action.** `scripts/build_panel_loci.py` derives each panel's full reach from upstream -
+the principal marker table (verified byte-identical to our committed copy) intersected with
+each pool's amplicon inserts, unioned over the panel's pools - and writes
+`reference/panel_loci/`: 82 loci for PfPHAST, 147 for MAD4HatTeR, each covering **all** of
+the WHO Validated markers its panel can reach (16/16 and 17/17), plus per-panel
+`loci_groups.tsv` restricted to groups the panel types in full.
+
+**Two things the verification caught that I would otherwise have got wrong.** First, the
+published bed and the upstream marker table disagree on three gene labels - `dhfr-ts` vs
+`dhfr`, and `PF3D7-1322700`/`PF3D7-1451200` with hyphens vs underscores. The pipeline names
+its output columns from that field (`resmarker_dhfr-ts_108` exists in the live tables), so
+the published spelling is the one downstream expects; the generator adopts it from the
+default and then asserts every shared row matches byte for byte - 41 shared rows for
+PfPHAST, 52 for MAD4HatTeR, zero differences. Second, that hyphen/underscore split also
+meant `panels.gene_token` produced `3d7-1322700` from the bed and `3d7_1322700` from the
+registry, so a generated bed did not compare equal to its own panel. Fixed by normalising
+separators after the alias lookup, which leaves `dhfr-ts -> dhfr` intact.
+
+**Evidence.** Both generated beds now equal their panel's reach exactly
+(`loci == panel: True`, 82 and 147). All self-checks pass and the MAD4HatTeR regression is
+unchanged at 883 samples, still detecting `MAD4HATTER = pools D1.1 + R1.2 + R2.1`.
+`reference/panel_loci/README.md` records the derivation, the two borrowed conventions, the
+upload commands and which config input takes which file.
