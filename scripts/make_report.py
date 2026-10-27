@@ -136,6 +136,26 @@ def main(argv=None):
                  list(a.resmarker_table or []) + list(a.marker_calls or []) + \
                  ([a.site_metadata] if a.site_metadata else [])
         raw, counts = C.sniff(tables)
+        if not raw:
+            # No country column at all - some workspaces carry Region/District/Latitude/
+            # Longitude and no Country. Coordinates answer the question directly: which
+            # shipped boundary set actually contains these samples. Screening by each map's
+            # bounding box first keeps this cheap.
+            pts = C.sniff_points(tables)
+            hit = C.from_coordinates(pts) if pts else None
+            if hit:
+                iso, cname = hit['iso3'], cname or hit['name']
+                country_note = (f"country inferred from coordinates: {hit['n_inside']} of "
+                                f"{hit['n_tested']} sampled points fall inside "
+                                f"{hit['iso3']} ({hit['name']})")
+                if hit['runners_up']:
+                    country_note += f"; also partly matched {', '.join(hit['runners_up'])}"
+                sys.stderr.write(f'[make_report] {country_note}\n')
+            elif pts:
+                sys.stderr.write(
+                    f'[make_report] no country column, and none of the shipped boundary '
+                    f'sets contains the {len(pts)} sampled coordinates; using '
+                    f'{G.COUNTRY_ISO}. Pass --country-iso3.\n')
         if raw:
             hit = C.resolve(raw)
             if hit and hit['has_map']:

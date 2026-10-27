@@ -107,6 +107,66 @@ def resolve(raw, countries=None, require_map=False):
     return None
 
 
+def from_coordinates(points, log=None):
+    """Which shipped boundary set actually contains these coordinates?
+
+    Used when the data has no country column at all. Coordinates are unambiguous, so this
+    is a stronger signal than a name: it answers exactly the question that matters, namely
+    which admin boundary set the samples fall inside. Screening is by each map's bounding
+    box first, which eliminates almost every country from the map header alone; only the
+    survivors pay for point-in-polygon.
+
+    -> dict(iso3, name, n_inside, n_tested, runners_up) or None.
+    """
+    import glob
+    pts = [(la, lo) for la, lo in points
+           if la is not None and lo is not None and (la, lo) != (0, 0)]
+    if not pts:
+        return None
+    countries = table()
+
+    isos = sorted(os.path.basename(p).split('_')[0]
+                  for p in glob.glob(os.path.join(G.REF_DIR, 'adm2', '*_adm2_map.json.gz')))
+    # bounding-box screen: cheap, and a point outside the box cannot be inside any unit
+    boxed = []
+    for iso in isos:
+        try:
+            m = G.load_country_map(iso)
+        except SystemExit:
+            continue
+        n = sum(1 for la, lo in pts
+                if m['latMin'] <= la <= m['latMax'] and m['lonMin'] <= lo <= m['lonMax'])
+        if n:
+            boxed.append((n, iso))
+    if not boxed:
+        return None
+    boxed.sort(reverse=True)
+
+    # point-in-polygon only for the boxed candidates, best-first
+    scored = []
+    saved = (G.COUNTRY_ISO, G.COUNTRY_NAME)
+    try:
+        for _n, iso in boxed[:8]:
+            G.set_country(iso, (countries.get(iso) or {}).get('name'))
+            hits = sum(1 for la, lo in pts if G.dept_of_point(la, lo))
+            if log:
+                log.write(f'[countries] {iso}: {hits}/{len(pts)} sampled coordinates '
+                          f'fall inside its admin units\n')
+            scored.append((hits, iso))
+            if hits == len(pts):
+                break
+    finally:
+        G.set_country(*saved)
+    scored.sort(reverse=True)
+    if not scored or not scored[0][0]:
+        return None
+    hits, iso = scored[0]
+    c = countries.get(iso) or {}
+    return {'iso3': iso, 'name': c.get('name') or iso, 'n_inside': hits,
+            'n_tested': len(pts),
+            'runners_up': [i for h, i in scored[1:4] if h]}
+
+
 def sniff(paths, column_names=('country', 'admin0', 'adm0', 'country_name'), limit=5000):
     """Most common country value across the given tables. -> (value, counts) or (None, {})."""
     import csv
@@ -131,6 +191,34 @@ def sniff(paths, column_names=('country', 'admin0', 'adm0', 'country_name'), lim
     if not counts:
         return None, {}
     return max(counts, key=counts.get), counts
+
+
+def sniff_points(paths, limit=400, keep=12):
+    """A handful of coordinates from the given tables, for from_coordinates()."""
+    import csv
+    lat_names = ('lat', 'latitude')
+    lon_names = ('lon', 'long', 'longitude')
+    out = []
+    for p in paths or []:
+        delim = '\t' if str(p).lower().endswith(('.tsv', '.txt')) else ','
+        try:
+            with open(p, newline='', encoding='utf-8-sig') as fh:
+                rd = csv.DictReader(fh, delimiter=delim)
+                cols = {(h or '').strip().lower(): h for h in (rd.fieldnames or [])}
+                la = next((cols[c] for c in lat_names if c in cols), None)
+                lo = next((cols[c] for c in lon_names if c in cols), None)
+                if not (la and lo):
+                    continue
+                for i, row in enumerate(rd):
+                    if i >= limit or len(out) >= keep:
+                        break
+                    try:
+                        out.append((float(row[la]), float(row[lo])))
+                    except (TypeError, ValueError, KeyError):
+                        continue
+        except OSError:
+            continue
+    return out
 
 
 def demo():
@@ -174,6 +262,26 @@ def demo():
     # a real country we ship no boundaries for is recognised, and says so
     r = resolve('France', c)
     assert r['iso3'] == 'FRA' and not r['has_map'], r
+
+    # Coordinates, for tables with no country column at all. Unit centroids are inside
+    # their own unit by construction, so they are a fair probe.
+    import gen_reports as _G
+    saved = (_G.COUNTRY_ISO, _G.COUNTRY_NAME)
+    try:
+        for iso in ('UGA', 'SEN'):
+            _G.set_country(iso, None)
+            pts = [(d['lat'], d['lon']) for d in _G.MAP['depts'][:8]]
+            _G.set_country(*saved)
+            hit = from_coordinates(pts)
+            assert hit and hit['iso3'] == iso, (iso, hit)
+            assert hit['n_inside'] >= 6, (iso, hit)   # a centroid can miss on a sliver
+        # the middle of the Atlantic belongs to no shipped boundary set
+        assert from_coordinates([(0.0, -30.0)]) is None
+        # and no usable points means no guess
+        assert from_coordinates([]) is None
+        assert from_coordinates([(None, None)]) is None
+    finally:
+        _G.set_country(*saved)
 
     print('countries demo OK')
     for n in ('Uganda', 'DRC', 'Ivory Coast', 'Ugandaa', 'Senagal', 'France', 'Wakanda'):

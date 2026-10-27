@@ -1833,3 +1833,47 @@ have ended this two rounds earlier.
 refused, single launch row 192, two-workflow submission partitions 192/237, and the new
 1-byte-ids-file case 192. Self-scope tests: Good 178 QC pass, Poor 175, off-Terra 353
 unscoped. Image 0.12.6.
+
+## 2026-10-27T17:40:00Z  — Country inferred from coordinates, for tables with no country column
+
+**Context.** A run in a new workspace, `JTS_TEST_COPY_Nairobi_Training_Dataset`
+(submission `f0248615`), failed. Two separate things in that log.
+
+**Confirmation first.** The set scoping worked in Terra, for the first time:
+`[terra_scope] this workflow was launched on ug_test_samples_set/UG_TEST_ALL` /
+`scoping this report to ...: 429 members`, and the selection reported 411 of 429 matched.
+That is the image-side fallback doing its job on a real submission, which is what the last
+three rounds were about.
+
+**The new failure.** `ug_test_samples` has `Region`, `District`, `Latitude`, `Longitude`,
+`site` and `Year` but **no `Country` column at all** - unlike `pfphast_sample` in the other
+workspace, which has one. So the name lookup had nothing to read, the country stayed at the
+`SEN` default, and all 353 Ugandan samples fell outside Senegal: 0 samples and a correct
+hard failure.
+
+**Decision / action.** Added `countries.from_coordinates()`: given a handful of sample
+coordinates, work out which shipped boundary set actually contains them. Coordinates are a
+stronger signal than any name, because they answer precisely the question that matters -
+which admin boundary set these samples fall inside. Cost is kept down by screening each
+map's bounding box first, which needs only the map header and eliminates almost every
+country; point-in-polygon runs on at most the eight survivors, best-first, and stops early
+on a clean sweep. On the real table UGA sorted first and hit 12/12 in one pass.
+
+Resolution order is now: explicit `country_iso3`, then a country column if the data has a
+usable one, then coordinates, then warn and keep the default. Each path reports which it
+used, and the report carries it in `meta.country_resolution`, so a reader can always see
+how the boundary set was chosen.
+
+**Evidence.** Nairobi table: `country inferred from coordinates: 12 of 12 sampled points
+fall inside UGA (Uganda)`, 353 samples, 34/135 units, period 2024 - verified both locally
+and inside image 0.12.7. The pfphast table still resolves by name (`'Uganda' -> UGA via
+exact`) and never touches the coordinate path; an explicit `--country-iso3` still short-
+circuits both. Self-check covers UGA and SEN unit centroids, a mid-Atlantic point that
+belongs to no shipped set, and empty/None input. All other regressions unchanged: NOMADS 24
+samples, Senegal long tables 883, entities and self-scope suites pass, synthetic build
+clean.
+
+**Noted, not acted on.** Panel detection on this dataset is reported AMBIGUOUS: 19 loci
+match PFPHAST exactly but sit within 0.10 of MAD4HATTER, because 19 loci is a small
+signature and both panels contain them. It chose PFPHAST, which is right, and said so
+rather than asserting.
