@@ -1746,3 +1746,46 @@ validate under womtool-92.
 different contents while I was chasing the stale-layer problem. 0.12.4 is the first tag
 built exactly once, from a verified-matching tree, and is the only one that should be
 pushed.
+
+## 2026-10-27T11:40:00Z  — Set scoping moved into the image, because that is the channel that updates
+
+**Context.** The stale-WDL diagnosis was right but the remedy was not actionable: the
+operator cannot refresh Dockstore, and wants to keep running off the branch. They also want
+it correct with default inputs rather than relying on someone remembering a binding.
+
+**The asymmetry that decides the design.** Two delivery channels with very different
+latency: the docker image is pushed and takes effect on the next submission, while the WDL
+reaches Terra through Dockstore, which caches a branch and was serving a descriptor from
+around `e0e5951` - before `launch_row_id` existed. Any fix placed in the WDL could sit
+unused indefinitely. So the scoping belongs in the image.
+
+**Decision / action.** Added `scripts/terra_scope.py`. From inside the render task it reads
+its own bucket, submission id and workflow id out of the `gcs_delocalization.sh` that
+Cromwell localises into every job, asks Terra which workspace that bucket is and which
+entity *this* workflow was launched on, and if that entity is a `*_set`, reads its members.
+`make_report` turns those into a normal report selection, so every existing mechanism -
+denominators, the selection label, the "selected samples only" callout, the
+matched/missing accounting - works unchanged. Requires nothing at all from the WDL, so it
+fixes the stale descriptor in place.
+
+**A bug in my own guard, found by the test rather than by reading.** I wrote
+`if selection is None`, but `Selection.from_arg` returns an *empty Selection*, never None.
+The whole block was therefore dead: the first end-to-end run still reported 353 samples and
+wrote no `terra_scope` metadata at all. Changed to `if not selection`, which is the
+emptiness test the class's own `__bool__` exists for. Worth recording because the symptom -
+"the feature does nothing, silently" - is identical to the symptom of the Dockstore
+staleness I had just spent an hour on, and I would have mistaken one for the other without
+the test.
+
+**Evidence.** `tests/test_self_scope.py` stubs `terra_scope.detect` (the API shape is
+covered separately in `tests/test_terra_entities.py`) and runs the real `make_report`:
+`Good` gives 192 requested / 184 matched / 178 QC pass with selection
+`pfphast_sample_set: Good`; `Poor` gives 237 / 227 / 175; off Terra gives 353 with no
+selection. The test asserts the two sets' counts *differ* and that their requested totals
+sum to 429, so a regression to the merged cohort fails rather than looking plausible.
+Image 0.12.5 carries the module and its self-check passes inside the container.
+
+**Still true, and the operator should decide.** Setting `sample_ids =
+this.samples.pfphast_sample_id` in the method config fixes this today with no push at all,
+using a code path that has been in the image from the start. The image-side scoping is the
+belt to that braces, for when nobody sets it.

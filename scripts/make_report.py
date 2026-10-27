@@ -177,6 +177,23 @@ def main(argv=None):
     # metadata and rendered, rather than quietly narrowing the cohort.
     selection = G.Selection.from_arg(a.sample_ids, a.selection_label or cfg.get('selection_label'))
 
+    # Nobody said which samples? If this is a Terra task launched on a sample set, scope to
+    # that set's members. Deliberately done here rather than in the WDL: the image is
+    # pushed and takes effect at once, while the WDL reaches Terra through Dockstore, which
+    # caches a branch and can serve a descriptor that is weeks old. Two sets launched
+    # together would otherwise each report the whole table - a wrong number that looks
+    # entirely normal.
+    scope = None
+    # from_arg returns an empty Selection, never None, so test emptiness rather than
+    # identity - getting this wrong silently skipped the whole block.
+    if not selection and not a.sample_ids:
+        import terra_scope
+        scope = terra_scope.detect()
+        if scope:
+            selection = G.Selection(scope['members'],
+                                    a.selection_label or cfg.get('selection_label')
+                                    or f"{scope['entity_type']}: {scope['entity_name']}")
+
     if a.assay == 'WGS':
         if not a.sample_table:
             raise SystemExit('--assay WGS requires --sample-table')
@@ -249,6 +266,11 @@ def main(argv=None):
 
     # metadata overrides: explicit flags win over the config file
     rep['meta']['version'] = version
+    if scope:
+        rep['meta']['terra_scope'] = {k: scope[k] for k in
+                                      ('entity_type', 'entity_name', 'submission_id',
+                                       'workflow_id')}
+        rep['meta']['terra_scope']['n_members'] = len(scope['members'])
     if country_note:
         rep['meta']['country_resolution'] = country_note
     if a.data_source:
