@@ -1543,3 +1543,34 @@ workflow.
 declared --assay MAD4HATTER but the loci look like PFPHAST". All three pipelines and both
 task files pass `miniwdl check`, every path in `.dockstore.yml` resolves, and no stale
 `Mad4hatter` identifier remains in the WDL or config.
+
+## 2026-10-27T09:00:00Z  — Terra import 400: not the WDL. The repo is private, and an earlier claim of mine was wrong
+
+**Context.** The operator pushed, registered on Dockstore and hit
+`{"exceptionClass":"cromwell.client.ApiException","message":"Bad Request","source":"rawls",
+"statusCode":400}` on import, then asked whether it was because the repo is private.
+
+**Ruled out the WDL first, with the right tool.** `miniwdl check` passing proves nothing
+about Cromwell, which is a different parser and the one Rawls calls. Downloaded
+`womtool-92.jar` (the current Cromwell release) and validated every descriptor: all three
+pipelines and all three task files return `Success!`. So the 400 is not a syntax or typing
+error in the WDL.
+
+**The repo is private.** `GET /repos/jonn-smith/tmp_malaria_reports` returns 404
+anonymously, as does `raw.githubusercontent.com` for `.dockstore.yml` and both WDL paths on
+the pushed branch. That is consistent with the failure mode: Dockstore resolves a WDL's
+relative imports by reading sibling files out of the repository, so without read access the
+primary descriptor arrives unresolvable and Cromwell rejects it with exactly this error.
+Every pipeline here uses relative imports (`../../../tasks/...`), which is the fragile part.
+
+**A correction to my own record.** The entry at 2026-10-26T00:00Z said "This repo is public
+as of the v0.12 push" when I decided to git-ignore `testdata/terra/`. That was asserted, not
+checked, and it is wrong. The decision it justified still stands for a better reason - real
+per-sample genotypes and coordinates should not be committed whether or not the repository
+is currently private, because visibility can change with one click and the data cannot be
+un-published.
+
+**Outcome.** Nothing to fix in this repository. The options are to make the repo public, or
+to grant the Dockstore GitHub App read access to it; and note that Terra's import flow
+generally wants a *published* Dockstore workflow, so an unpublished private entry can fail
+even once access is granted.
