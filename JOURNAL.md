@@ -1310,3 +1310,38 @@ works, and mixing shapes is refused with a clear message.
 **Still open on this data.** It has no collection date of any kind (`Age_years` is patient
 age), so `period` is `n/a` and the Trends tab has zero frames. That is a data gap, not a
 code one.
+
+## 2026-10-27T05:30:00Z  — Uganda boundaries replaced with OCHA COD-AB; programme zones are not region errors
+
+**Context.** The recommendation from the previous entry was to replace the Uganda boundary
+file rather than build a county-to-district crosswalk. The operator asked me to fetch it.
+
+**Action.** Pulled `cod-ab-uga` from HDX (`uga_admin_boundaries.geojson.zip`, dataset
+updated 2026-09-24; the ADM2 layer is `valid_on` 2020-08-24, version v01) and rebuilt
+`reference/adm2/UGA_adm2_map.json.gz` from `uga_admin2.geojson`. 135 modern districts
+(Abim, Adjumani, Agago, Alebtong, ...) with the four official regions as parents, replacing
+geoBoundaries gbOpen's 151 old counties. `build_maps.py` learned the OCHA property names
+(`adm2_name`/`adm2_ref_name`, parent `adm1_name`) alongside the geoBoundaries and older COD
+spellings.
+
+**Acceptance test, run before committing.** All 34 district values in the real PfPhast
+table match an OCHA ADM2 unit exactly - zero unmatched. Re-running the report: 353 samples
+placed, **zero unplaced and zero district mismatches**, where the old file produced 236
+"district not in this boundary file" and 24 coordinate/name disagreements. The map is
+larger - 575 KB against 94 KB - because the OCHA geometry is higher resolution;
+`reference/adm2` is now 4.7 MB total, which is still cheap.
+
+**A finding that changed the audit.** With the districts fixed, 28 *region* mismatches
+remained, and they were not errors. Uganda's data records programme zones in its region
+column - Acholi, Lango, West Nile, Busoga / Bukedi, Teso / Karamoja, Kigezi, Bunyoro,
+North Buganda / Tooro, and "IRS Districts" - which is the NMCP's operational division, not
+the four official admin-1 regions. Comparing the two vocabularies is meaningless, so
+`geoloc` now checks whether a given region is an admin-1 name in the boundary file at all:
+if it is not, it is recorded once as a programme-zone vocabulary note covering N samples
+and kept for display, instead of N per-district "mismatch" lines. A region that *is* an
+admin-1 name but the wrong one is still a mismatch, which the self-check covers both ways.
+
+**Evidence.** Uganda now reports: `placed 353 samples by: coordinates=353` and a single
+note naming the programme zones over 298 samples, 34/135 units. Senegal, the Nomadic table
+and the long MAD4HatTeR tables all unchanged. The `geoloc` self-check asserts both the
+wrong-admin-1 case (Bakel given Kolda) and the foreign-vocabulary case ("IRS Districts").

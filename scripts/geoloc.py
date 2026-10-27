@@ -49,6 +49,8 @@ class Audit:
         self.unplaced = {}        # raw district name -> {'n', 'suggest', 'reason'}
         self.aliased = {}         # raw name -> resolved unit
         self.region_mismatch = {} # (district, given region) -> {'n', 'expected'}
+        self.region_given = {}    # every region value seen -> n
+        self.region_foreign = {}  # region values that are not admin-1 names here -> n
         self.coords_vs_name = {}  # (raw name, unit from coords) -> {'n'}  both valid, differ
         self.name_unknown_coords_ok = {}  # (raw name, unit from coords) -> {'n'}
         self.country_other = {}   # given country -> n
@@ -92,6 +94,14 @@ class Audit:
                                         key=lambda kv: -kv[1]['n']):
             out.append(f"MISMATCH {info['n']:4d} sample(s): district {raw!r} is not a unit in "
                        f"this boundary file; coordinates placed them in {unit!r}")
+        if self.region_foreign:
+            tot = sum(self.region_foreign.values())
+            vals = ', '.join(sorted(self.region_foreign)[:8])
+            out.append(f"note: the region column uses names that are not admin-1 units of "
+                       f"this boundary file ({vals}"
+                       f"{' ...' if len(self.region_foreign) > 8 else ''}), covering {tot} "
+                       f"sample(s). Treated as programme zones and kept for display; "
+                       f"placement used the district and coordinates only")
         for (dist, given), info in sorted(self.region_mismatch.items()):
             out.append(f"MISMATCH {info['n']:4d} sample(s): district {dist!r} is in region "
                        f"{info['expected']!r} per the boundary file, but the data says "
@@ -115,6 +125,9 @@ class Audit:
         if self.coords_outside:
             rows.append(('unplaced_coords_outside_country', G.COUNTRY_ISO,
                          self.coords_outside, 'check lat/lon order and sign'))
+        for g, n in sorted(self.region_foreign.items()):
+            rows.append(('region_not_admin1_of_boundary_file', g, n,
+                         'kept for display; treated as a programme zone'))
         for (raw, unit), info in sorted(self.coords_vs_name.items()):
             rows.append(('coords_disagree_with_district', f'{raw} / {unit}', info['n'],
                          'coordinates used'))
@@ -151,6 +164,7 @@ class Audit:
                                  'n': i['n']}
                                 for (d, g), i in sorted(self.region_mismatch.items())],
             'other_country': dict(self.country_other),
+            'region_foreign': dict(self.region_foreign),
             'aliases_used': dict(self.aliased),
         }
 
@@ -161,6 +175,11 @@ class Resolver:
     def __init__(self, audit=None):
         self.audit = audit or Audit()
         self._by_na = {G._na(d['name']): d['name'] for d in G.DEPTS}
+        # The admin-1 vocabulary of the boundary file, used to tell "this region value
+        # disagrees" apart from "this data uses a different kind of region entirely".
+        self._region_vocab = {G._na(r) for r in
+                              ((G.SEN_REGION.get(d['name']) if G.COUNTRY_ISO == 'SEN' else None)
+                               or G.region_of(d['name']) or '' for d in G.DEPTS) if r}
         self._exact = {d['name']: d['name'] for d in G.DEPTS}
         self._names = [d['name'] for d in G.DEPTS]
 
@@ -244,8 +263,17 @@ class Resolver:
             or G.region_of(unit)
         if not expected:
             return
-        if G._na(str(given)) != G._na(expected):
-            key = (unit, str(given).strip())
+        g = str(given).strip()
+        self.audit.region_given[g] = self.audit.region_given.get(g, 0) + 1
+        if G._na(g) not in self._region_vocab:
+            # Not an admin-1 name in this boundary file at all. Programmes record
+            # operational zones (Uganda's NMCP uses Acholi, Lango, West Nile, "IRS
+            # Districts") that are a different division from the official regions, so this
+            # is a vocabulary difference to state once, not a per-district error.
+            self.audit.region_foreign[g] = self.audit.region_foreign.get(g, 0) + 1
+            return
+        if G._na(g) != G._na(expected):
+            key = (unit, g)
             info = self.audit.region_mismatch.setdefault(key, {'n': 0, 'expected': expected})
             info['n'] += 1
 
@@ -289,9 +317,16 @@ def demo():
     # admin-0/admin-1 alone cannot place anything
     assert r.resolve(country='Senegal', region='Kolda')[0] is None
 
-    # a region that disagrees with the boundary file is flagged, not corrected
-    r.resolve(district='Bakel', region='Nowhere Region')
+    # a region that IS an admin-1 name here but the wrong one is a mismatch
+    r.resolve(district='Bakel', region='Kolda')
     assert any(k[0] == 'Bakel' for k in r.audit.region_mismatch), r.audit.region_mismatch
+
+    # a region from a different vocabulary entirely - a programme zone - is noted once
+    # rather than reported as a per-district error
+    r.resolve(district='Bakel', region='IRS Districts')
+    assert 'IRS Districts' in r.audit.region_foreign, r.audit.region_foreign
+    assert not any(k[1] == 'IRS Districts' for k in r.audit.region_mismatch)
+    assert any('not admin-1 units' in l for l in r.audit.lines())
 
     assert r.audit.problems()
     assert any('UNPLACED' in l for l in r.audit.lines())

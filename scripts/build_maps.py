@@ -90,14 +90,18 @@ def project(feats, iso=None, country=None):
         c = centroid(co, gt)
         if not paths or not c: continue
         props = ft.get('properties') or {}
-        name = (props.get('shapeName') or props.get('unit_name') or props.get('NAME_2')
-                or props.get('name') or props.get('shapeID') or '')
+        # OCHA COD-AB uses adm2_name/adm2_ref_name; geoBoundaries uses shapeName; older
+        # COD exports use unit_name. Try the lot rather than per-source special cases.
+        name = (props.get('shapeName') or props.get('adm2_name') or props.get('adm2_ref_name')
+                or props.get('unit_name') or props.get('NAME_2') or props.get('name')
+                or props.get('shapeID') or '')
         rec = {'name': name, 'path': ' '.join(paths),
                'cx': round(X(c[0]), 1), 'cy': round(Y(c[1]), 1),
                'lat': round(c[1], 3), 'lon': round(c[0], 3)}
         # parent_name is the admin-1 unit in OCHA COD-AB files; ignore it when it is just
         # the country itself (single-level sources), since that is not a region
-        parent = (props.get('parent_name') or '').strip()
+        parent = (props.get('parent_name') or props.get('adm1_name')
+                  or props.get('adm1_ref_name') or '').strip()
         if parent and parent.lower() not in ('', (country or '').lower(), (iso or '').lower()):
             rec['region'] = parent
         if props.get('admin_level') not in (None, ''): levels.add(str(props['admin_level']))
