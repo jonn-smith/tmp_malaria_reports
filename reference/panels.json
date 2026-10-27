@@ -9,7 +9,10 @@
  "panels": {
   "4cast": {
    "assay_name": "Amplicon sequencing",
+   "export_assay_name": "Amplicon sequencing",
+   "full": "4cast targeted panel (Illumina)",
    "label": "4cast",
+   "links": [],
    "loci": [
     "csp:294",
     "csp:295",
@@ -29,6 +32,7 @@
     "csp:380"
    ],
    "note": "standalone panel",
+   "platform": "Illumina short-read amplicon",
    "pools": [
     "4cast"
    ],
@@ -36,7 +40,10 @@
   },
   "AMPLseq": {
    "assay_name": "Amplicon sequencing",
+   "export_assay_name": "Amplicon sequencing",
+   "full": "AMPLseq targeted panel (Illumina)",
    "label": "AMPLseq",
+   "links": [],
    "loci": [
     "csp:294",
     "csp:295",
@@ -130,6 +137,7 @@
     "mdr2:515"
    ],
    "note": "standalone panel",
+   "platform": "Illumina short-read amplicon",
    "pools": [
     "AMPLseq"
    ],
@@ -137,7 +145,19 @@
   },
   "MAD4HATTER": {
    "assay_name": "Amplicon sequencing",
+   "export_assay_name": "Amplicon sequencing",
+   "full": "MAD4HatTeR targeted panel (Illumina)",
    "label": "MAD4HatTeR",
+   "links": [
+    [
+     "MAD4HatTeR pipeline (GitHub)",
+     "https://github.com/EPPIcenter/mad4hatter"
+    ],
+    [
+     "Wonderland docs",
+     "https://eppicenter.github.io/wonderland-docs/"
+    ]
+   ],
    "loci": [
     "3d7_1322700:236",
     "arps10:127",
@@ -288,6 +308,7 @@
     "pib7:1484"
    ],
    "note": "pools preset by the 01_Mad4Hatter workflow",
+   "platform": "Illumina short-read amplicon",
    "pools": [
     "D1.1",
     "R1.2",
@@ -297,7 +318,15 @@
   },
   "MAD4HATTER_R1.1": {
    "assay_name": "Amplicon sequencing",
+   "export_assay_name": "Amplicon sequencing",
+   "full": "MAD4HatTeR targeted panel, legacy R1.1 pool (Illumina)",
    "label": "MAD4HatTeR (legacy R1.1 pool)",
+   "links": [
+    [
+     "MAD4HatTeR pipeline (GitHub)",
+     "https://github.com/EPPIcenter/mad4hatter"
+    ]
+   ],
    "loci": [
     "3d7_1322700:236",
     "arps10:127",
@@ -451,6 +480,7 @@
     "pph:1157"
    ],
    "note": "R1.2 is the reduced replacement for R1.1",
+   "platform": "Illumina short-read amplicon",
    "pools": [
     "D1.1",
     "R1.1",
@@ -460,7 +490,15 @@
   },
   "NOMADS": {
    "assay_name": "Amplicon sequencing (Nanopore)",
+   "export_assay_name": "ONT amplicon sequencing",
+   "full": "NOMADS targeted panel (Oxford Nanopore)",
    "label": "NOMADS nanopore amplicon panel",
+   "links": [
+    [
+     "NOMADS community (GitHub)",
+     "https://github.com/nomads-community"
+    ]
+   ],
    "loci": [
     "ama1:121",
     "ama1:162",
@@ -506,12 +544,25 @@
     "mdr1:86"
    ],
    "note": "from the Nomadic workspace sample table",
+   "platform": "ONT MinION (nomads16)",
    "pools": [],
    "source": "gates-malaria/Nomadic_development"
   },
   "PFPHAST": {
    "assay_name": "Amplicon sequencing",
+   "export_assay_name": "Amplicon sequencing",
+   "full": "PfPHAST targeted panel (Illumina)",
    "label": "PfPHAST",
+   "links": [
+    [
+     "EPPIcenter resources",
+     "https://eppicenter.ucsf.edu/resources"
+    ],
+    [
+     "Wonderland docs",
+     "https://eppicenter.github.io/wonderland-docs/"
+    ]
+   ],
    "loci": [
     "crt:72",
     "crt:73",
@@ -597,6 +648,7 @@
     "mdr1:86"
    ],
    "note": "pools preset by the 01_PfPhast workflow",
+   "platform": "Illumina short-read amplicon",
    "pools": [
     "M1.1",
     "M2.1"
@@ -605,7 +657,10 @@
   },
   "spotmalaria_grc1": {
    "assay_name": "Amplicon sequencing",
+   "export_assay_name": "Amplicon sequencing",
+   "full": "spotmalaria_grc1 targeted panel (Illumina)",
    "label": "spotmalaria_grc1",
+   "links": [],
    "loci": [
     "arps10:127",
     "crt:220",
@@ -652,6 +707,7 @@
     "mdr1:86"
    ],
    "note": "standalone panel",
+   "platform": "Illumina short-read amplicon",
    "pools": [
     "spotmalaria_grc1"
    ],
@@ -659,7 +715,10 @@
   },
   "spotmalaria_grc2": {
    "assay_name": "Amplicon sequencing",
+   "export_assay_name": "Amplicon sequencing",
+   "full": "spotmalaria_grc2 targeted panel (Illumina)",
    "label": "spotmalaria_grc2",
+   "links": [],
    "loci": [
     "crt:271",
     "crt:356",
@@ -745,6 +804,7 @@
     "mdr2:515"
    ],
    "note": "standalone panel",
+   "platform": "Illumina short-read amplicon",
    "pools": [
     "spotmalaria_grc2"
    ],
@@ -752,7 +812,10 @@
   },
   "v1": {
    "assay_name": "Amplicon sequencing",
+   "export_assay_name": "Amplicon sequencing",
+   "full": "v1 targeted panel (Illumina)",
    "label": "v1",
+   "links": [],
    "loci": [
     "csp:352",
     "csp:354",
@@ -837,6 +900,7 @@
     "mdr2:515"
    ],
    "note": "standalone panel",
+   "platform": "Illumina short-read amplicon",
    "pools": [
     "v1"
    ],
@@ -844,7 +908,10 @@
   },
   "v2": {
    "assay_name": "Amplicon sequencing",
+   "export_assay_name": "Amplicon sequencing",
+   "full": "v2 targeted panel (Illumina)",
    "label": "v2",
+   "links": [],
    "loci": [
     "csp:293",
     "csp:294",
@@ -944,6 +1011,7 @@
     "mdr2:515"
    ],
    "note": "standalone panel",
+   "platform": "Illumina short-read amplicon",
    "pools": [
     "v2"
    ],

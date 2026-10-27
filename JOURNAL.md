@@ -1658,3 +1658,55 @@ input at all**: 2 tasks exit 0, country resolved from the data as Uganda, 353 sa
 34/135 districts, period 2024. Senegal regression still builds (883 samples) and logs that
 its `Country` column holds `DALABA`. Self-checks pass for countries/panels/geoloc/
 terra_samples; all three pipelines validate under womtool-92.
+
+## 2026-10-27T10:30:00Z  — Three bugs: ONT platform on Illumina data, hardcoded Senegal, and sets merged into one report
+
+**Context.** Operator reported the PfPHAST report claiming an ONT platform, then that
+launching two sample sets produced one combined report.
+
+**Bug 1: the wide amplicon route reported an ONT platform.** `load_nomads` called
+`G.assemble_report('NOMADS', G.ASSAYS['NOMADS'], ...)`, hardcoding the NOMADS spec, so
+`assay_full`, `platform`, `note` and `links` all described Oxford Nanopore for Illumina
+PfPHAST data. Worse, `real_export` is built inside that loader and `build_pha4ge` reads
+`meta['platform']`, so **"ONT MinION (nomads16)" was written into the PHA4GE instrument
+field of 2268 export rows** - a wrong value in a data file someone else loads, which no
+later correction to the page could undo. Fixing `meta['assay']` in `make_report`
+afterwards, as I had, was too late and too shallow. Now platform metadata lives per panel
+in `reference/panels.json` (`full`, `platform`, `export_assay_name`, `links`) and the
+loader assembles under the *detected* panel, before the exports are built.
+
+**Bug 2: PHA4GE hardcoded the country as Senegal.** `gen_reports.py:823` wrote
+`'geo_loc_name(country)': 'Senegal'` literally, a leftover from the Senegal-only era, so
+Ugandan samples exported as Senegal next to correctly-resolved Ugandan districts. Now
+follows `COUNTRY_NAME`.
+
+**Bug 3, mine, and the worst: two launched sets merged into one cohort.** My auto-scoping
+used `get_terra_env_info.input_row_id`, which joins **every** workflow entity in the
+submission rather than naming this workflow's own row. Launching `Good` and `Poor`
+together gave every workflow `"Good,Poor"`, and I took the union - producing one 429-sample
+cohort reported twice under two different names, with nothing failing. The task now uses a
+single launch row and **refuses outright** when several are present, pointing at
+`sample_ids = this.samples.<id>`, which Terra resolves per workflow. Covered by three new
+cases in `tests/test_terra_entities.py`: two rows refused, one row scopes to 192 members,
+an explicit id list wins over multiple launch rows.
+
+**A process failure worth recording, because it cost the operator real time.** I twice
+declared fixes verified against images that did not contain them. Three compounding
+causes: `docker build` served a cached `COPY scripts/` layer; my content assertion covered
+only `scripts/` and `templates/`, so a stale `reference/panels.json` shipped inside an
+image whose code was current; and the `0.12.2` tag stopped moving to freshly built images
+altogether, so `docker run` kept executing a 30-minute-old build while the build log said
+"Successfully tagged". `miniwdl` compounded it by pinning a Swarm service to the first
+image a tag resolved to.
+
+Mitigations: `--no-cache`; the content assertion now covers `scripts`, `templates`,
+`reference` and `schemas` (null-delimited, since `schemas/` has spaces in filenames); and
+the rule I should have followed from the start - **verify behaviour with `docker run` on a
+freshly numbered tag, never by rebuilding a tag already used**. Hence 0.12.3.
+
+**Evidence, all on the fresh 0.12.3 tag.** Direct `docker run`: country Uganda from the
+data, assay PFPHAST, `PfPHAST targeted panel (Illumina)`, platform `Illumina short-read
+amplicon`, and **0 ONT and 0 Senegal lines across all four export CSVs** (previously 2268
+each in PHA4GE). Full pipeline under miniwdl: 2 tasks exit 0, 353 samples, 34/135 units,
+period 2024, same correct platform. NOMADS regression unchanged: `NOMADS | ONT MinION
+(nomads16)`. All self-checks and all WDL descriptors pass.

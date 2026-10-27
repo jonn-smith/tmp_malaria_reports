@@ -820,7 +820,7 @@ def build_pha4ge(samples, mkdefs, assay_name, platform):
         d = str(s.get('date') or ''); iso = _iso_date(d)
         base.update({'specimen_collector_sample_ID': s['id'], 'organism': 'Plasmodium falciparum',
                      'host_taxid': '9606', 'host(common_name)': 'Human', 'host(scientific_name)': 'Homo sapiens',
-                     'geo_loc_name(country)': 'Senegal', 'geo_loc_name(state/province/territory)': s.get('region') or '',
+                     'geo_loc_name(country)': (COUNTRY_NAME or 'Senegal'), 'geo_loc_name(state/province/territory)': s.get('region') or '',
                      'geo_loc_name(county/region)': s.get('district') or '', 'geo_loc_name(city)': s.get('site') or '',
                      'sample_collection_date': iso,
                      'sample_collection_date_precision': ('day' if len(d) >= 8 and d[:8].isdigit() else 'year' if iso else ''),

@@ -351,10 +351,32 @@ def load(call_tables, site_metadata=None, version=None, data_source=None, select
                      f"depts sampled={ns}/{len(units)} dropped={{'no_marker': {drop['no_marker']}, "
                      f"'not_typed': {drop['not_typed']}, 'no_location': {drop['no_location']}}}\n")
 
-    rep = G.assemble_report('NOMADS', G.ASSAYS['NOMADS'], units, selection)
+    # Assemble under the DETECTED panel, not under this loader's name. The spec supplies
+    # assay_full, platform, note and links, and the exports read meta['platform'] while
+    # being built here - so getting this wrong stamped "ONT MinION (nomads16)" into the
+    # PHA4GE instrument field for Illumina runs, which no later correction could undo.
+    _key = detection.get('panel') or 'NOMADS'
+    _pspec = panels.registry().get(_key) or {}
+    _spec = dict(G.ASSAYS.get(_key) or {})
+    for _field, _dflt in (('full', None), ('platform', None), ('note', None),
+                          ('links', None), ('color', None), ('genes', set()),
+                          ('tabs', None)):
+        if _field not in _spec:
+            _spec[_field] = G.ASSAYS['NOMADS'].get(_field, _dflt)
+    if _pspec.get('full'):     _spec['full'] = _pspec['full']
+    if _pspec.get('platform'): _spec['platform'] = _pspec['platform']
+    if _pspec.get('links') is not None: _spec['links'] = _pspec['links']
+    if _pspec.get('pools'):
+        _spec['note'] = (f"{_pspec.get('label', _key)} amplicon panel, primer pools "
+                         f"{' + '.join(_pspec['pools'])}. Prevalence is shown for the "
+                         f"markers this panel types that the WHO compendium lists.")
+    rep = G.assemble_report(_key, _spec, units, selection)
     rep['meta']['real'] = True
     rep['meta']['version'] = version or G.VERSION
-    rep['meta']['data_source'] = data_source or 'NOMADS ONT amplicon · nomadic marker calls'
+    rep['meta']['data_source'] = (data_source
+                                  or (f"{_pspec['label']} amplicon · per-sample table"
+                                      if _pspec.get('label') else
+                                      'NOMADS ONT amplicon · nomadic marker calls'))
     rep['meta']['n_called'] = sum(1 for s in placed if s.get('calls'))
     rep['meta']['location_audit'] = resolver.audit.meta()
     rep['meta']['panel_detection'] = detection
@@ -363,7 +385,11 @@ def load(call_tables, site_metadata=None, version=None, data_source=None, select
         rep['meta']['panel_label'] = detection.get('label')
     rep['meta']['qc_excluded'] = dict(qc_reasons)
     rep['meta']['n_qc_excluded'] = sum(qc_reasons.values())
-    G.real_export(rep, placed, 'ONT amplicon sequencing')
+    # The platform belongs to the panel. This loader also parses Illumina amplicon
+    # tables, so hard-coding ONT here stamped "ONT amplicon sequencing" into the PHA4GE
+    # and Africa CDC exports for short-read runs - a wrong value in a data file someone
+    # else will load, which is worse than a wrong label on a page.
+    G.real_export(rep, placed, _pspec.get('export_assay_name') or 'Amplicon sequencing')
     rep['sites'] = G.sites_from_samples(placed)
     sys.stderr.write(f"[load_nomads] site points={len(rep['sites'])}\n")
     return rep

@@ -125,25 +125,40 @@ task download_terra_entity_table {
         wanted = None
         set_type, set_name = os.environ.get("SET_TYPE", ""), os.environ.get("SET_NAME", "")
 
-        # Launched on a set row and told nothing else? Scope to that set. Reporting on the
-        # whole table while the output is named after one set is the failure mode this
-        # avoids: it does not error, it just quietly answers a different question.
-        if not (set_type and set_name):
+        # Launched on a single set row and told nothing else? Scope to that set.
+        #
+        # input_row_id from get_terra_env_info lists EVERY entity in the submission, not
+        # this workflow's own row, so when two sets are launched together every workflow
+        # sees "Good,Poor". Taking the union produced one combined cohort reported twice
+        # under two different names - a silent merge, the worst outcome available. So a
+        # single row is used and several are refused outright: Terra resolves
+        # `this.samples.<id>` per workflow, which is the mechanism that actually works.
+        explicit_ids_given = bool(os.environ.get("WANTED_IDS_FILE") and
+                                  os.path.exists(os.environ["WANTED_IDS_FILE"]) and
+                                  os.path.getsize(os.environ["WANTED_IDS_FILE"]) > 0)
+        if not (set_type and set_name) and not explicit_ids_given:
             launched = [r.strip() for r in os.environ.get("LAUNCH_ROW_ID", "").split(",")
                         if r.strip()]
             auto = f"{TYPE}_set"
-            found = set()
+            if len(launched) > 1:
+                sys.exit(
+                    f"ERROR: this submission launched {len(launched)} rows "
+                    f"({', '.join(launched[:6])}), and the launch row list is "
+                    f"submission-wide rather than per-workflow, so it cannot tell which "
+                    f"row THIS workflow is for. Scoping from it would merge every "
+                    f"launched set into one cohort and report it under each set's name. "
+                    f"Bind sample_ids = this.samples.<id column> (Terra resolves that per "
+                    f"workflow), or set entity_set_type/entity_set_name, or launch one "
+                    f"row at a time.")
             for row in launched:
                 m = set_members(auto, row)
                 if m:
                     sys.stderr.write(f"launch row {row!r} is a {auto} with {len(m)} "
                                      f"members; scoping the download to it\n")
-                    found |= m
-                elif launched:
+                    wanted = m
+                else:
                     sys.stderr.write(f"launch row {row!r} is not a row of {auto}; "
                                      f"no set scoping applied from it\n")
-            if found:
-                wanted = found
 
         if set_type and set_name:
             members = set_members(set_type, set_name)

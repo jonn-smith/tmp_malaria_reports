@@ -92,4 +92,25 @@ if mine and os.path.exists(mine):
     b = {r[0]: r for r in csv.reader(open(mine), delimiter='\t')}
     assert set(a) - {'entity:pfphast_sample_id'} == set(b) - {'entity:pfphast_sample_id'}, 'row ids differ'
     print(f'                    same {len(a)-1} row ids as the hand-made export')
+# 5. two sets launched together must NOT be merged into one cohort
+try:
+    out5, n5, _ = run(LAUNCH_ROW_ID='Good,Poor')
+    raise AssertionError(f'two launched rows silently produced {n5} rows')
+except AssertionError as e:
+    if 'silently produced' in str(e):
+        raise
+    print('two launched rows -> refused, as intended')
+
+# 6. a single launched set row scopes to that set
+out6, n6, _ = run(LAUNCH_ROW_ID='Good')
+print(f'single launch row   -> {n6} rows')
+assert n6 == 192, n6
+
+# 7. an explicit id list wins over the launch row, and is not refused
+ids2 = tempfile.mktemp()
+open(ids2,'w').write('UG_TEST_G001_S68\nUG_TEST_G002_S90\n')
+out7, n7, _ = run(LAUNCH_ROW_ID='Good,Poor', WANTED_IDS_FILE=ids2)
+print(f'ids + 2 launch rows -> {n7} rows')
+assert n7 == 2, n7
+
 print('\nall entities-call checks passed')

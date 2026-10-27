@@ -8,7 +8,7 @@ task RenderWgsReport {
         description: "Render the malaria molecular-surveillance report from a short-read WGS sample table (a Terra export of the sr-malaria `sample` table, carrying per-amino-acid genotype columns)."
 
         tool:         "make_report.py"
-        tool_version: "0.12.2"
+        tool_version: "0.12.3"
         tool_url:     "https://github.com/jonn-smith/tmp_malaria_reports"
 
         author: "Jonn Smith"
@@ -124,7 +124,7 @@ task RenderWgsReport {
         boot_disk_gb:       25,
         preemptible_tries:  1,
         max_retries:        1,
-        docker:             "us.gcr.io/broad-dsp-lrma/lr-malaria-reports:0.12.2"
+        docker:             "us.gcr.io/broad-dsp-lrma/lr-malaria-reports:0.12.3"
     }
     RuntimeAttr runtime_attr = select_first([runtime_attr_override, default_attr])
     runtime {
@@ -144,7 +144,7 @@ task RenderAmpliconReport {
         description: "Render the malaria molecular-surveillance report from MAD4HATTER amplicon outputs: one resistance-marker table per sequencing run, a per-sample site/coordinate table, and optionally the microhaplotype allele tables."
 
         tool:         "make_report.py"
-        tool_version: "0.12.2"
+        tool_version: "0.12.3"
         tool_url:     "https://github.com/jonn-smith/tmp_malaria_reports"
 
         author: "Jonn Smith"
@@ -270,7 +270,7 @@ task RenderAmpliconReport {
         boot_disk_gb:       25,
         preemptible_tries:  1,
         max_retries:        1,
-        docker:             "us.gcr.io/broad-dsp-lrma/lr-malaria-reports:0.12.2"
+        docker:             "us.gcr.io/broad-dsp-lrma/lr-malaria-reports:0.12.3"
     }
     RuntimeAttr runtime_attr = select_first([runtime_attr_override, default_attr])
     runtime {
@@ -290,7 +290,7 @@ task RenderNomadsReport {
         description: "Render the malaria molecular-surveillance report from NOMADS (ONT amplicon) marker calls. Input is the assay-agnostic marker-calls table documented in scripts/load_nomads.py: one row per sample x marker, so a change in nomadic's own output layout is absorbed by the mapping into that table rather than by this interface."
 
         tool:         "make_report.py"
-        tool_version: "0.12.2"
+        tool_version: "0.12.3"
         tool_url:     "https://github.com/jonn-smith/tmp_malaria_reports"
 
         author: "Jonn Smith"
@@ -410,7 +410,7 @@ task RenderNomadsReport {
         boot_disk_gb:       25,
         preemptible_tries:  1,
         max_retries:        1,
-        docker:             "us.gcr.io/broad-dsp-lrma/lr-malaria-reports:0.12.2"
+        docker:             "us.gcr.io/broad-dsp-lrma/lr-malaria-reports:0.12.3"
     }
     RuntimeAttr runtime_attr = select_first([runtime_attr_override, default_attr])
     runtime {

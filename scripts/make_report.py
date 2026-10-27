@@ -210,6 +210,21 @@ def main(argv=None):
             rep['meta']['assay'] = det.get('panel') or ('AMPLICON' if declared is None
                                                         else declared)
             G.ASSAY_NAME.setdefault(rep['meta']['assay'], 'Amplicon sequencing')
+            # The shared loader describes itself as NOMADS/ONT in assay_full, platform,
+            # note and links. Every one of those is wrong for a short-read run, so they
+            # are replaced from the panel registry rather than left to the loader.
+            import panels as _P
+            _spec = (_P.registry().get(rep['meta']['assay']) or {})
+            for key, field in (('full', 'assay_full'), ('platform', 'platform')):
+                if _spec.get(key):
+                    rep['meta'][field] = _spec[key]
+            if _spec.get('links') is not None:
+                rep['meta']['links'] = _spec['links']
+            if _spec.get('pools'):
+                rep['meta']['note'] = (
+                    f"{_spec.get('label', rep['meta']['assay'])} amplicon panel, primer "
+                    f"pools {' + '.join(_spec['pools'])}. Prevalence is shown for the "
+                    f"markers this panel types that the WHO compendium lists.")
             if not a.data_source:
                 label = (rep['meta'].get('panel_label')
                          or rep['meta']['assay'].replace('_', ' '))

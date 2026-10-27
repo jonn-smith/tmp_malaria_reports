@@ -45,11 +45,10 @@ if [[ "$LABELLED" != "$VERSION" ]]; then
     exit 1
 fi
 # Prove the image contains THIS working tree, not a cached layer of an older one.
-DISK_SUM=$(find scripts templates -type f \( -name '*.py' -o -name '*.html' \) \
-    -not -path '*__pycache__*' | sort | xargs md5sum | md5sum | cut -d' ' -f1)
-IMG_SUM=$(docker run --rm "$IMAGE" bash -c \
-    "cd /opt/malaria_reports && find scripts templates -type f \( -name '*.py' -o -name '*.html' \) \
-     -not -path '*__pycache__*' | sort | xargs md5sum | md5sum | cut -d' ' -f1")
+# -print0/-0 because schemas/ has filenames containing spaces
+SUMCMD="find scripts templates reference schemas -type f -not -path '*__pycache__*' -print0 | sort -z | xargs -0 md5sum | md5sum | cut -d' ' -f1"
+DISK_SUM=$(eval "$SUMCMD")
+IMG_SUM=$(docker run --rm "$IMAGE" bash -c "cd /opt/malaria_reports && $SUMCMD")
 if [[ "$DISK_SUM" != "$IMG_SUM" ]]; then
     echo "ERROR: image contents do not match the working tree (disk $DISK_SUM, image $IMG_SUM)" >&2
     exit 1
