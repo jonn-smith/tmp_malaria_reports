@@ -1345,3 +1345,40 @@ admin-1 name but the wrong one is still a mismatch, which the self-check covers 
 note naming the programme zones over 298 samples, 34/135 units. Senegal, the Nomadic table
 and the long MAD4HatTeR tables all unchanged. The `geoloc` self-check asserts both the
 wrong-admin-1 case (Bakel given Kolda) and the foreign-vocabulary case ("IRS Districts").
+
+## 2026-10-27T06:15:00Z  — Dockstore registration written; sample-set scoping already works; reader task requested
+
+**Context.** The operator asked for a `.dockstore.yml`, wants the report to run on sample
+sets, and told me not to write the Terra table-reader task because they own one - but to
+say whether I already have access to it.
+
+**Do I have access?** No. Both source repos named in the workspace documentation are
+public and I read them: `EPPIcenter/mad4hatter-wdl` and
+`jonn-smith/plasmodiumdrugres-wdl`. The closest thing is
+`modules/local/write_metrics_to_workspace_table.wdl`, which *writes* to a table and takes
+`workspace_name`, `workspace_billing_project`, `entity_type`. There is no reader in either
+tree, and the GitHub code-search API needs auth from here. So I need their task.
+
+**Delivered.** `.dockstore.yml` registering four workflows - Amplicon, Pfphast, Wgs,
+Nomads - in the same shape as their two existing configs (version 1.2, `subclass: WDL`,
+`primaryDescriptorPath`, `readMePath`, `testParameterFiles`). Dockstore is the required
+route rather than a raw GitHub URL, because every pipeline uses relative imports
+(`../../../tasks/...`) that only resolve when the whole repository is pulled. Wrote the
+four READMEs Dockstore needs and the missing
+`wdl/inputs/MalariaSurveillanceReportPfphast.inputs.json`, then verified every one of the
+twelve paths in the config resolves on disk.
+
+**Finding that shrinks the remaining work.** Sample-set scoping needs no new task at all.
+Set membership reaches a workflow as an *array*, not a file, so
+`sample_ids = this.samples.<id column>` and `selection_label = this.sample_set_id` are
+enough, and the pipelines already turn that array into a file with `write_lines()`.
+Verified against the real sets: `Good` resolves 184 of 192 members (the 8 unmatched are
+negative controls carrying no marker calls), pipeline QC excludes 6, and 178 are placed
+across 33 districts; `All` gives 411 of 429 matched and 353 placed. So the reader task is
+needed only to get the table itself in without a hand export - not for set scoping.
+
+**Action.** Wrote `docs/TERRA_TABLE_TASK_CONTRACT.md` recording exactly what the pipeline
+will call their task with and what shape it needs back (a plain Terra-style TSV: header,
+one row per entity, id in `entity:<table>_id` or `sample_id`, every attribute its own
+column - which is what Terra's own Download TSV already emits, so likely no adaptation at
+all). Deliberately did not write the task.

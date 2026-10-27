@@ -1,0 +1,18 @@
+{
+  "MalariaSurveillanceReportPfphast.resmarker_tables": [
+    "gs://BUCKET/pfphast/pfphast_sample.tsv"
+  ],
+  "MalariaSurveillanceReportPfphast.cohort_name": "UG_PFPHAST_2024",
+  "MalariaSurveillanceReportPfphast.country_iso3": "UGA",
+  "MalariaSurveillanceReportPfphast.country_name": "Uganda",
+
+  "MalariaSurveillanceReportPfphast.version_label": "v0.12",
+  "MalariaSurveillanceReportPfphast.data_source": "PfPHAST amplicon · per-sample Terra table",
+  "MalariaSurveillanceReportPfphast.gcs_out_root_dir": "gs://BUCKET/malaria_reports",
+
+  "##_resmarker_tables": "The wide per-sample Terra table (one resmarker_<gene>_<codon> column per marker) exported to TSV, OR the pipeline's long resmarker_table.txt files. Do not mix the two shapes.",
+  "##_site_metadata": "Omit for the wide per-sample table - it already carries Country/Region/District/Latitude/Longitude.",
+  "##_sample_ids": "Restrict to a sample set: set to this.samples.<id column> when launching against a *_sample_set row.",
+  "##_selection_label": "this.sample_set_id, so the report names the selection it covers.",
+  "##_optional_rendering_levers": "see docs/WDL_INTERFACE.md section 4"
+}

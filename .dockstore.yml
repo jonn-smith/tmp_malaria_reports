@@ -1,0 +1,33 @@
+version: 1.2
+
+# Dockstore registers each pipeline separately so Terra can import them one at a time.
+# Relative imports (../../tasks/...) resolve because Dockstore pulls the whole repository;
+# importing a raw GitHub URL into Terra would not resolve them.
+workflows:
+  - name: MalariaSurveillanceReportAmplicon
+    subclass: WDL
+    primaryDescriptorPath: /wdl/pipelines/ILMN/Malaria/MalariaSurveillanceReportMad4hatter.wdl
+    readMePath: /docs/workflows/MalariaSurveillanceReportAmplicon.README.md
+    testParameterFiles:
+      - /wdl/inputs/MalariaSurveillanceReportMad4hatter.inputs.json
+
+  - name: MalariaSurveillanceReportPfphast
+    subclass: WDL
+    primaryDescriptorPath: /wdl/pipelines/ILMN/Malaria/MalariaSurveillanceReportPfphast.wdl
+    readMePath: /docs/workflows/MalariaSurveillanceReportPfphast.README.md
+    testParameterFiles:
+      - /wdl/inputs/MalariaSurveillanceReportPfphast.inputs.json
+
+  - name: MalariaSurveillanceReportWgs
+    subclass: WDL
+    primaryDescriptorPath: /wdl/pipelines/ILMN/Malaria/MalariaSurveillanceReportWgs.wdl
+    readMePath: /docs/workflows/MalariaSurveillanceReportWgs.README.md
+    testParameterFiles:
+      - /wdl/inputs/MalariaSurveillanceReportWgs.inputs.json
+
+  - name: MalariaSurveillanceReportNomads
+    subclass: WDL
+    primaryDescriptorPath: /wdl/pipelines/ONT/Malaria/MalariaSurveillanceReportNomads.wdl
+    readMePath: /docs/workflows/MalariaSurveillanceReportNomads.README.md
+    testParameterFiles:
+      - /wdl/inputs/MalariaSurveillanceReportNomads.inputs.json
