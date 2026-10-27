@@ -182,9 +182,16 @@ task download_terra_entity_table {
         # under two different names - a silent merge, the worst outcome available. So a
         # single row is used and several are refused outright: Terra resolves
         # `this.samples.<id>` per workflow, which is the mechanism that actually works.
-        explicit_ids_given = bool(os.environ.get("WANTED_IDS_FILE") and
-                                  os.path.exists(os.environ["WANTED_IDS_FILE"]) and
-                                  os.path.getsize(os.environ["WANTED_IDS_FILE"]) > 0)
+        # Judge this on CONTENT, not file size. write_lines([]) in WDL writes a single
+        # newline, so the file is 1 byte rather than 0, and a size test treated "no ids
+        # given" as "ids given" - which skipped all set scoping and then applied no filter
+        # either, silently downloading the whole table with nothing in the log.
+        ids_file = os.environ.get("WANTED_IDS_FILE", "")
+        explicit = set()
+        if ids_file and os.path.exists(ids_file):
+            explicit = {l.strip() for l in open(ids_file)
+                        if l.strip() and not l.startswith("#")}
+        explicit_ids_given = bool(explicit)
         if not (set_type and set_name) and not explicit_ids_given:
             mine = own_entity()
             if mine and mine[0].endswith("_set") and mine[1]:
@@ -227,11 +234,6 @@ task download_terra_entity_table {
             wanted = members
             sys.stderr.write(f"set {set_type}/{set_name}: {len(members)} members\n")
 
-        ids_file = os.environ.get("WANTED_IDS_FILE", "")
-        explicit = set()
-        if ids_file and os.path.exists(ids_file):
-            explicit = {l.strip() for l in open(ids_file) if l.strip()
-                        and not l.startswith("#")}
         if explicit:
             wanted = explicit if wanted is None else (wanted & explicit)
             sys.stderr.write(f"explicit id list: {len(explicit)} ids, "

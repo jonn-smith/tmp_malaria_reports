@@ -1789,3 +1789,47 @@ Image 0.12.5 carries the module and its self-check passes inside the container.
 this.samples.pfphast_sample_id` in the method config fixes this today with no push at all,
 using a code path that has been in the image from the start. The image-side scoping is the
 belt to that braces, for when nobody sets it.
+
+## 2026-10-27T12:10:00Z  — The real cause: write_lines([]) is 1 byte, not 0
+
+**Context.** Operator pushed back on my Dockstore-staleness diagnosis: branch sync works
+for them routinely. They were right and I was wrong.
+
+**Correcting the diagnosis.** I had inferred staleness from the absence of
+`t_00b_FetchTable.launch_row_id` in the workflow's resolved `inputs`. That inference is
+invalid: Cromwell's workflow-level `inputs` lists only task inputs the *call does not
+supply*, and `launch_row_id`/`submission_id` are supplied by the call, so they are absent
+from that list even with current code. Fetching the task's actual `script` from GCS settles
+it - the script contains `own_entity`, and its environment block reads
+`LAUNCH_ROW_ID='Good,Poor'` with a valid `SUBMISSION_ID`. **Dockstore was serving the
+current WDL all along.**
+
+**The actual bug, in code I wrote an hour earlier.** The guard was
+
+    explicit_ids_given = bool(... and os.path.getsize(WANTED_IDS_FILE) > 0)
+
+and WDL's `write_lines([])` writes a file containing a single newline - **1 byte, not 0**.
+So with no `row_ids` supplied, `explicit_ids_given` was True, which skipped the entire
+set-scoping block; then the later id parse found no non-blank lines, so no filter applied
+either. The result is the worst possible shape of failure: the whole table downloaded, exit
+0, and *not one line of explanation in the log* - which is precisely why the stderr held
+only the two pagination lines and why I misread that silence as "this code isn't present".
+
+Fixed by parsing the id list first and judging `explicit_ids_given` on **content** rather
+than file size.
+
+**Why my own test missed it.** The mocked harness passed `WANTED_IDS_FILE=''` for the
+no-ids cases, so it never reproduced the 1-byte file WDL actually produces. Same root
+cause as the `entity:sample_id` bug earlier in this project: a fixture that differs from
+reality in exactly the dimension being tested. The new case writes a single newline and
+asserts scoping still happens (192 rows).
+
+**Lesson I should have applied sooner.** When a task produces no log output on a path that
+has logging, the first hypothesis should be "the code took an earlier branch", not "the code
+is not there". Checking the executed `script` artifact in GCS costs one download and would
+have ended this two rounds earlier.
+
+**Evidence.** Entities tests: whole table 429, Good 192, set+ids 2, two launch rows
+refused, single launch row 192, two-workflow submission partitions 192/237, and the new
+1-byte-ids-file case 192. Self-scope tests: Good 178 QC pass, Poor 175, off-Terra 353
+unscoped. Image 0.12.6.

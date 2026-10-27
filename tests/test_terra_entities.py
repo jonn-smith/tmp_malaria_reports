@@ -140,4 +140,14 @@ print(f'workflow B of 2 sets -> {n9} rows')
 assert n9 == 237, n9
 assert n8 + n9 == 429, 'the two sets should partition the table, not duplicate it'
 
+# 9. WDL's write_lines([]) writes a single newline, so the ids file is 1 byte, not 0.
+#    Treating that as "ids were given" skipped all scoping AND applied no filter — the
+#    exact silent whole-table download seen in Terra.
+blank = tempfile.mktemp()
+open(blank, 'w').write('\n')
+out10, n10, _ = run(delocalization_for='aaaaaaaa-1111-2222-3333-444444444444',
+                    LAUNCH_ROW_ID='Good,Poor', WANTED_IDS_FILE=blank)
+print(f'empty write_lines file -> {n10} rows')
+assert n10 == 192, f'a 1-byte ids file must not disable scoping (got {n10})'
+
 print('\nall entities-call checks passed')
