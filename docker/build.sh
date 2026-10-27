@@ -32,7 +32,11 @@ if [[ ${#TOOLVERS[@]} -ne 1 || "${TOOLVERS[0]}" != "$VERSION" ]]; then
 fi
 
 echo "building $IMAGE (version $VERSION, from $TASKS)"
-docker build --build-arg "IMAGE_VERSION=$VERSION" -t "$IMAGE" -f docker/Dockerfile .
+# --no-cache deliberately. Docker served a stale `COPY scripts/` layer more than once,
+# producing an image that passed every build check while running week-old code, which is
+# the worst possible failure here: the pipeline "works" and reports the wrong thing. A
+# cached build is not worth that, and the base image is local so this costs under a minute.
+docker build --no-cache --build-arg "IMAGE_VERSION=$VERSION" -t "$IMAGE" -f docker/Dockerfile .
 
 # prove the label matches the tag rather than trusting the build arg plumbing
 LABELLED=$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.version" }}' "$IMAGE")
@@ -40,7 +44,17 @@ if [[ "$LABELLED" != "$VERSION" ]]; then
     echo "ERROR: built image is labelled '$LABELLED' but tagged '$VERSION'" >&2
     exit 1
 fi
-echo "built $IMAGE; label and tag both $VERSION"
+# Prove the image contains THIS working tree, not a cached layer of an older one.
+DISK_SUM=$(find scripts templates -type f \( -name '*.py' -o -name '*.html' \) \
+    -not -path '*__pycache__*' | sort | xargs md5sum | md5sum | cut -d' ' -f1)
+IMG_SUM=$(docker run --rm "$IMAGE" bash -c \
+    "cd /opt/malaria_reports && find scripts templates -type f \( -name '*.py' -o -name '*.html' \) \
+     -not -path '*__pycache__*' | sort | xargs md5sum | md5sum | cut -d' ' -f1")
+if [[ "$DISK_SUM" != "$IMG_SUM" ]]; then
+    echo "ERROR: image contents do not match the working tree (disk $DISK_SUM, image $IMG_SUM)" >&2
+    exit 1
+fi
+echo "built $IMAGE; label and tag both $VERSION; contents match the working tree"
 
 if [[ "${1:-}" == "--push" ]]; then
     echo "pushing $IMAGE"

@@ -125,6 +125,48 @@ def main(argv=None):
     # from the selected country, and the loaders read them at import time
     iso = a.country_iso3 or cfg.get('country_iso3')
     cname = a.country_name or cfg.get('country_name')
+    country_note = None
+
+    # No country given? Read it out of the data rather than defaulting to Senegal and
+    # dropping every sample. A country column is already required-ish for a surveillance
+    # table, and this is the failure the default caused in the first real Terra run.
+    if not iso:
+        import countries as C
+        tables = ([a.sample_table] if a.sample_table else []) + \
+                 list(a.resmarker_table or []) + list(a.marker_calls or []) + \
+                 ([a.site_metadata] if a.site_metadata else [])
+        raw, counts = C.sniff(tables)
+        if raw:
+            hit = C.resolve(raw)
+            if hit and hit['has_map']:
+                iso, cname = hit['iso3'], cname or hit['name']
+                how = hit['how'] + ('' if hit['score'] == 1.0 else f" {hit['score']}")
+                country_note = (f"country taken from the data: {raw!r} -> {hit['iso3']} "
+                                f"({hit['name']}) via {how}")
+                if hit['how'] == 'fuzzy':
+                    country_note += '  -- a spelling guess; check it'
+                if len(counts) > 1:
+                    others = ', '.join(f'{k!r} x{v}' for k, v in
+                                       sorted(counts.items(), key=lambda kv: -kv[1])[1:4])
+                    country_note += f'; the table also names {others}'
+                sys.stderr.write(f'[make_report] {country_note}\n')
+            elif hit:
+                raise SystemExit(
+                    f'the data says country {raw!r} ({hit["iso3"]} {hit["name"]}), but no '
+                    f'admin boundary map is shipped for it. Add one with '
+                    f'scripts/build_maps.py and supply it through reference_bundle_tar, '
+                    f'or pass --country-iso3 for a country that does have a map.')
+            else:
+                # Sniffing is a convenience, so an unreadable value must not become a new
+                # way for the run to die. Some tables have a column named "country" that
+                # holds something else entirely - mad_meta.csv names sites in it. Say so
+                # and carry on with the default; a genuinely wrong country still fails
+                # later, when every sample lands outside it, with a message that says so.
+                sys.stderr.write(
+                    f'[make_report] the column named country holds {raw!r}, which matches '
+                    f'no country even approximately; ignoring it and using '
+                    f'{G.COUNTRY_ISO}. Pass --country-iso3 to be explicit.\n')
+
     if iso or cname:
         G.set_country(iso or G.COUNTRY_ISO, cname)
 
@@ -192,6 +234,8 @@ def main(argv=None):
 
     # metadata overrides: explicit flags win over the config file
     rep['meta']['version'] = version
+    if country_note:
+        rep['meta']['country_resolution'] = country_note
     if a.data_source:
         rep['meta']['data_source'] = a.data_source
     for k, v in cfg.items():

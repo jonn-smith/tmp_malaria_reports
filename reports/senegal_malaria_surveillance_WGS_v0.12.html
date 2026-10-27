@@ -444,6 +444,14 @@ const clsLabel=m=>m.category||CLSFULL[m.cls]||'Not in WHO compendium';
 /* Samples the amplicon QC workflow excluded. The report says "QC pass samples" on its
    front page, so it has to say whose verdict that is and who it left out - otherwise the
    denominator silently differs from the number of rows in the data table. */
+/* Where the country came from. A fuzzy-matched country name is a guess that chose the
+   boundary set every number in this report is aggregated against, so the reader is told. */
+function countryCard(){
+  const n=M.country_resolution; if(!n) return '';
+  const guess=/spelling guess/.test(n);
+  return `<div class="callout ${guess?'amber':''}" style="margin-top:14px"><b>Country.</b>
+    ${esc(n)}.</div>`;
+}
 function qcCard(){
   const q=M.qc_excluded||{}, n=M.n_qc_excluded||0;
   if(!n) return '';
@@ -1110,6 +1118,7 @@ R.methods=()=>{
       </div>
     </div>
 
+    ${countryCard()}
     ${qcCard()}
     ${panelCard()}
     ${locationAudit()}

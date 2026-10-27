@@ -1613,3 +1613,48 @@ an explicit override to reach.
 **Also.** The inputs template now carries `country_iso3`/`country_name` filled in with a
 comment saying a wrong country drops every sample, and a note that set scoping is
 automatic. All descriptors re-validated with womtool-92; image rebuilt.
+
+## 2026-10-27T09:55:00Z  — Country comes from the data; and a stale-layer bug that made builds lie
+
+**Context.** The operator declined to add an ISO3 column and asked for a country lookup
+with fuzzy matching instead. The failed Terra run had defaulted to SEN and dropped all 353
+Ugandan samples.
+
+**Delivered.** `reference/countries.json` (249 ISO 3166-1 entries plus curated common
+names - DRC, Ivory Coast, Tanzania, The Gambia) and `scripts/countries.py`, which resolves
+exact, then normalised (accents, case, punctuation, a leading "the"), then fuzzy, and
+always reports which. `make_report` reads the country from the data's own country column
+when `--country-iso3` is absent. The cutoff is 0.84, chosen so "Ugandaa" and "Senagal"
+resolve while Niger/Nigeria - one letter apart, both with maps - never silently swap.
+
+Three outcomes, deliberately different: resolved with a map, use it; recognised but no map
+shipped, fail immediately with an actionable message; unrecognised, **warn and carry on**
+with the default. That last one is deliberate - `mad_meta.csv` has a column named `Country`
+that actually holds site names (`DALABA`, `CIGASS`), so a hard failure there would have
+broken a working pipeline. A genuinely wrong country still fails later, when every sample
+lands outside it, now with a message naming `country_iso3` as the first thing to check.
+
+**The bug that cost the most time.** Repeated rebuilds produced an image that passed every
+check while running old code: `docker build` served a cached `COPY scripts/` layer. The
+symptom was perverse - `docker run` on the image showed stale behaviour minutes after a
+"successful" build, and one image even contained a *new* file (`countries.py`) beside a
+*stale* sibling (`make_report.py`). This is the worst failure mode available here, because
+the pipeline keeps working and quietly reports the wrong thing.
+
+Two fixes in `docker/build.sh`: `--no-cache`, and a content assertion that md5s every
+`.py`/`.html` under `scripts/` and `templates/` on disk and inside the image and refuses
+to proceed if they differ. A build can no longer claim success while shipping code that is
+not in the working tree.
+
+**And a second caching layer underneath it.** Even with a verified-correct image, local
+`miniwdl` runs still executed old code, because its Docker Swarm services resolve a
+locally-built tag once and reuse it. Not a product defect - `docker run` on the same image
+was correct - but it makes "rebuild the same tag" untrustworthy for local testing. Bumped
+to **0.12.2**, which sidesteps it and is the honest thing regardless: 0.12.1 had already
+been built several times with materially different contents, and may have been pushed.
+
+**Evidence.** End to end through `MalariaSurveillanceReportAmplicon` with **no country
+input at all**: 2 tasks exit 0, country resolved from the data as Uganda, 353 samples,
+34/135 districts, period 2024. Senegal regression still builds (883 samples) and logs that
+its `Country` column holds `DALABA`. Self-checks pass for countries/panels/geoloc/
+terra_samples; all three pipelines validate under womtool-92.
