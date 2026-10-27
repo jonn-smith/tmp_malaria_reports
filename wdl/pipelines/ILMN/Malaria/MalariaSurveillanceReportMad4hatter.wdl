@@ -2,6 +2,7 @@ version 1.0
 
 import "../../../tasks/Malaria/SurveillanceReport.wdl" as MSR
 import "../../../tasks/Utility/Finalize.wdl"           as FF
+import "../../../tasks/Utility/TerraEnvInfo.wdl"       as TERRA
 
 workflow MalariaSurveillanceReportMad4hatter {
 
@@ -55,6 +56,26 @@ workflow MalariaSurveillanceReportMad4hatter {
         String? gcs_out_root_dir
     }
 
+    # Self-identify the Terra workspace, the per-sample table and the row(s) this was
+    # launched from, so the report can state its own provenance instead of relying on
+    # whoever typed data_source. Off Terra the task returns empty strings and the
+    # select_first below falls back to the supplied value.
+    call TERRA.get_terra_env_info as t_00_TerraEnv { input: }
+
+    String detected_source = if t_00_TerraEnv.is_running_on_terra
+        then t_00_TerraEnv.workspace_namespace + "/" + t_00_TerraEnv.workspace_name
+             + " \u00b7 table " + t_00_TerraEnv.sample_table
+             + " \u00b7 submission " + t_00_TerraEnv.top_level_submission_id
+        else ""
+
+    # Declared inside the conditional so it stays optional outside it: an explicit
+    # data_source wins, else the detected one, else nothing - which leaves the loader's own
+    # default in place rather than stamping the report "unspecified".
+    if (!defined(data_source) && detected_source != "") {
+        String only_detected = detected_source
+    }
+    String? resolved_source = if defined(data_source) then data_source else only_detected
+
     # a sample_set's membership arrives as an array; a curated list arrives as a file
     Boolean have_sample_array = length(sample_ids) > 0
     File? selected_ids_file = if have_sample_array then write_lines(sample_ids) else sample_id_list
@@ -68,7 +89,7 @@ workflow MalariaSurveillanceReportMad4hatter {
             allele_tables            = allele_tables,
             cohort_name              = cohort_name,
             version_label            = version_label,
-            data_source              = data_source,
+            data_source              = resolved_source,
             render_config_json       = render_config_json,
             report_template_override = report_template_override,
             reference_bundle_tar     = reference_bundle_tar,

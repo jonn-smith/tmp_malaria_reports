@@ -160,6 +160,19 @@ def main(argv=None):
             rep = load_nomads.load(a.resmarker_table,
                                    a.site_metadata or a.resmarker_table[0],
                                    selection=selection)
+            # That loader is shared, so it stamps its own assay and provenance. This is a
+            # short-read amplicon run, and the report header, the assay chip and the
+            # export files all read meta['assay'] - leaving it as NOMADS would label
+            # Illumina PfPHAST data as nanopore.
+            det = (rep.get('meta') or {}).get('panel_detection') or {}
+            rep['meta']['assay'] = det.get('panel') or ('AMPLICON' if declared is None
+                                                        else declared)
+            G.ASSAY_NAME.setdefault(rep['meta']['assay'], 'Amplicon sequencing')
+            if not a.data_source:
+                label = (rep['meta'].get('panel_label')
+                         or rep['meta']['assay'].replace('_', ' '))
+                rep['meta']['data_source'] = (f'{label} amplicon \u00b7 per-sample Terra '
+                                              f'table')
         else:
             if not a.site_metadata:
                 raise SystemExit(f'--assay {a.assay} with long resmarker tables requires '

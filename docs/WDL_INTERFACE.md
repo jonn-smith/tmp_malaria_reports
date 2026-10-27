@@ -198,8 +198,8 @@ counted and reported in the task log rather than silently dropped.
 ## 6. Container
 
 ```bash
-docker build -t us.gcr.io/broad-dsp-lrma/lr-malaria-reports:0.12.0 -f docker/Dockerfile .
-docker push  us.gcr.io/broad-dsp-lrma/lr-malaria-reports:0.12.0
+docker build -t us.gcr.io/broad-dsp-lrma/lr-malaria-reports:0.12.1 -f docker/Dockerfile .
+docker push  us.gcr.io/broad-dsp-lrma/lr-malaria-reports:0.12.1
 ```
 
 Notes for whoever maintains it:

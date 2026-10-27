@@ -1382,3 +1382,57 @@ will call their task with and what shape it needs back (a plain Terra-style TSV:
 one row per entity, id in `entity:<table>_id` or `sample_id`, every attribute its own
 column - which is what Terra's own Download TSV already emits, so likely no adaptation at
 all). Deliberately did not write the task.
+
+## 2026-10-27T06:50:00Z  — Vendored the operator's Terra self-identification task; fixed two labelling bugs it exposed
+
+**Context.** Three operator items: where is the `0.12.1` image tag specified, the reader
+task lives in `EPPIcenter/mad4hatter-wdl` on branch `JTS_hotfixes`, and a single year
+column will be added to the table.
+
+**Where the tag lives.** Only `wdl/tasks/Malaria/SurveillanceReport.wdl` - three `docker:`
+defaults, one per task, plus three `tool_version:` meta entries. `docs/WDL_INTERFACE.md`
+still carried `0.12.0` in its build/push commands, which would have had someone build and
+push a tag the WDL does not pull; corrected.
+
+**What that branch actually contains.** It adds exactly one file over `main`:
+`modules/local/get_terra_env_info.wdl`. It self-identifies, from inside a running Cromwell
+job, the workspace (namespace, name, bucket, project), and - when launched from a
+submission with a root entity - the `sample_table`, `top_level_submission_id` and
+`input_row_id`, resolving a `*_set` root to its member table. Pure python3/urllib against
+the Firecloud API with the VM's service-account token. **It does not download the entity
+rows**, so it closes the "which table?" half of the gap and not the "give me the rows"
+half. Recorded that distinction rather than assuming.
+
+**Decision / action.** Vendored it unmodified as `wdl/tasks/Utility/TerraEnvInfo.wdl` with
+a provenance header, rather than importing over an `https` branch URL, which is not a
+stable pin and would not resolve through Dockstore. Its own header says it was copied from
+long-read-pipelines, so vendoring is the house pattern. Wired it into both amplicon
+pipelines for a use that pays off now: the report states its own provenance
+(workspace/table/submission) instead of trusting whatever someone typed into
+`data_source`.
+
+**Two bugs that wiring exposed, neither of which I would have found by reading.**
+
+1. My first version passed `select_first([data_source, "unspecified"])`, which *overrode*
+   each loader's own sensible default whenever no `data_source` was supplied. Fixed by
+   declaring the detected value inside a conditional so it stays optional outside it:
+   explicit wins, else detected, else nothing, leaving the loader default intact.
+
+2. With that fixed, the PfPhast run came out stamped `assay: NOMADS`, `data_source: NOMADS
+   ONT amplicon`. The wide amplicon table is routed through the shared marker-calls loader,
+   which stamps its own assay - so Illumina PfPHAST data was being labelled nanopore in the
+   header, the assay chip and the export files. `make_report` now sets `meta['assay']` from
+   the detected panel on that route and defaults the provenance line to
+   "<panel> amplicon - per-sample Terra table".
+
+**Evidence.** `miniwdl run` of the Pfphast pipeline off Terra: both tasks exit 0,
+`is_running_on_terra=false`, provenance falls through cleanly. The PfPhast table now
+reports `assay PFPHAST`, `data_source 'PfPHAST amplicon - per-sample Terra table'`, 353
+samples. Regressions hold: the NOMADS run is still `NOMADS / NOMADS ONT amplicon`, and the
+long MAD4HatTeR tables still `MAD4HATTER / MAD4HATTER v4 amplicon`. All four pipelines pass
+`miniwdl check`.
+
+**Outstanding.** The row download. `get_terra_env_info` names the table; something still
+has to fetch its rows as TSV. One Firecloud `entities/<type>/tsv` call in the same style as
+that task would do it, but the operator asked me not to write the reader, so it is a
+question back to them.
