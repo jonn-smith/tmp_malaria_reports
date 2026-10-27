@@ -1574,3 +1574,42 @@ un-published.
 to grant the Dockstore GitHub App read access to it; and note that Terra's import flow
 generally wants a *published* Dockstore workflow, so an unpublished private entry can fail
 even once access is granted.
+
+## 2026-10-27T09:40:00Z  — First Terra run failed: wrong country, and set scoping was silently not applied
+
+**Context.** The operator ran `MalariaSurveillanceReportAmplicon` in Terra on two
+`pfphast_sample_set` rows, `Good` and `Poor`. Both workflows failed.
+
+**What worked.** Worth stating, because it was the untested half: `get_terra_env_info` and
+`download_terra_entity_table` both ran cleanly in Terra. The fetch produced
+`pfphast_sample.tsv` from the data model with no file staging, and the detected provenance
+came through as "broad-firecloud-dsde-methods/JTS_TEST_COPY_... - table pfphast_sample -
+submission c3e93021-...". Two tasks Done, one retried, one failed.
+
+**Failure 1, loud and correct.** `country_iso3` was not set, so it defaulted to `SEN`, and
+all 353 Ugandan samples landed outside Senegal: `UNPLACED 353 sample(s): coordinates fall
+outside SEN`, 0 QC-pass samples, and the empty-report guard exited 1. The guard did its
+job - this is exactly the run it exists to stop - but the message said "check lat/lon order
+and sign" and never mentioned that the *country selection* was the likelier cause. Fixed:
+the unplaced line now names the country and says to check `country_iso3` first, the
+end-of-run summary adds "all 353 are outside SEN: country_iso3 is the first thing to
+check" when every unplaced sample is outside the country, and the fatal message lists the
+causes in likelihood order with the ISO3 that was actually used.
+
+**Failure 2, silent, and the dangerous one.** Both workflows fetched **all 429 rows**
+despite being launched on sets of 192 and 237 members, because neither `sample_ids` nor
+`entity_set_*` was supplied. Had the country been right, both runs would have produced
+identical 429-sample reports named `Good` and `Poor`. Nothing would have failed and nothing
+in the output would have looked wrong. Documenting the `this.samples.<id>` binding was not
+enough, because the failure mode is forgetting it.
+
+**Fix.** `download_terra_entity_table` now takes `launch_row_id` (from
+`get_terra_env_info.input_row_id`) and, when no explicit set is given, tries each launch
+row as a row of `<entity_type>_set`. A match scopes the download to that set's members and
+logs it; a launch row that is not a set logs that too and changes nothing. So launching on
+a set now scopes by default, and the "whole table while named after one set" outcome needs
+an explicit override to reach.
+
+**Also.** The inputs template now carries `country_iso3`/`country_name` filled in with a
+comment saying a wrong country drops every sample, and a note that set scoping is
+automatic. All descriptors re-validated with womtool-92; image rebuilt.

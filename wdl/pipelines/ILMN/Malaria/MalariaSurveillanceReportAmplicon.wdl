@@ -100,7 +100,8 @@ workflow MalariaSurveillanceReportAmplicon {
                 workspace       = t_00_TerraEnv.workspace_name,
                 entity_type     = select_first([sample_table, t_00_TerraEnv.sample_table]),
                 entity_set_type = entity_set_type,
-                entity_set_name = entity_set_name
+                entity_set_name = entity_set_name,
+                launch_row_id   = t_00_TerraEnv.input_row_id
         }
     }
 

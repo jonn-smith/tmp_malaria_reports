@@ -219,6 +219,7 @@ def main(argv=None):
     # The audit is written whether or not it found anything, so a clean run is positive
     # evidence rather than an absent file.
     audit = (rep.get('meta') or {}).get('location_audit') or {}
+    _warn_location.__globals__['G_ISO'] = [G.COUNTRY_ISO]
     if a.out_location_audit:
         _write_audit(audit, a.out_location_audit)
         sys.stderr.write(f'[make_report] location audit -> {a.out_location_audit}\n')
@@ -242,10 +243,11 @@ def main(argv=None):
     # table, a column the loader did not recognise, or site metadata that places nobody.
     if not m['n_qc']:
         raise SystemExit(
-            'no samples made it into the report. Check the loader warnings above: the '
-            'usual causes are an unrecognised sample-id column, or site metadata with no '
-            'district/lat+lon, which drops every sample as no_location. '
-            'See docs/TERRA_TABLES.md for the six required fields.')
+            f'no samples made it into the report. Check the loader warnings above. The '
+            f'usual causes, in order of likelihood: the wrong country '
+            f'(country_iso3 was {G.COUNTRY_ISO}, so every sample outside it was dropped); '
+            f'an unrecognised sample-id column; or site metadata with no district and no '
+            f'lat/lon. See docs/TERRA_TABLES.md for the six required fields.')
     sys.stderr.write(f"[make_report] wrote {a.out_html} and {a.out_data_json}\n")
     return 0
 
@@ -315,6 +317,12 @@ def _warn_location(audit):
     if n_unplaced:
         sys.stderr.write(f'[make_report]   {n_unplaced} sample(s) could not be placed and are '
                          f'absent from every denominator in this report\n')
+    # Every sample outside the country is almost never bad coordinates - it is the wrong
+    # country selected, which is a one-flag fix and worth saying outright.
+    outside = audit.get('coords_outside_country') or 0
+    if outside and outside == n_unplaced:
+        sys.stderr.write(f'[make_report]   all {outside} are outside '
+                         f'{G_ISO[0]}: country_iso3 is the first thing to check\n')
     if n_dis:
         sys.stderr.write(f'[make_report]   {n_dis} sample(s) have a district name that '
                          f'disagrees with their coordinates\n')

@@ -86,7 +86,9 @@ class Audit:
                        f"{info['reason']}{sug}")
         if self.coords_outside:
             out.append(f'UNPLACED {self.coords_outside} sample(s): coordinates fall outside '
-                       f'{G.COUNTRY_ISO}; check lat/lon order and sign')
+                       f'{G.COUNTRY_ISO} ({G.COUNTRY_NAME or "?"}). Either the country is '
+                       f'wrong - check country_iso3 - or lat/lon are swapped or '
+                       f'sign-flipped')
         for (raw, unit), info in sorted(self.coords_vs_name.items(), key=lambda kv: -kv[1]['n']):
             out.append(f"MISMATCH {info['n']:4d} sample(s): data says district {raw!r} but "
                        f"the coordinates fall in {unit!r}; coordinates were used")

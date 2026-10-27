@@ -16,6 +16,7 @@ task download_terra_entity_table {
         entity_set_type: "Optional set table, e.g. 'pfphast_sample_set'. With entity_set_name, restricts the download to that set's members."
         entity_set_name: "Optional set row id, e.g. 'Good'"
         row_ids:        "Optional explicit row ids to keep. Applied after the set filter when both are given."
+        launch_row_id:  "The row id(s) the workflow was launched on, from get_terra_env_info.input_row_id. When no explicit set is given, each is tried as a set row in <entity_type>_set; a match scopes the download to that set's members. A launch row that is not a set is reported and ignored."
         page_size:      "Rows per API request. The API caps this; 500 is comfortable."
         runtime_attr_override: "Override the default runtime attributes"
     }
@@ -28,6 +29,7 @@ task download_terra_entity_table {
         String? entity_set_type
         String? entity_set_name
         Array[String] row_ids = []
+        String? launch_row_id
 
         Int page_size = 500
 
@@ -46,6 +48,7 @@ task download_terra_entity_table {
         export ENTITY_TYPE='~{entity_type}'
         export SET_TYPE='~{default="" entity_set_type}'
         export SET_NAME='~{default="" entity_set_name}'
+        export LAUNCH_ROW_ID='~{default="" launch_row_id}'
         export WANTED_IDS_FILE='~{wanted_ids_file}'
         export PAGE_SIZE='~{page_size}'
 
@@ -102,19 +105,48 @@ task download_terra_entity_table {
 
         tok = token()
 
-        # --- optional set membership filter ---
-        wanted = None
-        set_type, set_name = os.environ.get("SET_TYPE", ""), os.environ.get("SET_NAME", "")
-        if set_type and set_name:
-            ent = api_get(f"{FIRECLOUD}/api/workspaces/{q(NS)}/{q(WS)}/entities/"
-                          f"{q(set_type)}/{q(set_name)}", tok)
-            attrs = ent.get("attributes", {}) or {}
-            members = set()
-            for v in attrs.values():
+        def set_members(stype, sname):
+            """Member row ids of a set, or None when that set does not exist."""
+            try:
+                ent = api_get(f"{FIRECLOUD}/api/workspaces/{q(NS)}/{q(WS)}/entities/"
+                              f"{q(stype)}/{q(sname)}", tok)
+            except Exception as e:
+                sys.stderr.write(f"no set {stype}/{sname} ({e})\n")
+                return None
+            got = set()
+            for v in (ent.get("attributes", {}) or {}).values():
                 if isinstance(v, dict) and v.get("itemsType") == "EntityReference":
                     for it in v.get("items") or []:
                         if it.get("entityName"):
-                            members.add(it["entityName"])
+                            got.add(it["entityName"])
+            return got or None
+
+        # --- optional set membership filter ---
+        wanted = None
+        set_type, set_name = os.environ.get("SET_TYPE", ""), os.environ.get("SET_NAME", "")
+
+        # Launched on a set row and told nothing else? Scope to that set. Reporting on the
+        # whole table while the output is named after one set is the failure mode this
+        # avoids: it does not error, it just quietly answers a different question.
+        if not (set_type and set_name):
+            launched = [r.strip() for r in os.environ.get("LAUNCH_ROW_ID", "").split(",")
+                        if r.strip()]
+            auto = f"{TYPE}_set"
+            found = set()
+            for row in launched:
+                m = set_members(auto, row)
+                if m:
+                    sys.stderr.write(f"launch row {row!r} is a {auto} with {len(m)} "
+                                     f"members; scoping the download to it\n")
+                    found |= m
+                elif launched:
+                    sys.stderr.write(f"launch row {row!r} is not a row of {auto}; "
+                                     f"no set scoping applied from it\n")
+            if found:
+                wanted = found
+
+        if set_type and set_name:
+            members = set_members(set_type, set_name)
             if not members:
                 sys.exit(f"ERROR: set {set_type}/{set_name} has no member references")
             wanted = members
