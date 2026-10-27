@@ -1480,3 +1480,37 @@ to exactly its 192 members; a set plus a 3-id list containing one bogus id yield
 and the row ids match the hand-made export exactly. End to end through
 `MalariaSurveillanceReportPfphast`: both tasks exit 0, 353 samples, 34/135 districts,
 period 2024, 1 trends frame, `assay PFPHAST`.
+
+## 2026-10-27T07:50:00Z  — The image version had three sources of truth; now it has one
+
+**Context.** The operator asked where the Dockerfile is, seeing only a 0.12.0 one.
+
+**What they were looking at.** There is a single `docker/Dockerfile`; the version is not
+in its path. But it carried `0.12.0` in three places - the build/push comment and
+`LABEL org.opencontainers.image.version` - while the WDL pinned `0.12.1`. The tag comes
+from `-t` at build time, so every image I built and tagged `0.12.1` was **labelled
+0.12.0 internally**. Three places claimed to say what the version was and two of them were
+wrong, which is the same class of drift as the README changelog labels earlier in this
+project.
+
+**Decision / action.** Made the WDL the single source of truth and removed the
+opportunity to disagree:
+
+- The Dockerfile takes `ARG IMAGE_VERSION` and the label interpolates it, instead of a
+  literal that goes stale.
+- `docker/build.sh` derives the tag from the `docker:` default in
+  `wdl/tasks/Malaria/SurveillanceReport.wdl`, because that is the tag Terra will actually
+  pull. The tag is deliberately *not* a parameter of the script.
+- It refuses to build when the three tasks pin different images, or when `tool_version`
+  disagrees with the docker tag, and after building it re-reads the label off the image
+  and fails if it does not match the tag. So the plumbing is verified rather than assumed.
+- `docs/WDL_INTERFACE.md` now documents `docker/build.sh` / `--push` instead of a
+  hand-typed build command that can drift again.
+
+**Evidence.** `docker/build.sh` builds `0.12.1` and reports "label and tag both 0.12.1";
+`docker inspect` confirms the label is `0.12.1`. Both guards were tested by breaking the
+file on purpose: changing one of the three pins to `0.9.9` gives "pins 2 different images;
+they must agree" and lists them; changing one `tool_version` to `0.11.0` gives
+"tool_version ... is 0.11.0 0.12.1, but the docker tag is 0.12.1". The WDL was restored and
+re-validated (6 references to 0.12.1, `miniwdl check` clean), and the pipeline still runs
+end to end on the rebuilt image: 353 samples, period 2024, assay PFPHAST.

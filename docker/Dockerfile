@@ -4,18 +4,28 @@
 # export schemas), so the image tag is what pins "how the report looks". Rendering changes
 # ship as a new tag; the WDL interface does not change. See docs/WDL_INTERFACE.md.
 #
-# Build + push:
-#   docker build -t us.gcr.io/broad-dsp-lrma/lr-malaria-reports:0.12.0 -f docker/Dockerfile .
-#   docker push  us.gcr.io/broad-dsp-lrma/lr-malaria-reports:0.12.0
+# Build + push with docker/build.sh, which takes the tag from the WDL's docker: default so
+# the image cannot be tagged something the pipelines do not pull:
+#   docker/build.sh            # build
+#   docker/build.sh --push     # build, then push
+#
+# By hand, if you must — pass the version so the label matches the tag:
+#   docker build --build-arg IMAGE_VERSION=0.12.1 \
+#       -t us.gcr.io/broad-dsp-lrma/lr-malaria-reports:0.12.1 -f docker/Dockerfile .
 # Base is the full python image rather than -slim deliberately: every WDL task in this
 # repo runs the house-standard resource-detection preamble, which calls `free`. The slim
 # image omits procps, so the preamble aborts under `set -e`. (slim + `apt-get install
 # procps` also works, if the build host has package-repo access.)
 FROM python:3.11
 
+# The version is an argument, not a literal: it was previously hard-coded here and went
+# stale, so an image tagged 0.12.1 carried a label claiming 0.12.0. build.sh passes the
+# tag it derives from the WDL, and the assertion below refuses to build if the two differ.
+ARG IMAGE_VERSION=0.12.1
+
 LABEL org.opencontainers.image.title="lr-malaria-reports"
-LABEL org.opencontainers.image.description="Senegal malaria molecular-surveillance report renderer"
-LABEL org.opencontainers.image.version="0.12.0"
+LABEL org.opencontainers.image.description="Malaria molecular-surveillance report renderer"
+LABEL org.opencontainers.image.version="${IMAGE_VERSION}"
 
 # The report pipeline is pure standard-library Python 3 by design: no third-party
 # packages, so there is nothing to resolve at build time and nothing to drift.

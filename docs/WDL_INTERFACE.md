@@ -198,8 +198,9 @@ counted and reported in the task log rather than silently dropped.
 ## 6. Container
 
 ```bash
-docker build -t us.gcr.io/broad-dsp-lrma/lr-malaria-reports:0.12.1 -f docker/Dockerfile .
-docker push  us.gcr.io/broad-dsp-lrma/lr-malaria-reports:0.12.1
+docker/build.sh          # builds at the version the WDL pins, and checks the
+                        # Dockerfile label and tool_version agree with it
+docker/build.sh --push  # same, then pushes
 ```
 
 Notes for whoever maintains it:
