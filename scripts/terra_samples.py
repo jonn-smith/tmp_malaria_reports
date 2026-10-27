@@ -49,6 +49,8 @@ GENE_ALIAS = {'dhfr-ts': 'dhfr', 'dhfrts': 'dhfr', 'pfdhfr': 'dhfr', 'pfdhps': '
 
 AA_COL = re.compile(r'^aa_change_(.+?)_([A-Z])(\d+)([A-Z])$')
 RES_COL = re.compile(r'^resmarker_(.+?)_(\d+)$')
+# Terra export id column: entity:<table>_id, where <table> is the entity type
+ENTITY_ID = re.compile(r'^entity:\S*_id$', re.I)
 
 
 def gene_token(raw):
@@ -94,9 +96,11 @@ def reshape(rows, fieldnames, audit=None):
     def bump(k):
         tally[k] = tally.get(k, 0) + 1
 
-    # the entity id column is "entity:sample_id" on a Terra export, "name" on an API dump
+    # Terra names the id column after the table: "entity:pfphast_sample_id",
+    # "entity:sample_id", and so on. An API dump calls it "name".
     id_col = next((c for c in fieldnames
-                   if c.lower() in ('entity:sample_id', 'sample_id', 'name', 'sample')), None)
+                   if c.lower() in ('sample_id', 'name', 'sample', 'specimen_id')
+                   or ENTITY_ID.match(c)), None)
     if not id_col:
         raise SystemExit(f'no sample id column found in: {", ".join(fieldnames[:8])}...')
 
@@ -196,10 +200,11 @@ def demo():
     assert residue_verdict('F/Y', 'K', 'T')[0] == 'ref'        # mixed, neither is WHO's alt
     assert residue_verdict('', 'K', 'T')[0] == 'missing'
 
-    fields = ['entity:sample_id', 'aa_change_crt_K76T', 'resmarker_dhps_437', 'Dataset']
-    rows = [{'entity:sample_id': 's1', 'aa_change_crt_K76T': 'mutant',
+    # the id column is named after the table, which is what a real Terra export looks like
+    fields = ['entity:pfphast_sample_id', 'aa_change_crt_K76T', 'resmarker_dhps_437', 'Dataset']
+    rows = [{'entity:pfphast_sample_id': 's1', 'aa_change_crt_K76T': 'mutant',
              'resmarker_dhps_437': 'G', 'Dataset': 'd'},
-            {'entity:sample_id': 's2', 'aa_change_crt_K76T': 'absent',
+            {'entity:pfphast_sample_id': 's2', 'aa_change_crt_K76T': 'absent',
              'resmarker_dhps_437': 'A', 'Dataset': 'd'}]
     calls, passthrough = reshape(rows, fields)
     by = {(c['sample_id'], c['gene'], c['aa_change']): c['call'] for c in calls}

@@ -98,6 +98,12 @@ for _k, _m in G.MK.items():
 def _colmap(fieldnames):
     have = {(h or '').strip().lower().replace(' ', '_'): h for h in (fieldnames or [])}
     out = {}
+    # Terra names its id column after the table (entity:pfphast_sample_id), so it never
+    # matches a fixed alias list.
+    for h in (fieldnames or []):
+        if terra_samples.ENTITY_ID.match((h or '').strip()):
+            out['sample_id'] = h
+            break
     for canon, alts in ALIASES.items():
         for a in alts:
             if a in have:

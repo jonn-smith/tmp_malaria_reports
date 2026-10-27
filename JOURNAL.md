@@ -1436,3 +1436,47 @@ long MAD4HatTeR tables still `MAD4HATTER / MAD4HATTER v4 amplicon`. All four pip
 has to fetch its rows as TSV. One Firecloud `entities/<type>/tsv` call in the same style as
 that task would do it, but the operator asked me not to write the reader, so it is a
 question back to them.
+
+## 2026-10-27T07:20:00Z  — Entity-row download written; the Year column landed; an id-column bug caught by real data
+
+**Context.** The operator clarified they only meant I should not write the *metadata*
+(self-identification) task, asked me to write the entities call, and added a `Year` column
+to the PfPhast table.
+
+**The Year column.** Present as `Year` (capital Y), 2024 for all 429 rows. The column
+mapper lower-cases headers so it matched without change, and the report went from
+`period n/a` with zero Trends frames to `period 2024` with one frame.
+
+**A bug only the real export could have found.** The first run against the re-pulled table
+failed with "no sample id column found in: entity:pfphast_sample_id, ...". Terra names the
+id column after the *table* - `entity:pfphast_sample_id` - and my reshaper only looked for
+the literal `entity:sample_id`, which is what my own hand-built fixture had used. So every
+fixture I had tested with was subtly unlike a real export. Fixed with an `entity:\S*_id`
+pattern in both `terra_samples.reshape` and `load_nomads._colmap`, and the self-check now
+uses a table-named id column so it cannot regress to the easy case.
+
+**Decision / action.** Wrote `wdl/tasks/Utility/TerraEntities.wdl`
+(`download_terra_entity_table`): pages the Rawls `entityQuery` API with the task's
+service-account token and writes the Terra export layout - `entity:<type>_id` first, then
+one column per attribute - so its output is interchangeable with a hand-made Download TSV.
+Optionally restricts rows to a sample set's members, or to an explicit id list, or both
+intersected. Attribute flattening follows Terra's own TSV: scalars pass through, value
+lists comma-join, an entity reference becomes the referenced row id.
+
+Wired into both amplicon pipelines: an empty `resmarker_tables` now means "fetch the table
+this submission was launched from", using `get_terra_env_info` for the workspace and table
+name, with `sample_table` / `entity_set_type` / `entity_set_name` overrides for running
+outside a submission. Passing files explicitly skips the fetch entirely.
+
+**Two WDL 1.0 constraints worth recording.** There is no `None` literal, and a *task* body
+cannot contain a conditional - only a workflow can. So the optional id-list file is always
+materialised with `write_lines(row_ids)`, and an empty file is read as "no filter".
+
+**Evidence.** The embedded python is tested against a mocked Rawls API built from the real
+429-row payload, kept as `tests/test_terra_entities.py`: whole table gives 429 rows x 69
+attribute columns with `entity:pfphast_sample_id` first and `Year`/`resmarker_*`/`Latitude`
+all present; pagination exercised at `pageSize=100` across 5 pages; the `Good` set filters
+to exactly its 192 members; a set plus a 3-id list containing one bogus id yields 2 rows;
+and the row ids match the hand-made export exactly. End to end through
+`MalariaSurveillanceReportPfphast`: both tasks exit 0, 353 samples, 34/135 districts,
+period 2024, 1 trends frame, `assay PFPHAST`.

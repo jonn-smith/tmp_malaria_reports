@@ -3,6 +3,7 @@ version 1.0
 import "../../../tasks/Malaria/SurveillanceReport.wdl" as MSR
 import "../../../tasks/Utility/Finalize.wdl"           as FF
 import "../../../tasks/Utility/TerraEnvInfo.wdl"       as TERRA
+import "../../../tasks/Utility/TerraEntities.wdl"      as TE
 
 workflow MalariaSurveillanceReportMad4hatter {
 
@@ -37,7 +38,15 @@ workflow MalariaSurveillanceReportMad4hatter {
     }
 
     input {
-        Array[File] resmarker_tables
+        Array[File] resmarker_tables = []
+
+        # Leave resmarker_tables empty on Terra and the per-sample table is fetched from
+        # the data model directly: get_terra_env_info says which workspace and table this
+        # was launched from, download_terra_entity_table pulls the rows. Overrides below
+        # for running outside a submission, or against a different table.
+        String? sample_table
+        String? entity_set_type
+        String? entity_set_name
         File? site_metadata
 
         Array[File] allele_tables = []
@@ -76,6 +85,24 @@ workflow MalariaSurveillanceReportMad4hatter {
     }
     String? resolved_source = if defined(data_source) then data_source else only_detected
 
+    # No files given means: fetch the table this submission was launched from.
+    Boolean fetch_from_terra = length(resmarker_tables) == 0
+
+    if (fetch_from_terra) {
+        call TE.download_terra_entity_table as t_00b_FetchTable {
+            input:
+                namespace       = t_00_TerraEnv.workspace_namespace,
+                workspace       = t_00_TerraEnv.workspace_name,
+                entity_type     = select_first([sample_table, t_00_TerraEnv.sample_table]),
+                entity_set_type = entity_set_type,
+                entity_set_name = entity_set_name
+        }
+    }
+
+    Array[File] marker_inputs = if fetch_from_terra
+        then select_all([t_00b_FetchTable.table_tsv])
+        else resmarker_tables
+
     # a sample_set's membership arrives as an array; a curated list arrives as a file
     Boolean have_sample_array = length(sample_ids) > 0
     File? selected_ids_file = if have_sample_array then write_lines(sample_ids) else sample_id_list
@@ -84,7 +111,7 @@ workflow MalariaSurveillanceReportMad4hatter {
 
     call MSR.RenderMad4hatterReport as t_01_RenderReport {
         input:
-            resmarker_tables         = resmarker_tables,
+            resmarker_tables         = marker_inputs,
             site_metadata            = site_metadata,
             allele_tables            = allele_tables,
             cohort_name              = cohort_name,
