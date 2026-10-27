@@ -16,7 +16,8 @@ task download_terra_entity_table {
         entity_set_type: "Optional set table, e.g. 'pfphast_sample_set'. With entity_set_name, restricts the download to that set's members."
         entity_set_name: "Optional set row id, e.g. 'Good'"
         row_ids:        "Optional explicit row ids to keep. Applied after the set filter when both are given."
-        launch_row_id:  "The row id(s) the workflow was launched on, from get_terra_env_info.input_row_id. When no explicit set is given, each is tried as a set row in <entity_type>_set; a match scopes the download to that set's members. A launch row that is not a set is reported and ignored."
+        launch_row_id:  "The row id(s) the submission was launched on, from get_terra_env_info.input_row_id. Submission-wide, so it is only used when it names exactly one row."
+        submission_id:  "The submission this task belongs to, from get_terra_env_info.top_level_submission_id. With it, the task identifies its OWN workflow from its execution path and asks Terra which entity that workflow is for, which is what makes one report per sample set work when several are launched together."
         page_size:      "Rows per API request. The API caps this; 500 is comfortable."
         runtime_attr_override: "Override the default runtime attributes"
     }
@@ -30,6 +31,7 @@ task download_terra_entity_table {
         String? entity_set_name
         Array[String] row_ids = []
         String? launch_row_id
+        String? submission_id
 
         Int page_size = 500
 
@@ -49,13 +51,15 @@ task download_terra_entity_table {
         export SET_TYPE='~{default="" entity_set_type}'
         export SET_NAME='~{default="" entity_set_name}'
         export LAUNCH_ROW_ID='~{default="" launch_row_id}'
+        export SUBMISSION_ID='~{default="" submission_id}'
         export WANTED_IDS_FILE='~{wanted_ids_file}'
         export PAGE_SIZE='~{page_size}'
 
         python3 <<'PYEOF'
-        import csv, json, os, sys, urllib.parse, urllib.request
+        import csv, glob, json, os, re, sys, urllib.parse, urllib.request
 
         FIRECLOUD = "https://api.firecloud.org"
+        UUID = r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
         NS   = os.environ["NAMESPACE"]
         WS   = os.environ["WORKSPACE"]
         TYPE = os.environ["ENTITY_TYPE"]
@@ -105,6 +109,51 @@ task download_terra_entity_table {
 
         tok = token()
 
+        def own_entity():
+            """The entity THIS workflow is for, or None.
+
+            Cromwell writes each job under
+            .../submissions/<submission>/<workflow name>/<workflow id>/call-<task>/, so the
+            task can read its own workflow id out of its delocalization script and ask the
+            submission which entity that workflow was launched on. That is per-workflow and
+            exact, unlike the submission-wide launch row list, which cannot distinguish two
+            sets launched together.
+            """
+            sub_id = os.environ.get("SUBMISSION_ID", "")
+            if not sub_id:
+                return None
+            wf_id = None
+            cands = []
+            for root in ("/cromwell_root", "/mnt/disks/cromwell_root", os.getcwd()):
+                cands += glob.glob(root + "/**/gcs_delocalization.sh", recursive=True)
+                cands += glob.glob(root + "/gcs_delocalization.sh")
+            for script in sorted(set(cands), key=len):
+                txt = open(script).read()
+                found = set(re.findall(
+                    r"/submissions/" + re.escape(sub_id) + r"/[^/]+/(" + UUID + r")/call-",
+                    txt))
+                if len(found) == 1:
+                    wf_id = found.pop()
+                    break
+            if not wf_id:
+                sys.stderr.write("could not read this workflow's own id from its "
+                                 "execution path\n")
+                return None
+            try:
+                sub = api_get(f"{FIRECLOUD}/api/workspaces/{q(NS)}/{q(WS)}/submissions/"
+                              f"{q(sub_id)}", tok)
+            except Exception as e:
+                sys.stderr.write(f"could not read submission {sub_id} ({e})\n")
+                return None
+            for w in sub.get("workflows") or []:
+                if w.get("workflowId") == wf_id and w.get("workflowEntity"):
+                    e = w["workflowEntity"]
+                    sys.stderr.write(f"this workflow ({wf_id}) was launched on "
+                                     f"{e.get('entityType')}/{e.get('entityName')}\n")
+                    return e.get("entityType", ""), e.get("entityName", "")
+            sys.stderr.write(f"workflow {wf_id} not found in submission {sub_id}\n")
+            return None
+
         def set_members(stype, sname):
             """Member row ids of a set, or None when that set does not exist."""
             try:
@@ -137,6 +186,17 @@ task download_terra_entity_table {
                                   os.path.exists(os.environ["WANTED_IDS_FILE"]) and
                                   os.path.getsize(os.environ["WANTED_IDS_FILE"]) > 0)
         if not (set_type and set_name) and not explicit_ids_given:
+            mine = own_entity()
+            if mine and mine[0].endswith("_set") and mine[1]:
+                m = set_members(mine[0], mine[1])
+                if m:
+                    sys.stderr.write(f"scoping to {mine[0]}/{mine[1]}: {len(m)} members\n")
+                    wanted = m
+            elif mine:
+                sys.stderr.write(f"this workflow was launched on {mine[0]}/{mine[1]}, "
+                                 f"which is not a set; no set scoping applied\n")
+
+        if wanted is None and not (set_type and set_name) and not explicit_ids_given:
             launched = [r.strip() for r in os.environ.get("LAUNCH_ROW_ID", "").split(",")
                         if r.strip()]
             auto = f"{TYPE}_set"

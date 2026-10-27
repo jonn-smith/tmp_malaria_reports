@@ -1710,3 +1710,39 @@ amplicon`, and **0 ONT and 0 Senegal lines across all four export CSVs** (previo
 each in PHA4GE). Full pipeline under miniwdl: 2 tasks exit 0, 353 samples, 34/135 units,
 period 2024, same correct platform. NOMADS regression unchanged: `NOMADS | ONT MinION
 (nomads16)`. All self-checks and all WDL descriptors pass.
+
+## 2026-10-27T11:00:00Z  — The set merge, properly fixed: each workflow resolves its own row
+
+**Context.** Operator reported the latest Terra submission still reporting all samples.
+Checked it: submission `3d5264bc`, both workflows Succeeded, both reporting **353 QC-pass
+samples** - and 192 (Good) + 237 (Poor) = **429**, the whole table. That arithmetic is the
+signature of the union bug in `3725b9b`, which is the commit they are running. My guard
+against it (`943c463`) was committed here but never pushed.
+
+**Why the guard was not good enough anyway.** It refused to scope when several rows were
+launched, which stops the silent merge but also blocks the thing the operator actually
+wants: two sets launched together, one report each. Refusing would have made them bind
+`sample_ids` by hand on every submission.
+
+**The real fix.** Cromwell lays every job out under
+`.../submissions/<submission>/<workflow name>/<workflow id>/call-<task>/`, so a task can
+read **its own workflow id** out of its delocalization script - the same trick
+`get_terra_env_info` uses for the submission id - and then ask the submission API which
+entity that specific workflow was launched on. That is per-workflow and exact, where
+`input_row_id` is submission-wide and fundamentally cannot distinguish two sets launched
+together. `download_terra_entity_table` now takes `submission_id`, resolves its own entity,
+and scopes to that set's members. The single-row rule and the multi-row refusal remain
+underneath as fallbacks.
+
+**Evidence.** The mocked-API test now simulates Cromwell's execution layout and a
+two-workflow submission: workflow A resolves `Good` and downloads **192** rows, workflow B
+resolves `Poor` and downloads **237**, and the test asserts 192 + 237 = 429 - the sets
+partition the table rather than each receiving all of it. On the fresh 0.12.4 image,
+direct `docker run`: country Uganda from the data, PFPHAST, Illumina platform, zero ONT and
+zero Senegal lines in all four exports. All self-checks pass; all five WDL descriptors
+validate under womtool-92.
+
+**Note on the image tags.** 0.12.1 through 0.12.3 were each built more than once with
+different contents while I was chasing the stale-layer problem. 0.12.4 is the first tag
+built exactly once, from a verified-matching tree, and is the only one that should be
+pushed.

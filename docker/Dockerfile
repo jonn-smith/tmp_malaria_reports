@@ -10,8 +10,8 @@
 #   docker/build.sh --push     # build, then push
 #
 # By hand, if you must — pass the version so the label matches the tag:
-#   docker build --build-arg IMAGE_VERSION=0.12.3 \
-#       -t us.gcr.io/broad-dsp-lrma/lr-malaria-reports:0.12.3 -f docker/Dockerfile .
+#   docker build --build-arg IMAGE_VERSION=0.12.4 \
+#       -t us.gcr.io/broad-dsp-lrma/lr-malaria-reports:0.12.4 -f docker/Dockerfile .
 # Base is the full python image rather than -slim deliberately: every WDL task in this
 # repo runs the house-standard resource-detection preamble, which calls `free`. The slim
 # image omits procps, so the preamble aborts under `set -e`. (slim + `apt-get install
@@ -21,7 +21,7 @@ FROM python:3.11
 # The version is an argument, not a literal: it was previously hard-coded here and went
 # stale, so an image tagged 0.12.1 carried a label claiming 0.12.0. build.sh passes the
 # tag it derives from the WDL, and the assertion below refuses to build if the two differ.
-ARG IMAGE_VERSION=0.12.3
+ARG IMAGE_VERSION=0.12.4
 
 LABEL org.opencontainers.image.title="lr-malaria-reports"
 LABEL org.opencontainers.image.description="Malaria molecular-surveillance report renderer"

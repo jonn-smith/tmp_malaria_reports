@@ -34,6 +34,14 @@ def fake_urlopen(req, *a, **kw):
             'results': chunk,
             'resultMetadata': {'unfilteredCount': len(rows), 'filteredCount': len(rows),
                                'filteredPageCount': pages}}).encode())
+    m = re.search(r'/submissions/([0-9a-f-]{36})$', url)
+    if m:
+        return FakeResp(json.dumps({'workflows': [
+            {'workflowId': 'aaaaaaaa-1111-2222-3333-444444444444',
+             'workflowEntity': {'entityType': 'pfphast_sample_set', 'entityName': 'Good'}},
+            {'workflowId': 'bbbbbbbb-1111-2222-3333-444444444444',
+             'workflowEntity': {'entityType': 'pfphast_sample_set', 'entityName': 'Poor'}},
+        ]}).encode())
     m = re.search(r'/entities/([^/]+)/([^/?]+)$', url)
     if m:
         import urllib.parse as up
@@ -43,8 +51,16 @@ def fake_urlopen(req, *a, **kw):
 
 urllib.request.urlopen = fake_urlopen
 
-def run(**env):
+def run(delocalization_for=None, **env):
     d = tempfile.mkdtemp()
+    if delocalization_for:
+        # Cromwell's own layout: .../submissions/<sub>/<wf name>/<wf id>/call-<task>/
+        sub = 'ffffffff-1111-2222-3333-444444444444'
+        os.makedirs(os.path.join(d, 'x'), exist_ok=True)
+        with open(os.path.join(d, 'gcs_delocalization.sh'), 'w') as fh:
+            fh.write(f'gs://fc-secure-{sub}/submissions/{sub}/MalariaSurveillanceReportAmplicon/'
+                     f'{delocalization_for}/call-t_00b_FetchTable/x\n')
+        env.setdefault('SUBMISSION_ID', sub)
     cwd = os.getcwd(); os.chdir(d)
     os.environ.update({'NAMESPACE':'broad-firecloud-dsde-methods',
                        'WORKSPACE':'JTS_TEST_COPY', 'ENTITY_TYPE':'pfphast_sample',
@@ -112,5 +128,16 @@ open(ids2,'w').write('UG_TEST_G001_S68\nUG_TEST_G002_S90\n')
 out7, n7, _ = run(LAUNCH_ROW_ID='Good,Poor', WANTED_IDS_FILE=ids2)
 print(f'ids + 2 launch rows -> {n7} rows')
 assert n7 == 2, n7
+
+# 8. two sets launched together: each workflow scopes to its OWN set, no merging
+out8, n8, _ = run(delocalization_for='aaaaaaaa-1111-2222-3333-444444444444',
+                  LAUNCH_ROW_ID='Good,Poor')
+print(f'workflow A of 2 sets -> {n8} rows')
+assert n8 == 192, n8
+out9, n9, _ = run(delocalization_for='bbbbbbbb-1111-2222-3333-444444444444',
+                  LAUNCH_ROW_ID='Good,Poor')
+print(f'workflow B of 2 sets -> {n9} rows')
+assert n9 == 237, n9
+assert n8 + n9 == 429, 'the two sets should partition the table, not duplicate it'
 
 print('\nall entities-call checks passed')
