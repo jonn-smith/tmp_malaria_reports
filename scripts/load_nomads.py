@@ -37,12 +37,14 @@ sys.path.insert(0, HERE)
 import gen_reports as G
 import terra_samples
 import geoloc
+import panels
 dept_of_coords = lambda lat, lon: G.dept_of_point(lat, lon)   # projected-space PIP, any country
 
 csv.field_size_limit(10**7)
 
 # the location audit from the most recent load, picked up by make_report.py
 LAST_AUDIT = {}
+DECLARED_PANEL = None   # set by make_report when --assay named a panel
 
 ALIASES = {
     'sample_id': ('sample_id', 'sample', 'sampleid', 'specimen_id', 'specimen'),
@@ -60,8 +62,20 @@ ALIASES = {
     'lat':       ('lat', 'latitude'),
     'lon':       ('lon', 'long', 'longitude'),
     'year':      ('year', 'collection_year'),
+    # QC written back onto the per-sample table by 02_AmpliconPanelQcReport
+    'qc_status': ('library_sample_qc_status', 'qc_status', 'sample_qc_status'),
+    'batch_pass': ('batch_pass', 'batchpass'),
+    'sample_type': ('sample_type', 'sampletype'),
     'date':      ('date', 'collection_date', 'date_of_collection'),
 }
+# The amplicon QC workflow grades each library pass / repool / reprep, worst-across-
+# reactions, from the proportion of good loci (reprep below 0.5, repool below 0.75). Only
+# "pass" is a clean library, so only "pass" counts by default; the others are reported, not
+# dropped silently. Set qc_statuses in the render config to widen it.
+QC_OK = {'pass', 'passed', 'true', 'yes', ''}
+CONTROL_TYPES = {'negative', 'positive', 'control', 'ntc', 'blank'}
+QC_STATUSES = None      # overridable: a set of acceptable library_sample_qc_status values
+
 REF_WORDS = {'ref', 'wt', 'wildtype', 'wild_type', 'hom_ref', 'homref', '0', '0/0', 'absent', 'negative'}
 ALT_WORDS = {'alt', 'mut', 'mutant', 'hom_var', 'homvar', '1', '1/1', 'present', 'positive'}
 HET_WORDS = {'het', 'mixed', 'heterozygous', '0/1', '1/0'}
@@ -157,6 +171,27 @@ def _f(v):
     except (TypeError, ValueError): return None
 
 
+def _qc_verdict(row, cm):
+    """-> (keep, reason). Uses the QC the amplicon pipeline wrote back onto the table.
+
+    `02_AmpliconPanelQcReport` grades every library pass / repool / reprep and marks
+    controls in sample_type, so the report defers to that rather than inventing its own
+    thresholds. A sample excluded here is reported, never dropped quietly: it would
+    otherwise vanish from a denominator with no trace.
+    """
+    st = _get(row, cm, 'sample_type').lower()
+    if st and st in CONTROL_TYPES:
+        return False, f'control ({st})'
+    bp = _get(row, cm, 'batch_pass').lower()
+    if bp and bp not in QC_OK:
+        return False, f'batch_pass={bp}'
+    qs = _get(row, cm, 'qc_status').lower()
+    ok = QC_STATUSES if QC_STATUSES is not None else QC_OK
+    if qs and qs not in ok:
+        return False, f'library_sample_qc_status={qs}'
+    return True, None
+
+
 
 
 def _read_calls(path):
@@ -197,6 +232,8 @@ def load(call_tables, site_metadata=None, version=None, data_source=None, select
 
     samples = {}
     drop = {'rows': 0, 'no_marker': 0, 'not_typed': 0, 'no_location': 0, 'not_selected': 0}
+    qc_seen, qc_bad, qc_reasons = set(), {}, {}
+    seen_loci = set()
     for path in call_tables:
             rows, fields = _read_calls(path)
             cm = _colmap(fields)
@@ -210,6 +247,19 @@ def load(call_tables, site_metadata=None, version=None, data_source=None, select
                 if selection is not None and not selection.keep(sid):
                     drop['not_selected'] = drop.get('not_selected', 0) + 1
                     continue
+                if sid in qc_bad:
+                    continue
+                if sid not in qc_seen:
+                    qc_seen.add(sid)
+                    keep, why = _qc_verdict(row, cm)
+                    if not keep:
+                        qc_bad[sid] = why
+                        qc_reasons[why] = qc_reasons.get(why, 0) + 1
+                if sid in qc_bad:
+                    continue
+                mo_l = re.match(r'^([A-Za-z])(\d+)([A-Za-z*])$', _get(row, cm, 'aa_change'))
+                if mo_l:
+                    seen_loci.add(f'{_gene_tok(_get(row, cm, "gene"))}:{int(mo_l.group(2))}')
                 key = _marker_key(row, cm)
                 if not key:
                     drop['no_marker'] += 1
@@ -250,6 +300,14 @@ def load(call_tables, site_metadata=None, version=None, data_source=None, select
         rec['region'] = ((G.SEN_REGION.get(d) if G.COUNTRY_ISO == 'SEN' else None)
                          or G.region_of(d) or given_region or '—')
         placed.append(rec)
+    if qc_reasons:
+        tot = sum(qc_reasons.values())
+        sys.stderr.write(f'[load_nomads] QC excluded {tot} sample(s): '
+                         + ', '.join(f'{k} x{v}' for k, v in sorted(qc_reasons.items())) + '\n')
+    detection = panels.detect(seen_loci)
+    panels.register(detection)
+    for line in panels.lines(detection, declared=DECLARED_PANEL):
+        sys.stderr.write(f'[load_nomads] {line}\n')
     resolver.report(tag='load_nomads')
     LAST_AUDIT['nomads'] = resolver.audit
 
@@ -293,6 +351,12 @@ def load(call_tables, site_metadata=None, version=None, data_source=None, select
     rep['meta']['data_source'] = data_source or 'NOMADS ONT amplicon · nomadic marker calls'
     rep['meta']['n_called'] = sum(1 for s in placed if s.get('calls'))
     rep['meta']['location_audit'] = resolver.audit.meta()
+    rep['meta']['panel_detection'] = detection
+    if detection.get('recognised'):
+        rep['meta']['panel'] = detection['panel']
+        rep['meta']['panel_label'] = detection.get('label')
+    rep['meta']['qc_excluded'] = dict(qc_reasons)
+    rep['meta']['n_qc_excluded'] = sum(qc_reasons.values())
     G.real_export(rep, placed, 'ONT amplicon sequencing')
     rep['sites'] = G.sites_from_samples(placed)
     sys.stderr.write(f"[load_nomads] site points={len(rep['sites'])}\n")

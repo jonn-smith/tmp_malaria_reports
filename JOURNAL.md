@@ -1263,3 +1263,50 @@ the union of its pools' loci, and that the M2.1 gap-filling contains dhps:613 an
 Real data: MAD4HATTER via pools D1.1+R1.2+R2.1, explaining 97 of 136 observed, 39 outside
 it and all 39 non-principal. Curated PfPhast loci: PFPHAST via M1.1+M2.1, 19 of 19. The
 report card names the pools. All four pipelines pass `miniwdl check`.
+
+## 2026-10-27T05:00:00Z  — Wide per-sample Terra table is now the amplicon input; QC comes from the pipeline
+
+**Context.** The operator confirmed the wide per-sample Terra table is the amplicon input
+shape from now on for short reads, and asked whether the sample QC status comes out of the
+pipelines.
+
+**Answer to that question, from the workspace documentation.** Yes. The Mad4Hatter
+workspace dashboard states that `02_AmpliconPanelQcReport` "writes per-sample QC metrics
+back onto the per-sample data table", and lists them: `Library_sample_name`,
+`Library_sample_qc_status`, `mean_prop_good_loci`, `postprocessed_read_count`,
+`batch_pass`, `sample_type`, `batch`, `parasites_per_ul`, `sequencing_run`.
+`Library_sample_qc_status` is defined as the "worst QC status (`reprep` > `repool` >
+`pass`) across the sample's reactions", driven by the workflow's own `reprep_threshold`
+(0.5) and `repool_threshold` (0.75) on the proportion of good loci. So `repool` and
+`reprep` are the pipeline's verdict that a library underperformed, not free-text.
+
+**Decision / action.** Three changes.
+
+1. `make_report.py` now sniffs the header of each `--resmarker-table` and routes a wide
+   per-sample table to the loader that understands that shape, keeping the long
+   `resmarker_table.txt` path for the pipeline's own files. Mixing the two shapes in one
+   run is refused rather than half-handled. `--site-metadata` became optional, on the CLI
+   and in the WDL, because the per-sample table carries geography, QC and marker calls in
+   one file.
+
+2. The report now defers to the pipeline's QC rather than inventing thresholds: only
+   `pass` counts, anything flagged a control in `sample_type` is excluded, and a failed
+   `batch_pass` excludes too. `qc_statuses` in the render config widens it for anyone who
+   wants repool/reprep included. The front page already said "QC pass samples", which was
+   previously a mislabel - every placed sample was counted.
+
+3. Panel detection moved onto this path as well; it had only ever run on the long-table
+   loader, so a wide-table run named no panel.
+
+**Evidence.** The real PfPhast table (429 rows, 43 marker columns) through the amplicon
+assay: 17163 marker calls, **58 samples excluded** (9 positive and 4 negative controls, 37
+reprep, 8 repool), 353 placed, panel detected as PFPHAST = pools M1.1 + M2.1 explaining 39
+of 41 observed loci with `crt:93`/`crt:101` outside it. `miniwdl run` of
+`MalariaSurveillanceReportPfphast` on that table with no `site_metadata` at all: exit 0,
+353 placed. Regressions all pass - long resmarker tables still detect MAD4HatTeR with 883
+samples, the Nomadic wide table still detects NOMADS, the long marker-calls format still
+works, and mixing shapes is refused with a clear message.
+
+**Still open on this data.** It has no collection date of any kind (`Age_years` is patient
+age), so `period` is `n/a` and the Trends tab has zero frames. That is a data gap, not a
+code one.

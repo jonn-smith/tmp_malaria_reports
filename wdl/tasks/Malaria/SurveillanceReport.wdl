@@ -160,8 +160,8 @@ task RenderMad4hatterReport {
 
     parameter_meta {
         assay:                    "AMPLICON (default) detects the panel from the loci in the tables and tolerates panels that are not catalogued. Naming MAD4HATTER or PFPHAST instead declares it: the declaration is kept and any disagreement with the detected panel is reported."
-        resmarker_tables:         "Amplicon resistance-marker tables (resmarker_table.txt), one per sequencing run"
-        site_metadata:            "Per-sample site and coordinate table (Sample_id, site, Latitude, Longitude)"
+        resmarker_tables:         "Amplicon resistance-marker calls: either the wide per-sample Terra table (one column per marker, the short-read default) or the long resmarker_table.txt files, one per sequencing run. Do not mix the two shapes."
+        site_metadata:            "Per-sample site and coordinate table (Sample_id, site, Latitude, Longitude). Optional: a wide per-sample Terra table already carries geography, so omit it for that input shape."
         allele_tables:            "MAD4HATTER microhaplotype allele tables (allele_data.txt); optional"
         cohort_name:              "Cohort label used for output filenames"
         version_label:            "Version string stamped on the report (e.g. v0.12)"
@@ -179,7 +179,7 @@ task RenderMad4hatterReport {
 
     input {
         Array[File] resmarker_tables
-        File site_metadata
+        File? site_metadata
         String cohort_name
 
         Array[File] allele_tables = []
@@ -237,7 +237,7 @@ task RenderMad4hatterReport {
         python3 /opt/malaria_reports/scripts/make_report.py \
             --assay ~{assay} \
             --resmarker-table ~{sep=' ' resmarker_tables} \
-            --site-metadata ~{site_metadata} \
+            ~{"--site-metadata " + site_metadata} \
             ~{if length(allele_tables) > 0 then "--allele-table " else ""}~{sep=' ' allele_tables} \
             ~{"--version-label " + version_label} \
             ~{"--data-source '" + data_source + "'"} \

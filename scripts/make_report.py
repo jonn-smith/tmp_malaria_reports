@@ -141,16 +141,36 @@ def main(argv=None):
         import load_wgs
         rep = load_wgs.load(a.sample_table, selection)
     elif a.assay in ('AMPLICON', 'MAD4HATTER', 'PFPHAST'):
-        if not a.resmarker_table or not a.site_metadata:
-            raise SystemExit(f'--assay {a.assay} requires --resmarker-table and '
-                             f'--site-metadata')
-        import load_mad
-        # a declared panel is a cross-check for the detector, not an instruction
-        load_mad.DECLARED_PANEL = None if a.assay == 'AMPLICON' else a.assay
-        # load_mad takes directories; stage the listed files into one
-        rm_dir = _stage('resmarker', a.resmarker_table)
-        ad_dir = _stage('allele', a.allele_table) if a.allele_table else None
-        rep = load_mad.load(rm_dir, a.site_metadata, ad_dir, selection)
+        if not a.resmarker_table:
+            raise SystemExit(f'--assay {a.assay} requires --resmarker-table')
+        declared = None if a.assay == 'AMPLICON' else a.assay
+        wide = [f for f in a.resmarker_table if _is_wide_terra_table(f)]
+        if wide:
+            # The per-sample Terra table is the amplicon input shape for short reads: the
+            # 01 workflow's resmarker calls and the 02 workflow's QC both land on it as
+            # columns, so the geography, the QC verdicts and the marker calls arrive in one
+            # file. It carries its own site metadata, hence the fallback below.
+            if len(wide) != len(a.resmarker_table):
+                raise SystemExit('mixing wide Terra sample tables with long resmarker '
+                                 'tables in one run is not supported; pass one shape')
+            import load_nomads
+            load_nomads.DECLARED_PANEL = declared
+            if cfg.get('qc_statuses'):
+                load_nomads.QC_STATUSES = {str(x).lower() for x in cfg['qc_statuses']}
+            rep = load_nomads.load(a.resmarker_table,
+                                   a.site_metadata or a.resmarker_table[0],
+                                   selection=selection)
+        else:
+            if not a.site_metadata:
+                raise SystemExit(f'--assay {a.assay} with long resmarker tables requires '
+                                 f'--site-metadata')
+            import load_mad
+            # a declared panel is a cross-check for the detector, not an instruction
+            load_mad.DECLARED_PANEL = declared
+            # load_mad takes directories; stage the listed files into one
+            rm_dir = _stage('resmarker', a.resmarker_table)
+            ad_dir = _stage('allele', a.allele_table) if a.allele_table else None
+            rep = load_mad.load(rm_dir, a.site_metadata, ad_dir, selection)
     else:
         if not a.marker_calls:
             raise SystemExit('--assay NOMADS requires --marker-calls')
@@ -215,6 +235,19 @@ def main(argv=None):
             'See docs/TERRA_TABLES.md for the six required fields.')
     sys.stderr.write(f"[make_report] wrote {a.out_html} and {a.out_data_json}\n")
     return 0
+
+
+def _is_wide_terra_table(path):
+    """Does this file carry one column per marker, rather than one row per marker call?"""
+    sys.path.insert(0, HERE)
+    import terra_samples
+    delim = '\t' if path.lower().endswith(('.tsv', '.txt')) else ','
+    try:
+        with open(path, newline='', encoding='utf-8-sig') as fh:
+            header = next(csv.reader(fh, delimiter=delim), []) or []
+    except OSError:
+        return False
+    return any(terra_samples.AA_COL.match(c) or terra_samples.RES_COL.match(c) for c in header)
 
 
 def _write_audit(audit, path):

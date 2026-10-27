@@ -19,7 +19,7 @@ workflow MalariaSurveillanceReportMad4hatter {
 
     parameter_meta {
         resmarker_tables:         "MAD4HATTER resistance-marker tables (resmarker_table.txt), one per sequencing run"
-        site_metadata:            "Per-sample site and coordinate table (Sample_id, site, Latitude, Longitude)"
+        site_metadata:            "Per-sample site and coordinate table; optional when the per-sample Terra table already carries geography"
         allele_tables:            "MAD4HATTER microhaplotype allele tables (allele_data.txt); optional"
         cohort_name:              "Cohort label; used in the output directory path and output filenames"
         version_label:            "Version string stamped on the report (e.g. v0.12)"
@@ -37,7 +37,7 @@ workflow MalariaSurveillanceReportMad4hatter {
 
     input {
         Array[File] resmarker_tables
-        File site_metadata
+        File? site_metadata
 
         Array[File] allele_tables = []
         String cohort_name
