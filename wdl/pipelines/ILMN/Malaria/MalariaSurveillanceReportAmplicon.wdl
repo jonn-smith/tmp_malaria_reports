@@ -5,10 +5,10 @@ import "../../../tasks/Utility/Finalize.wdl"           as FF
 import "../../../tasks/Utility/TerraEnvInfo.wdl"       as TERRA
 import "../../../tasks/Utility/TerraEntities.wdl"      as TE
 
-workflow MalariaSurveillanceReportMad4hatter {
+workflow MalariaSurveillanceReportAmplicon {
 
     meta {
-        description: "Build the malaria molecular-surveillance report for a MAD4HATTER amplicon cohort. Inputs are the per-run resistance-marker tables and a per-sample site/coordinate table, optionally with the microhaplotype allele tables; output is a single self-contained HTML report plus the data model behind it and the dashboard export tables (WHO Malaria Threats Map, DHIS2, Africa CDC, PHA4GE)."
+        description: "Build the malaria molecular-surveillance report for any short-read amplicon cohort. The panel is detected from the loci present in the input, so one workflow serves MAD4HatTeR, PfPHAST and panels that are not catalogued; set assay to declare it instead. Input is the per-sample Terra table (fetched from the data model when no files are given) or the pipeline's per-run resistance-marker tables; output is a single self-contained HTML report plus the data model behind it, the dashboard export tables (WHO Malaria Threats Map, DHIS2, Africa CDC, PHA4GE) and a location-resolution audit."
 
         outputs: {
             report_html:      "Self-contained single-file HTML surveillance report",
@@ -63,6 +63,11 @@ workflow MalariaSurveillanceReportMad4hatter {
         File? sample_id_list
         String? selection_label
         String? gcs_out_root_dir
+
+        # Which panel produced this? Default detects it from the loci and tolerates panels
+        # that are not catalogued. Naming MAD4HATTER or PFPHAST declares it instead: the
+        # declaration is kept and any disagreement with the detected panel is reported.
+        String assay = "AMPLICON"
     }
 
     # Self-identify the Terra workspace, the per-sample table and the row(s) this was
@@ -107,10 +112,11 @@ workflow MalariaSurveillanceReportMad4hatter {
     Boolean have_sample_array = length(sample_ids) > 0
     File? selected_ids_file = if have_sample_array then write_lines(sample_ids) else sample_id_list
 
-    String outdir = sub(select_first([gcs_out_root_dir, "."]), "/$", "") + "/MalariaSurveillanceReportMad4hatter/~{cohort_name}"
+    String outdir = sub(select_first([gcs_out_root_dir, "."]), "/$", "") + "/MalariaSurveillanceReportAmplicon/~{cohort_name}"
 
-    call MSR.RenderMad4hatterReport as t_01_RenderReport {
+    call MSR.RenderAmpliconReport as t_01_RenderReport {
         input:
+            assay                    = assay,
             resmarker_tables         = marker_inputs,
             site_metadata            = site_metadata,
             allele_tables            = allele_tables,

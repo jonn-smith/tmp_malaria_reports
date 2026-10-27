@@ -6,17 +6,11 @@ version: 1.2
 workflows:
   - name: MalariaSurveillanceReportAmplicon
     subclass: WDL
-    primaryDescriptorPath: /wdl/pipelines/ILMN/Malaria/MalariaSurveillanceReportMad4hatter.wdl
+    primaryDescriptorPath: /wdl/pipelines/ILMN/Malaria/MalariaSurveillanceReportAmplicon.wdl
     readMePath: /docs/workflows/MalariaSurveillanceReportAmplicon.README.md
     testParameterFiles:
-      - /wdl/inputs/MalariaSurveillanceReportMad4hatter.inputs.json
+      - /wdl/inputs/MalariaSurveillanceReportAmplicon.inputs.json
 
-  - name: MalariaSurveillanceReportPfphast
-    subclass: WDL
-    primaryDescriptorPath: /wdl/pipelines/ILMN/Malaria/MalariaSurveillanceReportPfphast.wdl
-    readMePath: /docs/workflows/MalariaSurveillanceReportPfphast.README.md
-    testParameterFiles:
-      - /wdl/inputs/MalariaSurveillanceReportPfphast.inputs.json
 
   - name: MalariaSurveillanceReportWgs
     subclass: WDL

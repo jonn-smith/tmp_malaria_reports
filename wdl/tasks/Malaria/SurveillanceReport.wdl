@@ -138,7 +138,7 @@ task RenderWgsReport {
     }
 }
 
-task RenderMad4hatterReport {
+task RenderAmpliconReport {
 
     meta {
         description: "Render the malaria molecular-surveillance report from MAD4HATTER amplicon outputs: one resistance-marker table per sequencing run, a per-sample site/coordinate table, and optionally the microhaplotype allele tables."
@@ -248,16 +248,16 @@ task RenderMad4hatterReport {
             ~{"--config " + render_config_json} \
             ~{"--template " + report_template_override} \
             ~{if defined(reference_bundle_tar) then "--reference ./reference" else ""} \
-            --out-html "~{cohort_name}.mad4hatter_surveillance_report.html" \
-            --out-data-json "~{cohort_name}.mad4hatter_surveillance_report.data.json" \
+            --out-html "~{cohort_name}.amplicon_surveillance_report.html" \
+            --out-data-json "~{cohort_name}.amplicon_surveillance_report.data.json" \
             --out-csv-dir export_csvs \
             --out-location-audit "~{cohort_name}.location_audit.tsv" \
             ~{extra_args}
     >>>
 
     output {
-        File report_html      = "~{cohort_name}.mad4hatter_surveillance_report.html"
-        File report_data_json = "~{cohort_name}.mad4hatter_surveillance_report.data.json"
+        File report_html      = "~{cohort_name}.amplicon_surveillance_report.html"
+        File report_data_json = "~{cohort_name}.amplicon_surveillance_report.data.json"
         Array[File] export_csvs = glob("export_csvs/*.csv")
         File location_audit = "~{cohort_name}.location_audit.tsv"
     }

@@ -1,0 +1,18 @@
+{
+  "MalariaSurveillanceReportAmplicon.resmarker_tables": [
+    "gs://BUCKET/cigass_mad4hatter/ucsf_outputs/out_run1/resistance_marker_module/resmarker_table.txt",
+    "gs://BUCKET/cigass_mad4hatter/ucsf_outputs/out_run2/resistance_marker_module/resmarker_table.txt"
+  ],
+  "MalariaSurveillanceReportAmplicon.site_metadata": "gs://BUCKET/cigass_mad4hatter/mad_meta.csv",
+  "MalariaSurveillanceReportAmplicon.cohort_name": "SEN_MAD4HATTER_2020_2023",
+
+  "MalariaSurveillanceReportAmplicon.allele_tables": [],
+  "MalariaSurveillanceReportAmplicon.version_label": "v0.12",
+  "MalariaSurveillanceReportAmplicon.data_source": "MAD4HATTER v4 amplicon · UCSF mad4hatter outputs (runs 1-10)",
+  "MalariaSurveillanceReportAmplicon.gcs_out_root_dir": "gs://BUCKET/malaria_reports",
+
+  "##_optional_rendering_levers": "all three are optional; see docs/WDL_INTERFACE.md section 4",
+  "##_render_config_json": "gs://BUCKET/config/render_config.json",
+  "##_report_template_override": "gs://BUCKET/templates/report.template.html",
+  "##_reference_bundle_tar": "gs://BUCKET/reference/reference_bundle.tar.gz"
+}

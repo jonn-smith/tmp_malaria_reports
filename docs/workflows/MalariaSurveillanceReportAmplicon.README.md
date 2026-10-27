@@ -4,16 +4,23 @@ Renders the malaria molecular-surveillance report from amplicon resistance-marke
 writes a self-contained single-file HTML report, the data model behind every number in it,
 dashboard-ready export CSVs, and a location-resolution audit.
 
-The panel is detected from the loci present in the input, so this one workflow serves
-MAD4HatTeR, PfPHAST and any other panel; `MalariaSurveillanceReportPfphast` is the same
-pipeline with the panel declared rather than detected.
+**This is the workflow to run for any short-read amplicon data.** The panel is detected
+from the loci present in the input, so one workflow serves MAD4HatTeR, PfPHAST and panels
+that are not catalogued at all — there is no separate per-panel workflow to choose between.
+
+Set `assay` to `MAD4HATTER` or `PFPHAST` only if you want to *declare* the panel. The
+declaration is kept, and if the loci look like a different panel the disagreement is
+reported in the task log and on the report's Methods page rather than silently accepted.
+Leaving it at the default `AMPLICON` is the normal case.
 
 ## Inputs
 
 | Input | Type | Notes |
 |---|---|---|
-| `resmarker_tables` | `Array[File]` | **Either** the wide per-sample Terra table exported to TSV (one `resmarker_<gene>_<codon>` column per marker — the short-read default) **or** the pipeline's long `resmarker_table.txt` files, one per run. Do not mix the two shapes in one submission. |
+| `assay` | `String` | `AMPLICON` (default) detects the panel; `MAD4HATTER` or `PFPHAST` declares it. |
+| `resmarker_tables` | `Array[File]` | Leave **empty on Terra** and the per-sample table is fetched from the data model: `get_terra_env_info` identifies the workspace and table, `download_terra_entity_table` pulls the rows. Otherwise: **either** the wide per-sample Terra table exported to TSV (one `resmarker_<gene>_<codon>` column per marker — the short-read default) **or** the pipeline's long `resmarker_table.txt` files, one per run. Do not mix the two shapes in one submission. |
 | `cohort_name` | `String` | Used for output filenames. |
+| `sample_table`, `entity_set_type`, `entity_set_name` | `String?` | Override what is fetched, for running outside a submission or against another table / a single set. |
 | `site_metadata` | `File?` | Per-sample site and coordinates. **Omit for the wide per-sample table**, which already carries `Country`/`Region`/`District`/`Latitude`/`Longitude`. Required with the long tables. |
 | `country_iso3` | `String?` | Selects the admin-2 boundary set baked into the image, e.g. `UGA`. Defaults to `SEN`. |
 | `country_name` | `String?` | Shown in the report. |

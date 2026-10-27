@@ -1514,3 +1514,32 @@ they must agree" and lists them; changing one `tool_version` to `0.11.0` gives
 "tool_version ... is 0.11.0 0.12.1, but the docker tag is 0.12.1". The WDL was restored and
 re-validated (6 references to 0.12.1, `miniwdl check` clean), and the pipeline still runs
 end to end on the rebuilt image: 353 samples, period 2024, assay PFPHAST.
+
+## 2026-10-27T08:20:00Z  — One amplicon workflow, named for what it does
+
+**Context.** The operator asked which workflow to run and said they would prefer the
+general one, so they can report on either MAD4HatTeR or PfPHAST.
+
+**The problem with the answer as it stood.** The general workflow - the one that detects
+the panel - was named `MalariaSurveillanceReportMad4hatter`, which is what Terra would
+have displayed. So the workflow that handles both panels was named after one of them, and
+the only way to declare a panel was to pick the separate `...Pfphast` workflow, because
+the general one did not expose `assay` at all. Two workflows where the difference was one
+string.
+
+**Decision / action.** Collapsed to one. Renamed the pipeline and its workflow identifier
+to `MalariaSurveillanceReportAmplicon`, renamed the shared task
+`RenderMad4hatterReport` -> `RenderAmpliconReport` and its outputs
+`*.mad4hatter_surveillance_report.*` -> `*.amplicon_surveillance_report.*`, exposed
+`assay` on the pipeline (default `AMPLICON` = detect), and deleted the PfPHAST pipeline,
+its inputs template and its README. Dockstore now registers three workflows -
+Amplicon, Wgs, Nomads - and declaring a panel is an input change rather than a different
+workflow.
+
+**Evidence.** Four `miniwdl run`s of the one workflow: PfPhast per-sample table detects
+`PFPHAST` (353 samples, period 2024); the real MAD4HatTeR long tables detect `MAD4HATTER`
+(883 samples, period 2020, 2023); `assay = PFPHAST` on PfPhast data runs clean; and
+`assay = MAD4HATTER` on PfPhast data keeps the declaration but logs "MISMATCH: the run
+declared --assay MAD4HATTER but the loci look like PFPHAST". All three pipelines and both
+task files pass `miniwdl check`, every path in `.dockstore.yml` resolves, and no stale
+`Mad4hatter` identifier remains in the WDL or config.
