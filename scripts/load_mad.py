@@ -55,7 +55,12 @@ def load_meta(path):
         m[sid] = {'country': pick(r, 'Country'), 'region': pick(r, 'Region', 'admin1'),
                   'district': pick(r, 'District', 'admin2', 'dept'),
                   'site': pick(r, 'Site', 'facility'),
-                  'lat': f(pick(r, 'Latitude', 'lat')), 'lon': f(pick(r, 'Longitude', 'lon'))}
+                  'lat': f(pick(r, 'Latitude', 'lat')), 'lon': f(pick(r, 'Longitude', 'lon')),
+                  # whatever else the metadata file carries, for the export builders to
+                  # draw on (study type, endemicity, sex, age, ...). Without this the
+                  # Africa CDC and PHA4GE columns are blank on this input shape even when
+                  # the file has the values, which is how it behaved until now.
+                  'extra': {k: v for k, v in r.items() if v not in (None, '')}}
     return m
 
 # admin-2 assignment comes from gen_reports, which works in the projected space of the
@@ -146,7 +151,8 @@ def load(rm_dir, meta_csv, ad_dir=None, selection=None):
         calls = {k: ((0, 1) if k in mut.get(b, set()) else (1, 0)) for k in sorted(cov[b])}
         coi, poly = coi_map.get(b, (None, None))
         samples.append({'id': b, 'district': d, 'region': '—', 'site': site, 'lat': lat, 'lon': lon,
-                        'coi': coi, 'poly': poly, 'date': (year_of(b) or ''), 'calls': calls})
+                        'coi': coi, 'poly': poly, 'date': (year_of(b) or ''), 'calls': calls,
+                        'extra': mm.get('extra') or {}})
     # region from SEN_REGION by dept
     reg_na = {G._na(k): v for k, v in G.SEN_REGION.items()} if G.COUNTRY_ISO == 'SEN' else {}
     for s in samples: s['region'] = reg_na.get(G._na(s['district'])) or G.region_of(s['district']) or '—'
@@ -212,8 +218,8 @@ def load(rm_dir, meta_csv, ad_dir=None, selection=None):
     if detection.get('recognised'):
         rep['meta']['panel'] = detection['panel']
         rep['meta']['panel_label'] = detection.get('label')
-    G.real_export(rep, samples, 'Amplicon sequencing',
-                  panel=(detection.get('panel') if detection.get('recognised') else ''))
+    # the panel the report settled on, so the export's "Assay used" and the page agree
+    G.real_export(rep, samples, 'Amplicon sequencing', panel=rep['meta'].get('panel') or '')
     rep['sites'] = G.sites_from_samples(samples)
     sys.stderr.write(f"[load_mad] site points={len(rep['sites'])}\n")
     return rep

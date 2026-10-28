@@ -1,36 +1,35 @@
 {
  "_note": "controlled vocabularies for the export columns. A value absent from a list is rejected by the sheet; lists ending in \"Other\" have a sanctioned fallback, the rest do not.",
- "_source": "Africa MMS_Data_Sheet_Final_2026.xlsx (Mutation_Haplotype + Terms Reference guide); MalariaCommunityStandard_human_draft1_refined5.xlsx ('Pickl list HumanSample')",
+ "_source": "Africa CDC Minimum_Standard_for_MMS_2026.xlsx (Template + Terms Reference guide); MalariaCommunityStandard_human_draft1_refined5.xlsx ('Pickl list HumanSample')",
  "afcdc": {
   "_columns": [
-   "Sample ID",
-   "Host subject ID",
-   "Date of sample collection (MMM-YYYY e.g. FEB-2025)",
-   "Facility name",
-   "Country",
-   "Region/Province (Admin Level 1)",
-   "District (Admin Level 2)",
-   "Study type",
-   "Gene symbol",
-   "Gene Alteration",
-   "Haplotype",
-   "Travel history [Y/N]",
-   "Destination of most recent travel(city)",
-   "Destination of most recent travel(state/province/territory)",
-   "Destination of most recent travel(country)",
-   "Endemicity",
-   "Assay used"
+   "sample_id",
+   "host_subject_id",
+   "date_of_sample_collection",
+   "facility_name",
+   "country",
+   "region_province(admin_level_1)",
+   "district(admin_level_2)",
+   "study_type",
+   "gene_symbol",
+   "gene_Alteration",
+   "haplotype",
+   "travel_history_[Y/N]",
+   "destination_of_most_recent_travel_city",
+   "destination_of_most_recent_travel_state_province_territory",
+   "destination_of_most_recent_travel_country",
+   "endemicity",
+   "assay_used"
   ],
   "assay": [
    "SpotMalaria",
+   "PfPHAST",
    "Pf-SMARRT",
    "MAD4HATTER",
    "NOMADS",
    "MIPS",
    "MaRS",
-   "Osoti et al 2022 ?",
-   "Naget al 2017 ?",
-   "Ayde mir et al 2021 ?",
+   "WGS",
    "Other"
   ],
   "country": [
@@ -321,12 +320,15 @@
    "Other"
   ],
   "endemicity": [
-   "low",
-   "moderate",
-   "moderate-high",
-   "high"
+   "Low/Hypoendemic",
+   "Moderate/Mesoendemic",
+   "Moderate-High/Hyperendemic",
+   "High/Holoendemic"
   ],
   "gene_alteration": [
+   "coronin E107V",
+   "coronin G50E",
+   "coronin R100K",
    "crt  Q352K/R",
    "crt (C72 + V73) + M74I + N75E + K76T",
    "crt C101F",
@@ -353,6 +355,7 @@
    "cytb M133I  + L271F",
    "cytb M133I + G280D",
    "cytb M133I + K272R",
+   "cytb M133I + P275T",
    "cytb Y268C",
    "cytb Y268S",
    "dhfr & dhps C59R + S108N & A437G",
@@ -394,6 +397,7 @@
    "dhps S436F + A437G + A613S",
    "dhps S436F + A613S",
    "gch1 Amplification",
+   "gch1 Amplification",
    "k13 A582V",
    "k13 A675V",
    "k13 C469F",
@@ -432,21 +436,7 @@
    "mdr1 Amplification",
    "mdr1 N86Y",
    "mdr1 S1034C + N1042D + D1246Y",
-   "Pfcoronin E107V",
-   "Pfcoronin G50E",
-   "Pfcoronin R100K",
-   "Pfcytb L283I + V284K",
-   "Pfcytb M133I",
-   "Pfcytb M133I  + L271F",
-   "Pfcytb M133I + G280D",
-   "Pfcytb M133I + K272R",
-   "Pfcytb M133I + P275T",
-   "Pfcytb Y268C",
-   "Pfcytb Y268S",
-   "Pfgch1 Amplification",
-   "Pfpm2/3 Amplification",
-   "pm2/3 Amplification",
-   "Other"
+   "pm2/3 Amplification"
   ],
   "gene_symbol": [
    "hrp2",
@@ -464,8 +454,7 @@
    "pm2/3",
    "gch1",
    "cytb",
-   "Pfcoronin",
-   "Other"
+   "Pfcoronin"
   ],
   "haplotype": [
    "dhfr (N51-C59-S108-I164) ICNI",
@@ -494,8 +483,7 @@
    "dhps (I431-S436-A437-K540-A581-A613) ISGKAA",
    "dhps (I431-S436-A437-K540-A581-A613) ISGKGA",
    "dhps (I431-S436-A437-K540-A581-A613) ISGKGT",
-   "dhps (I431-S436-A437-K540-A581-A613) VAGKGS",
-   "Other"
+   "dhps (I431-S436-A437-K540-A581-A613) VAGKGS"
   ],
   "study_type": [
    "TES",

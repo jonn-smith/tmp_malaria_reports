@@ -784,11 +784,15 @@ ASSAY_NAME = {'WGS':'Whole genome sequencing','MAD4HATTER':'Amplicon sequencing'
               'NOMADS':'Amplicon sequencing (Nanopore)','COMBINED':'Mixed (WGS + amplicon)'}
 
 _MON = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC']
-def _mmm_yyyy(d):
-    """Collection date -> 'MMM-YYYY' when month known (YYYYMMDD), else the bare year."""
+def _ym(d):
+    """Collection date -> 'YYYY-MM' when the month is known (YYYYMMDD), else the bare year.
+
+    The Africa CDC data dictionary asks for ISO 8601 truncated to the month. The superseded
+    edition's column header asked for MMM-YYYY instead (FEB-2025), which is what this used
+    to emit - the two editions of the same sheet disagreed with each other."""
     d = str(d or '')
     if len(d) >= 6 and d[:6].isdigit():
-        mo = int(d[4:6]); return f"{_MON[mo-1]}-{d[:4]}" if 1 <= mo <= 12 else d[:4]
+        mo = int(d[4:6]); return f'{d[:4]}-{d[4:6]}' if 1 <= mo <= 12 else d[:4]
     if len(d) >= 4 and d[:4].isdigit(): return d[:4]
     return ''
 # export view metadata: key -> (button label, csv filename, on-screen title)
@@ -818,7 +822,10 @@ def _iso_date(d):
 # always blank even where the table had it. An asserted study design is worse than a blank
 # one, because a dashboard cannot tell it was a guess.
 EXPORT_SOURCES = {
-    'study_type':      ('study_type', 'studytype', 'study', 'design', 'study_design'),
+    # not plain 'study': the WGS table's Study column holds a study *name*
+    # ("Malaria Surveillance Senegal 2019 (Schaffner et al.)"), and mapping a title
+    # onto a design picklist asserts something the column does not say.
+    'study_type':      ('study_type', 'studytype', 'design', 'study_design'),
     'endemicity':      ('endemicity', 'transmission', 'transmission_intensity'),
     'host_subject_id': ('studysubject', 'study_subject', 'host_subject_id', 'subject_id',
                         'patient_id', 'participant_id'),
@@ -923,10 +930,10 @@ def add_export(rep):
     random.seed(zlib.crc32(('afcdc_'+assay).encode())); afc=[]; sid=0
     def afgene(g): g=g[2:] if g.startswith('Pf') else g; return 'kelch13' if g=='k13' else g
     def afdate(dm):
-        # MMM-YYYY, which is what the sheet's own column header asks for
+        # YYYY-MM, which is what the sheet's data dictionary asks for
         if not dm: return ''
         p=str(dm).split('-'); y=p[0]; mo=int(p[1]) if len(p)>1 else random.randint(1,12)
-        return f"{_MON[mo-1]}-{y}" if 1<=mo<=12 else y
+        return f"{y}-{mo:02d}" if 1<=mo<=12 else y
     region_n={_na(k):v for k,v in SEN_REGION.items()}
     for u in sorted([u for u in rep['units'] if u.get('sampled')],key=lambda u:-u['n'])[:6]:
         reg=region_n.get(_na(u['name']),'—'); ab=''.join(c for c in u['name'].upper() if c.isalpha())[:3]
@@ -940,20 +947,21 @@ def add_export(rep):
                     'District':u['name'],'Region':reg,'Country name':ctry,'Study type':'cross_sectional_survey',
                     'Gene name':afgene(m['gene']),'Codon':m['aa'],'Wildtype count':tot-mut,'Mutation count':mut,
                     'Travel_history':trav,'Travel location (if Y)':tloc,'Endemicity':en,'Assay used':assay_name})
-    afc_mut = _afcdc_align([{'Sample ID': r['Sample ID'], 'Host subject ID': '',
-                AFCDC_DATE_COL: r['Date of sample collection'], 'Facility name': r['Facility name'],
-                'Country': af_country, 'Region/Province (Admin Level 1)': r['Region'],
-                'District (Admin Level 2)': r['District'],
-                'Study type': _pick('afcdc', 'study_type', r['Study type'], _STUDY_ALIAS),
-                'Gene symbol': _afgene(r['Gene name']),
-                'Gene Alteration': _alteration('afcdc', r['Gene name'], r['Codon']),
-                'Haplotype': '',
-                'Travel history [Y/N]': _pick('afcdc', 'travel', r['Travel_history'], _YN_ALIAS),
-                'Destination of most recent travel(city)': r['Travel location (if Y)'],
-                'Destination of most recent travel(state/province/territory)': '',
-                'Destination of most recent travel(country)': '',
-                'Endemicity': _pick('afcdc', 'endemicity', r['Endemicity'], _ENDEMICITY_ALIAS),
-                'Assay used': af_assay} for r in afc if r['Mutation count'] > 0])
+    afc_mut = _afcdc_align([{
+                AC['sample_id']: r['Sample ID'], AC['host_subject_id']: '',
+                AC['date']: r['Date of sample collection'], AC['facility']: r['Facility name'],
+                AC['country']: af_country, AC['region']: r['Region'],
+                AC['district']: r['District'],
+                AC['study_type']: _pick('afcdc', 'study_type', r['Study type'], _STUDY_ALIAS),
+                AC['gene_symbol']: _afgene(r['Gene name']),
+                AC['gene_alteration']: _alteration('afcdc', r['Gene name'], r['Codon']),
+                AC['haplotype']: '',
+                AC['travel']: _pick('afcdc', 'travel', r['Travel_history'], _YN_ALIAS),
+                AC['dest_city']: r['Travel location (if Y)'],
+                AC['dest_state']: '',
+                AC['dest_country']: '',
+                AC['endemicity']: _pick('afcdc', 'endemicity', r['Endemicity'], _ENDEMICITY_ALIAS),
+                AC['assay']: af_assay} for r in afc if r['Mutation count'] > 0])
     pha4ge = [{**{f: '' for f in PHA4GE_FIELDS},
                'specimen_collector_sample_ID': r['Sample ID'], 'organism': 'Plasmodium falciparum',
                'host_taxid': '9606', 'host(common_name)': 'Human', 'host(scientific_name)': 'Homo sapiens',
@@ -1006,8 +1014,19 @@ VOCAB_MISS = {}      # 'std.field' -> {value: count}, for the export note and th
 # The Mutation_Haplotype header row, verbatim - including the parenthetical in the date
 # column, which the exports had shortened.
 AFCDC_COLS = (VOCAB.get('afcdc') or {}).get('_columns') or []
-AFCDC_DATE_COL = next((c for c in AFCDC_COLS if c.lower().startswith('date of sample')),
-                      'Date of sample collection')
+# The two editions of this sheet use the same seventeen columns in the same order and spell
+# every one of them differently ('Sample ID' -> 'sample_id', 'Gene Alteration' ->
+# 'gene_Alteration'). So the builders key off position, not off a literal header string,
+# and the next renaming edition needs no code change.
+AFCDC_KEYS = ('sample_id', 'host_subject_id', 'date', 'facility', 'country', 'region',
+              'district', 'study_type', 'gene_symbol', 'gene_alteration', 'haplotype',
+              'travel', 'dest_city', 'dest_state', 'dest_country', 'endemicity', 'assay')
+if len(AFCDC_COLS) != len(AFCDC_KEYS):
+    raise SystemExit(f'schemas/std_vocab.json describes {len(AFCDC_COLS)} Africa CDC '
+                     f'columns, not {len(AFCDC_KEYS)}; rerun scripts/build_std_vocab.py '
+                     'and check AFCDC_KEYS against the new header row')
+AC = dict(zip(AFCDC_KEYS, AFCDC_COLS))      # semantic key -> the sheet's own header
+AFCDC_DATE_COL = AC['date']
 
 
 def _afcdc_align(rows):
@@ -1031,13 +1050,18 @@ def _vkey(s):
     return re.sub(r'[^a-z0-9]+', '', re.sub(r'\[[^\]]*\]', ' ', str(s or '')).lower())
 
 
-def _pick(std, field, value, alias=None, blank=''):
+def _pick(std, field, value, alias=None, blank='', keep_raw=False):
     """A value's controlled spelling in one standard's picklist.
 
     Returns the sheet's own spelling on a match; 'Other' for an unmatched value where the
-    list sanctions that fallback; `blank` otherwise. Every unmatched value is counted in
-    VOCAB_MISS - an export column quietly set to 'Other' is the kind of thing that only
-    gets noticed by whoever has to explain the dashboard."""
+    list sanctions that fallback; the raw value when `keep_raw` and it does not; `blank`
+    otherwise. Every unmatched value is counted in VOCAB_MISS - an export column quietly
+    set to 'Other' is the kind of thing that only gets noticed by whoever has to explain
+    the dashboard.
+
+    keep_raw is for the columns whose job is to name what was observed: the 2026 Minimum
+    Standard offers no 'Other' under gene symbol or gene alteration, and a blank there
+    would delete the finding rather than describe it."""
     opts = (VOCAB.get(std) or {}).get(field) or []
     v = str('' if value is None else value).strip()
     if not v:
@@ -1050,7 +1074,7 @@ def _pick(std, field, value, alias=None, blank=''):
             return o
     VOCAB_MISS.setdefault(f'{std}.{field}', {})
     VOCAB_MISS[f'{std}.{field}'][v] = VOCAB_MISS[f'{std}.{field}'].get(v, 0) + 1
-    return 'Other' if 'Other' in opts else blank
+    return 'Other' if 'Other' in opts else (v if keep_raw else blank)
 
 
 # Gene spellings. Both sheets settled on `k13` and `ferredoxin`; the exports used to write
@@ -1083,17 +1107,26 @@ _YN_ALIAS = {'yes': 'Y', 'true': 'Y', '1': 'Y', 'y': 'Y',
 _SEX_ALIAS = {'f': 'Female', 'female': 'Female', 'woman': 'Female',
               'm': 'Male', 'male': 'Male', 'man': 'Male'}
 _ASSAY_ALIAS = {'spotmalariagrc1': 'SpotMalaria', 'spotmalariagrc2': 'SpotMalaria',
-                'mad4hatter': 'MAD4HATTER', 'nomads': 'NOMADS', 'mips': 'MIPS', 'mars': 'MaRS',
-                'pfsmarrt': 'Pf-SMARRT'}
+                'mad4hatter': 'MAD4HATTER', 'mad4hatterr11': 'MAD4HATTER',
+                'nomads': 'NOMADS', 'mips': 'MIPS', 'mars': 'MaRS',
+                'pfsmarrt': 'Pf-SMARRT', 'pfphast': 'PfPHAST',
+                'wholegenomesequencing': 'WGS', 'wgs': 'WGS'}
 _SEQTYPE_ALIAS = {'ampliconsequencing': 'Amplicon sequencing assay',
                   'ontampliconsequencing': 'Amplicon sequencing assay',
                   'ampliconsequencingnanopore': 'Amplicon sequencing assay',
                   'wholegenomesequencing': 'Whole genome sequencing assay',
                   'wgs': 'Whole genome sequencing assay',
                   'targetedgenomesequencing': 'Targeted genome sequencing'}
-# 'Medium' is what the Uganda table says; the sheet's word for the same band is 'moderate'.
-_ENDEMICITY_ALIAS = {'medium': 'moderate', 'mod': 'moderate', 'moderatehigh': 'moderate-high',
-                     'mediumhigh': 'moderate-high'}
+# 'Medium' is what the Uganda table says. The 2026 Minimum Standard pairs each band with
+# its classical term, so the picklist value is 'Moderate/Mesoendemic' rather than 'moderate'.
+_ENDEMICITY_ALIAS = {
+    'low': 'Low/Hypoendemic', 'hypoendemic': 'Low/Hypoendemic',
+    'medium': 'Moderate/Mesoendemic', 'mod': 'Moderate/Mesoendemic',
+    'moderate': 'Moderate/Mesoendemic', 'mesoendemic': 'Moderate/Mesoendemic',
+    'moderatehigh': 'Moderate-High/Hyperendemic', 'mediumhigh': 'Moderate-High/Hyperendemic',
+    'hyperendemic': 'Moderate-High/Hyperendemic',
+    'high': 'High/Holoendemic', 'holoendemic': 'High/Holoendemic',
+}
 _COUNTRY_ALIAS = {'drc': 'Democratic Republic of the Congo',
                   'democraticrepublicofcongo': 'Democratic Republic of the Congo',
                   'unitedrepublicoftanzania': 'Tanzania'}
@@ -1105,21 +1138,33 @@ def _afgene(g, std='afcdc'):
     alias = dict(_GENE_ALIAS)
     alias['coronin' if std == 'afcdc' else 'pfcoronin'] = (
         'Pfcoronin' if std == 'afcdc' else 'coronin')
-    return _pick(std, 'gene_symbol', g, alias)
+    return _pick(std, 'gene_symbol', g, alias, keep_raw=True)
 
 
 def _alteration(std, gene, aa):
     """'crt K76T' - every permitted value in both sheets is gene-prefixed.
 
-    ponytail: an alteration the picklist omits is emitted as composed rather than collapsed
-    to 'Other'. The column exists to name the mutation, and 120 (Africa CDC) or 177
-    (PHA4GE) entries do not cover the compendium; VOCAB_MISS records how many."""
+    ponytail: an alteration the picklist omits is emitted composed. The 2026 Minimum
+    Standard offers no 'Other' here anyway, and its 111 entries (177 for PHA4GE) do not
+    cover the compendium, so a blank would delete the finding. VOCAB_MISS records how many.
+    Both prefixes are tried because that sheet is not self-consistent: its gene symbol list
+    says `Pfcoronin` while its alteration list says `coronin E107V`."""
     sym = _afgene(gene, std)
-    composed = f"{sym if sym != 'Other' else gene} {aa}".strip()
+    # 'Other' names no gene, so an alteration must never be composed from it: PHA4GE's gene
+    # symbol list offers Other and this produced the literal 'Other T38I'.
+    if sym in ('', 'Other'):
+        sym = re.sub(r'^Pf(?=\w{3})', '', gene)
     opts = (VOCAB.get(std) or {}).get('gene_alteration') or []
-    for o in opts:
-        if _vkey(o) == _vkey(composed):
-            return o
+    bare = re.sub(r'^Pf(?=\w{3})', '', sym)
+    for cand in (f'{sym} {aa}'.strip(), f'{bare} {aa}'.strip(), f'{gene} {aa}'.strip()):
+        for o in opts:
+            if _vkey(o) == _vkey(cand):
+                return o
+    # Unlisted: use whichever gene spelling the sheet's own alteration list prefers, so
+    # 'coronin P76S' rather than 'Pfcoronin P76S' when its entries say coronin.
+    if bare != sym and any(_vkey(o).startswith(_vkey(bare)) for o in opts):
+        sym = bare
+    composed = f'{sym} {aa}'.strip()
     VOCAB_MISS.setdefault(f'{std}.gene_alteration', {})
     VOCAB_MISS[f'{std}.gene_alteration'][composed] = \
         VOCAB_MISS[f'{std}.gene_alteration'].get(composed, 0) + 1
@@ -1179,36 +1224,38 @@ def real_export(rep, samples, assay_name, max_afcdc=500, panel=''):
                             who_tracked=('Yes' if m['who'] else 'No — research')))
             dhis.append(dict(dataElement=('MAL_RES_'+m['gene']+'_'+m['aa']).replace(' ', ''), period=yr,
                              orgUnit=u['name'], categoryOptionCombo='default', value=p))
-    # One row per sample × observed mutant alteration, in the Mutation_Haplotype sheet's
-    # own column names and order (AFCDC_COLS, read from the workbook header). Seven of the
-    # seventeen columns are picklists, so values go through _pick rather than straight from
-    # the data table: "Study type" rejects cross_sectional_survey, "Gene symbol" wants k13
-    # rather than kelch13, and "Gene Alteration" wants 'crt K76T' rather than 'K76T'.
+    # One row per sample × observed mutant alteration, in the sheet's own column names and
+    # order (AC, read from the workbook header). Eight of the seventeen columns are
+    # picklists, so values go through _pick rather than straight from the data table:
+    # "Study type" rejects cross_sectional_survey, "Gene symbol" wants k13 rather than
+    # kelch13, "Gene Alteration" wants 'crt K76T' rather than 'K76T', and Endemicity wants
+    # 'Moderate/Mesoendemic' rather than the table's 'Medium'.
     afc_mut = []
     for s in samples:
         for k, (wt, mut) in (s.get('calls') or {}).items():
             m = mkdefs.get(k)
             if not m or not m.get('assessed') or mut <= 0: continue
             afc_mut.append({
-                'Sample ID': s['id'],
-                'Host subject ID': xf(s, 'host_subject_id'),
-                AFCDC_DATE_COL: _mmm_yyyy(s.get('date', '')),
-                'Facility name': s.get('site', ''),
-                'Country': af_country,
-                'Region/Province (Admin Level 1)': s.get('region') or '—',
-                'District (Admin Level 2)': s['district'],
-                'Study type': _pick('afcdc', 'study_type', xf(s, 'study_type'), _STUDY_ALIAS)
-                              or cohort_study_type,
-                'Gene symbol': _afgene(m['gene']),
-                'Gene Alteration': _alteration('afcdc', m['gene'], m['aa']),
-                'Haplotype': '',
-                'Travel history [Y/N]': _pick('afcdc', 'travel', xf(s, 'travel'), _YN_ALIAS),
-                'Destination of most recent travel(city)': '',
-                'Destination of most recent travel(state/province/territory)': '',
-                'Destination of most recent travel(country)':
-                    _pick('afcdc', 'dest_country', xf(s, 'travel_dest'), _COUNTRY_ALIAS),
-                'Endemicity': _pick('afcdc', 'endemicity', xf(s, 'endemicity'), _ENDEMICITY_ALIAS),
-                'Assay used': af_assay})
+                AC['sample_id']: s['id'],
+                AC['host_subject_id']: xf(s, 'host_subject_id'),
+                AC['date']: _ym(s.get('date', '')),
+                AC['facility']: s.get('site', ''),
+                AC['country']: af_country,
+                AC['region']: s.get('region') or '—',
+                AC['district']: s['district'],
+                AC['study_type']: _pick('afcdc', 'study_type', xf(s, 'study_type'),
+                                        _STUDY_ALIAS) or cohort_study_type,
+                AC['gene_symbol']: _afgene(m['gene']),
+                AC['gene_alteration']: _alteration('afcdc', m['gene'], m['aa']),
+                AC['haplotype']: '',
+                AC['travel']: _pick('afcdc', 'travel', xf(s, 'travel'), _YN_ALIAS),
+                AC['dest_city']: '',
+                AC['dest_state']: '',
+                AC['dest_country']: _pick('afcdc', 'dest_country', xf(s, 'travel_dest'),
+                                          _COUNTRY_ALIAS),
+                AC['endemicity']: _pick('afcdc', 'endemicity', xf(s, 'endemicity'),
+                                        _ENDEMICITY_ALIAS),
+                AC['assay']: af_assay})
     pha4ge = build_pha4ge(samples, mkdefs, assay_name, rep['meta'].get('platform', ''))
     _pack_export(rep, {'who': who, 'afcdc': _afcdc_align(afc_mut), 'pha4ge': pha4ge, 'dhis2': dhis},
         order=['who', 'dhis2', 'afcdc', 'pha4ge'],
@@ -1237,19 +1284,25 @@ if __name__ == '__main__':
     assert _afgene('Pfk13') == 'k13' and _afgene('kelch13') == 'k13', 'k13 spelling'
     assert _afgene('fd') == 'ferredoxin' and _afgene('crt') == 'crt'
     assert _afgene('coronin') == 'Pfcoronin' and _afgene('coronin', 'pha4ge') == 'coronin'
-    assert _afgene('PF3D7_1322700') == 'Other', 'uncatalogued gene must fall back'
+    assert _afgene('PF3D7_1322700') == 'PF3D7_1322700', \
+        'the 2026 gene-symbol list has no Other, so an uncatalogued gene stays raw'
     assert _alteration('afcdc', 'k13', 'C580Y') == 'k13 C580Y', 'alterations are gene-prefixed'
     assert _alteration('afcdc', 'Pfcrt', 'K76T') == 'crt K76T'
     assert _pick('afcdc', 'country', 'Uganda').startswith('Uganda [GAZ:'), 'country needs its GAZ id'
     assert _pick('afcdc', 'country', 'Senegal') == 'Other', 'Senegal is not in the 2026 picklist'
     assert _pick('afcdc', 'study_type', 'cross_sectional_survey', _STUDY_ALIAS) == 'Other'
+    assert _pick('afcdc', 'assay', 'PFPHAST', _ASSAY_ALIAS) == 'PfPHAST', \
+        'the 2026 edition added PfPHAST; the superseded one had not'
+    assert _pick('afcdc', 'assay', 'Whole genome sequencing', _ASSAY_ALIAS) == 'WGS'
+    assert _ym('20240617') == '2024-06' and _ym('2024') == '2024', 'ISO 8601 to the month'
     assert _pick('afcdc', 'study_type', 'ANC', _STUDY_ALIAS) == 'ANC'
     assert _pick('afcdc', 'travel', 'yes', _YN_ALIAS) == 'Y'
     assert _pick('afcdc', 'travel', 'maybe', _YN_ALIAS) == '', 'no Other in a Y/N list'
-    assert _pick('afcdc', 'endemicity', 'MODERATE-HIGH') == 'moderate-high'
-    assert _pick('afcdc', 'endemicity', 'Medium', _ENDEMICITY_ALIAS) == 'moderate'
+    assert _pick('afcdc', 'endemicity', 'Medium', _ENDEMICITY_ALIAS) == 'Moderate/Mesoendemic'
+    assert _pick('afcdc', 'endemicity', 'High', _ENDEMICITY_ALIAS) == 'High/Holoendemic'
+    assert _pick('afcdc', 'endemicity', 'nonsense', _ENDEMICITY_ALIAS) == '', \
+        'no Other under endemicity, so an unknown band is blank rather than guessed'
     assert _pick('afcdc', 'assay', 'MAD4HatTeR', _ASSAY_ALIAS) == 'MAD4HATTER'
-    assert _pick('afcdc', 'assay', 'PFPHAST', _ASSAY_ALIAS) == 'Other'
     assert _pick('pha4ge', 'host_sex', 'F', _SEX_ALIAS).startswith('Female [NCIT:')
     assert _pick('pha4ge', 'sequencing_assay_type', 'ONT amplicon sequencing',
                  _SEQTYPE_ALIAS).startswith('Amplicon sequencing assay')

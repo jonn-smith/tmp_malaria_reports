@@ -33,23 +33,36 @@ warnings.filterwarnings('ignore')   # openpyxl warns about the sheets' data-vali
 HERE = os.path.dirname(os.path.abspath(__file__))
 SCHEMAS = os.path.join(os.path.dirname(HERE), 'schemas')
 
-AFCDC_BOOK = 'Africa MMS_Data_Sheet_Final_2026.xlsx'
+AFCDC_BOOK = 'Africa CDC Minimum_Standard_for_MMS_2026.xlsx'
+AFCDC_SHEET = 'Template'
 PHA4GE_BOOK = 'MalariaCommunityStandard_human_draft1_refined5.xlsx'
 
-# field -> ('Terms Reference guide' column-B row range), from sheet1's data validations.
-# The two inline lists (Travel history, Endemicity) are literal formulas, not ranges.
+# field -> ('Terms Reference guide' column-B row range), from the Template sheet's data
+# validations. Travel history is the one literal formula rather than a range.
 AFCDC_RANGES = {
     'country':        (7, 18),      # col E
     'study_type':     (22, 28),     # col H
-    'gene_symbol':    (30, 47),     # col I
-    'gene_alteration': (49, 169),   # col J
-    'haplotype':      (171, 199),   # col K
-    'dest_country':   (206, 478),   # col O
-    'assay':          (485, 495),   # col Q
+    'gene_symbol':    (30, 45),     # col I
+    'gene_alteration': (47, 157),   # col J
+    'haplotype':      (159, 185),   # col K
+    'dest_country':   (192, 463),   # col O
+    'endemicity':     (465, 468),   # col P
+    'assay':          (470, 479),   # col Q
 }
-AFCDC_INLINE = {
-    'travel':     ['Y', 'N'],                                    # col L
-    'endemicity': ['low', 'moderate', 'moderate-high', 'high'],   # col P
+AFCDC_INLINE = {'travel': ['Y', 'N']}   # col L
+
+# The superseded edition, kept so a future one can be diffed against both. Its ranges are
+# different and so are its lists: it had no PfPHAST or WGS under "Assay used", spelled
+# endemicity as bare low/moderate/high, and offered "Other" under gene symbol, gene
+# alteration and haplotype where the current edition offers none. Building against it
+# produced an export that wrote "Other" for a PfPHAST run.
+SUPERSEDED = {
+    'book': 'Africa MMS_Data_Sheet_Final_2026.xlsx', 'sheet': 'Mutation_Haplotype',
+    'ranges': {'country': (7, 18), 'study_type': (22, 28), 'gene_symbol': (30, 47),
+               'gene_alteration': (49, 169), 'haplotype': (171, 199),
+               'dest_country': (206, 478), 'assay': (485, 495)},
+    'inline': {'travel': ['Y', 'N'],
+               'endemicity': ['low', 'moderate', 'moderate-high', 'high']},
 }
 
 # The PHA4GE picklists are one per column on a single sheet, keyed by the header cell.
@@ -57,17 +70,17 @@ PHA4GE_FIELDS = ('gene_symbol', 'gene_name', 'gene_alteration', 'sequencing_assa
                  'host_sex', 'host_age_unit', 'host_age_bin', 'study', 'resistance_status')
 
 
-def afcdc(path):
+def afcdc(path, sheet=AFCDC_SHEET, ranges=AFCDC_RANGES, inline=AFCDC_INLINE):
     import openpyxl
-    ws = openpyxl.load_workbook(path, data_only=True)['Terms Reference guide']
-    out = dict(AFCDC_INLINE)
-    for field, (a, b) in AFCDC_RANGES.items():
+    wb = openpyxl.load_workbook(path, data_only=True)
+    ws = wb['Terms Reference guide']
+    out = dict(inline)
+    for field, (a, b) in ranges.items():
         vals = [ws.cell(row=r, column=2).value for r in range(a, b + 1)]
         out[field] = [str(v).strip() for v in vals if v not in (None, '')]
     # the header row is the authority on column names and their order
-    mh = openpyxl.load_workbook(path, data_only=True)['Mutation_Haplotype']
     out['_columns'] = [str(c).strip() for c in
-                       next(mh.iter_rows(min_row=1, max_row=1, values_only=True))
+                       next(wb[sheet].iter_rows(min_row=1, max_row=1, values_only=True))
                        if c not in (None, '')]
     return out
 
@@ -92,7 +105,7 @@ def main(argv=None):
     out = a.out or os.path.join(a.schemas_dir, 'std_vocab.json')
 
     doc = {
-        '_source': f'{AFCDC_BOOK} (Mutation_Haplotype + Terms Reference guide); {PHA4GE_BOOK}'
+        '_source': f'{AFCDC_BOOK} ({AFCDC_SHEET} + Terms Reference guide); {PHA4GE_BOOK}'
                    " ('Pickl list HumanSample')",
         '_note': 'controlled vocabularies for the export columns. A value absent from a '
                  'list is rejected by the sheet; lists ending in "Other" have a sanctioned '
@@ -109,8 +122,24 @@ def main(argv=None):
             if k.startswith('_'):
                 continue
             print(f'{std:7s} {k:22s} {len(v):4d} values'
-                  + ('  (+Other)' if 'Other' in v else ''))
+                  + ('  (+Other)' if 'Other' in v else '  (no Other: unmatched -> blank)'))
     print(f'\nwrote {out}  {os.path.getsize(out)/1024:.0f} KB')
+
+    # What changed since the previous edition. Worth printing every time: the lists are the
+    # reason the export is valid or not, and an edition that quietly adds PfPHAST to the
+    # assay picklist changes what this repo should emit.
+    old_path = os.path.join(a.schemas_dir, SUPERSEDED['book'])
+    if os.path.exists(old_path):
+        old = afcdc(old_path, SUPERSEDED['sheet'], SUPERSEDED['ranges'], SUPERSEDED['inline'])
+        print(f"\nagainst the superseded {SUPERSEDED['book']}:")
+        for k in sorted(set(old) | set(doc['afcdc'])):
+            new_v, old_v = doc['afcdc'].get(k, []), old.get(k, [])
+            added = [x for x in new_v if x not in old_v]
+            gone = [x for x in old_v if x not in new_v]
+            if added or gone:
+                print(f'  {k}: +{len(added)} -{len(gone)}')
+                if added: print(f'      added:   {added[:6]}')
+                if gone:  print(f'      dropped: {gone[:6]}')
     return 0
 
 

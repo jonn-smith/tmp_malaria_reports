@@ -92,7 +92,8 @@ reference/                lookup data consumed by the pipeline
   mad_site_to_admin2.json   site -> admin-2 lookup (derived, kept for reference)
   wgs_loc.csv               WGS sample-code -> region/district/site lookup
 schemas/                  export-format specifications / example sheets
-  Africa MMS_Data_Sheet_Final_2026.xlsx   Africa CDC molecular-marker data sheet
+  Africa CDC Minimum_Standard_for_MMS_2026.xlsx   Africa CDC, current edition
+  Africa MMS_Data_Sheet_Final_2026.xlsx   the edition it superseded (kept to diff against)
   MalariaCommunityStandard_*.xlsx         PHA4GE Malaria Community Standard
   pha4ge_fields.json                      PHA4GE 210-field order (parsed)
   std_vocab.json                          both sheets' picklists + the Africa CDC header row
@@ -121,9 +122,16 @@ type, gene symbol, gene alteration, travel, endemicity, assay) are mapped onto t
 the sheets enforce rather than written through from the data table. The sheets reject
 anything else — `cross_sectional_survey`, `kelch13`, a bare `K76T` and `Senegal` are all
 invalid values in the 2026 edition. A value with no picklist entry becomes `Other` where
-the list offers it, and every such substitution is counted and named under the table.
-`scripts/build_std_vocab.py` regenerates `schemas/std_vocab.json` when a new edition of
-either workbook lands.
+the list offers it, blank where the column is categorical and the list does not, and the
+observed value where the column's job is to name a finding (gene symbol, gene alteration);
+every substitution is counted and named under the table.
+
+**Editions matter.** `scripts/build_std_vocab.py` regenerates `schemas/std_vocab.json` and
+prints a diff against the previous edition, because the lists move: the current Africa CDC
+sheet renamed all 17 columns (`Sample ID` → `sample_id`), added `PfPHAST` and `WGS` to the
+assay list, respelled endemicity as `Moderate/Mesoendemic`, dropped `Other` from three
+lists, and changed the collection date from `MMM-YYYY` to `YYYY-MM`. Run it when a new
+workbook lands and read the diff.
 
 Nothing from the data table rides along in these files: a column with no schema field is
 dropped, because the value of a standard is that the columns match.

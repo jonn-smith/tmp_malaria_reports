@@ -133,7 +133,12 @@ def load(sample_tsv, selection=None):
             def _f(v):
                 try: return float(v)
                 except (TypeError, ValueError): return None
+            # 'extra' is every other column of the sample table, which is what the export
+            # builders draw the schema fields they cannot derive from (study type, sex,
+            # age, subject id). Without it those columns are blank even when the table
+            # has them - the 164-column WGS table carries Study, Sex and Age.
             srec = {'id': sid, 'district': dept, 'region': (row.get('Region') or '—'),
+                    'extra': {k: v for k, v in row.items() if v not in (None, '')},
                     'site': (row.get('Site') or ''), 'lat': _f(row.get('Latitude')), 'lon': _f(row.get('Longitude')),
                     'date': (row.get('date_of_collection') or y or ''), 'calls': {}}
             for k, col in mcols.items():
