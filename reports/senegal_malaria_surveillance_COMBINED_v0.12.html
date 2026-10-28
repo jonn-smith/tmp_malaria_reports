@@ -455,6 +455,39 @@ const clsLabel=m=>m.category||CLSFULL[m.cls]||'Not in WHO compendium';
    denominator silently differs from the number of rows in the data table. */
 /* Where the country came from. A fuzzy-matched country name is a guess that chose the
    boundary set every number in this report is aggregated against, so the reader is told. */
+/* Samples that never reached the report, and why.
+   A prevalence denominator is only interpretable next to what was removed from it, so the
+   count appears at the foot of the summary and again, with the rubric, under Methods. */
+function exclusionRows(){
+  const e=M.excluded||{};
+  return Object.entries(e).sort((a,b)=>b[1]-a[1]);
+}
+function exclusionNote(){
+  const rows=exclusionRows(), n=M.n_excluded||0;
+  if(!n) return `<div class="callout" style="margin-top:18px"><b>Samples included.</b>
+    All ${nf(M.n_input_samples||M.n_qc)} samples in the input are included in this report:
+    none were excluded by quality control, and all could be placed.</div>`;
+  return `<div class="callout amber" style="margin-top:18px"><b>Samples excluded: ${nf(n)}
+    of ${nf(M.n_input_samples||0)}.</b> This report covers the remaining ${nf(M.n_qc)}.
+    <table style="margin-top:8px"><thead><tr><th>Reason</th><th class="num">Samples</th></tr></thead><tbody>`
+    + rows.map(([k,v])=>`<tr><td>${esc(explainExclusion(k))}</td><td class="num">${nf(v)}</td></tr>`).join('')
+    + `<tr style="font-weight:700;border-top:2px solid var(--line)"><td>Total excluded</td><td class="num">${nf(n)}</td></tr>`
+    + `</tbody></table>
+    <div style="margin-top:8px;font-size:13px">The rubric is described under <b>Methods &amp; notes</b>.</div></div>`;
+}
+/* Turn a machine reason into something a programme reader can act on. */
+function explainExclusion(key){
+  const k=String(key);
+  let m=k.match(/^control \((.+)\)$/);
+  if(m) return `Laboratory control, not a field sample (sample_type = ${m[1]})`;
+  m=k.match(/^library_sample_qc_status=(.+)$/);
+  if(m) return `Library flagged ${m[1]} by the amplicon QC workflow — too few loci passed, so the sample needs re-${m[1]==='repool'?'pooling':'preparation'} before it can be reported`;
+  m=k.match(/^batch_pass=(.+)$/);
+  if(m) return `Sequencing batch failed QC (batch_pass = ${m[1]})`;
+  if(/no usable location/.test(k)) return 'No usable location — neither a recognised district nor coordinates, so the sample cannot be placed on the map or counted in any unit';
+  return k;
+}
+
 function countryCard(){
   const n=M.country_resolution; if(!n) return '';
   const guess=/spelling guess/.test(n);
@@ -462,15 +495,49 @@ function countryCard(){
     ${esc(n)}.</div>`;
 }
 function qcCard(){
-  const q=M.qc_excluded||{}, n=M.n_qc_excluded||0;
-  if(!n) return '';
-  const parts=Object.entries(q).map(([k,v])=>`${nf(v)} ${esc(k)}`).join(', ');
-  return `<div class="callout" style="margin-top:14px"><b>Sample QC.</b> ${nf(n)} sample${n===1?'':'s'}
-    excluded before any count was taken: ${parts}. The verdict is the amplicon QC workflow's own
-    (<i>Library_sample_qc_status</i>, the worst grade across a sample's reactions &mdash; a library
-    below the pipeline's good-loci thresholds is flagged <i>repool</i> or <i>reprep</i>), plus
-    anything marked a control in <i>sample_type</i>. Every prevalence here is over the
-    ${nf(M.n_qc)} samples that remained.</div>`;
+  /* The rubric, then the count. A reader who sees "353 QC pass samples" needs to know
+     which rule produced 353 and what happened to the rest; the summary page states the
+     number, this states the reasons it can be. */
+  const n=M.n_excluded||0, rows=exclusionRows();
+  const statuses=(M.qc_statuses&&M.qc_statuses.length)?M.qc_statuses.join(', '):'pass';
+  const shape=M.qc_rubric||'per-sample-table';
+  const lead=(shape==='per-sample-table')
+    ? `A sample is included only if it clears all of the following. The quality verdicts are
+       the amplicon QC workflow's own, written back onto the data table, not thresholds
+       invented here.`
+    : `This input carries no per-library QC columns, so only the checks below that do not
+       depend on them apply. Controls are identified by the sample-id convention rather
+       than a <i>sample_type</i> column, and there is no library-level pass/fail verdict to
+       defer to &mdash; a report from the per-sample data table applies a stricter rubric.`;
+  const rubric=`<div class="card" style="margin-top:16px"><h3>Which samples are included</h3>
+    <p style="font-size:13.5px;color:var(--ink2)">${lead}</p>
+    <ul style="font-size:13px;color:var(--ink2);margin:8px 0 0 18px;line-height:1.8">
+      <li><b>It is a field sample.</b> Anything the table marks as a control in
+        <i>sample_type</i> (negative, positive, NTC, blank) is excluded.</li>
+      <li><b>Its sequencing batch passed.</b> A failed <i>batch_pass</i> excludes the sample.</li>
+      <li><b>Its library passed QC.</b> <i>Library_sample_qc_status</i> must be
+        ${esc(statuses)}. The QC workflow grades each library from the proportion of loci
+        that returned usable data, flagging it <i>repool</i> or <i>reprep</i> below its
+        thresholds; those are excluded because too little of the panel was read to report
+        on.</li>
+      <li><b>It can be placed.</b> A sample needs a recognised ${UNIT} name or coordinates,
+        otherwise it cannot be counted in any unit or drawn on the map.</li>
+      <li><b>It is genotyped at the marker in question.</b> This one is per marker rather
+        than per sample: each marker's denominator counts only the samples genotyped at
+        that marker, which is why denominators differ slightly between markers.</li>
+    </ul>
+    <p style="font-size:13px;color:var(--ink2);margin-top:10px">Where a column is absent
+    from the data the corresponding check is skipped rather than failed, and every exclusion
+    is counted and reported &mdash; nothing is dropped silently.</p></div>`;
+  if(!n) return rubric+`<div class="callout" style="margin-top:14px"><b>Samples excluded: none.</b>
+    All ${nf(M.n_input_samples||M.n_qc)} samples in the input cleared every check above.</div>`;
+  return rubric+`<div class="callout amber" style="margin-top:14px"><b>Samples excluded:
+    ${nf(n)} of ${nf(M.n_input_samples||0)}</b>, leaving the ${nf(M.n_qc)} this report
+    covers. Every prevalence here is over those ${nf(M.n_qc)}.
+    <table style="margin-top:8px"><thead><tr><th>Reason</th><th class="num">Samples</th></tr></thead><tbody>`
+    + rows.map(([k,v])=>`<tr><td>${esc(explainExclusion(k))}</td><td class="num">${nf(v)}</td></tr>`).join('')
+    + `<tr style="font-weight:700;border-top:2px solid var(--line)"><td>Total excluded</td><td class="num">${nf(n)}</td></tr>`
+    + `</tbody></table></div>`;
 }
 function panelCard(){
   const D2=M.panel_detection; if(!D2||!D2.n_observed) return '';
@@ -684,7 +751,8 @@ R.summary=()=>{
     <div class="scroll"><table><thead><tr><th>Location (admin level ${ADM_LEVEL})</th><th class="num"># samples (QC pass)</th><th class="num">Collection window</th></tr></thead><tbody>`+
     [...D.units].filter(u=>u.sampled).sort((a,b)=>b.n-a.n).slice(0,12).map(u=>`<tr><td>${esc(u.name)}</td><td class="num">${nf(u.n)}</td><td class="num">${esc(fmtYears(u.years||[u.date_min,u.date_max])||'—')}</td></tr>`).join('')
     +`<tr style="font-weight:700;border-top:2px solid var(--line)"><td>TOTAL</td><td class="num">${nf(M.n_qc)}</td><td class="num">${esc(M.period)}</td></tr>`
-    +`</tbody></table></div></div>`;
+    +`</tbody></table></div></div>`
+    + exclusionNote();
   return html;
 };
 

@@ -285,6 +285,13 @@ def load(call_tables, site_metadata=None, version=None, data_source=None, select
                     'country_raw': _get(row, cm, 'country') or sm.get('country', ''),
                     'date': _year_of(row, cm) or sm.get('year') or '',
                     'calls': {},
+                    # Every other column from the table, kept so the export schemas can be
+                    # populated from the data rather than asserted or left blank. The
+                    # reshaper already carries non-marker columns onto each call row.
+                    'extra': {k: v for k, v in row.items()
+                              if v not in (None, '') and k not in (cm.get('gene'),
+                                                                   cm.get('aa_change'),
+                                                                   cm.get('call'))},
                 })
                 # carriage wins: one alt call at a marker makes the sample a carrier
                 prev = rec['calls'].get(key)
@@ -383,8 +390,19 @@ def load(call_tables, site_metadata=None, version=None, data_source=None, select
     if detection.get('recognised'):
         rep['meta']['panel'] = detection['panel']
         rep['meta']['panel_label'] = detection.get('label')
+    rep['meta']['qc_statuses'] = sorted(QC_STATUSES) if QC_STATUSES is not None \
+        else ['pass']
     rep['meta']['qc_excluded'] = dict(qc_reasons)
     rep['meta']['n_qc_excluded'] = sum(qc_reasons.values())
+    # Full accounting: every sample seen in the input that did not reach the report, and
+    # why. Without this the reader cannot tell 353 of 429 from 353 of 353.
+    excl = dict(qc_reasons)
+    if drop['no_location']:
+        excl['no usable location (no district, no coordinates)'] = drop['no_location']
+    seen_ids = len(qc_bad) + len(samples)
+    rep['meta']['excluded'] = excl
+    rep['meta']['n_excluded'] = sum(excl.values())
+    rep['meta']['n_input_samples'] = seen_ids
     # The platform belongs to the panel. This loader also parses Illumina amplicon
     # tables, so hard-coding ONT here stamped "ONT amplicon sequencing" into the PHA4GE
     # and Africa CDC exports for short-read runs - a wrong value in a data file someone

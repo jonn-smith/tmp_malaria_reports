@@ -807,6 +807,42 @@ def _iso_date(d):
     if len(d) >= 8 and d[:8].isdigit(): return f"{d[:4]}-{d[4:6]}-{d[6:8]}"
     if len(d) >= 4 and d[:4].isdigit(): return d[:4]
     return ''
+# Columns the data table may carry that the export schemas have a home for. Everything
+# else from the table is kept on the sample as `extra` and surfaces in the data JSON, so a
+# schema field can be wired up later without re-running anything upstream.
+#
+# This exists because the exports used to assert values: "Study type" was the literal
+# "cross_sectional_survey" for every WHO row regardless of design, and Endemicity was
+# always blank even where the table had it. An asserted study design is worse than a blank
+# one, because a dashboard cannot tell it was a guess.
+EXPORT_SOURCES = {
+    'study_type':      ('study_type', 'studytype', 'study', 'design', 'study_design'),
+    'endemicity':      ('endemicity', 'transmission', 'transmission_intensity'),
+    'host_subject_id': ('studysubject', 'study_subject', 'host_subject_id', 'subject_id',
+                        'patient_id', 'participant_id'),
+    'age':             ('age_years', 'age', 'age_y'),
+    'sex':             ('sex', 'gender'),
+    'parasitemia':     ('parasites_per_ul', 'parasitemia', 'parasite_density'),
+    'library_name':    ('library_sample_name', 'library_name', 'library'),
+    'sequencing_run':  ('sequencing_run', 'run', 'run_id', 'flowcell'),
+    'batch':           ('batch', 'plate', 'superbatch'),
+    'travel':          ('travel_history', 'recent_travel', 'travel'),
+    'travel_dest':     ('travel_destination', 'destination', 'destination_of_travel'),
+    'collection_date': ('collection_date', 'date_of_collection', 'collection_month', 'date'),
+}
+
+
+def xf(sample, key, default=''):
+    """A value for an export field, from whatever the data table happened to call it."""
+    extra = sample.get('extra') or {}
+    low = {str(k).strip().lower(): v for k, v in extra.items()}
+    for cand in EXPORT_SOURCES.get(key, ()):
+        v = low.get(cand)
+        if v not in (None, ''):
+            return v
+    return default
+
+
 def build_pha4ge(samples, mkdefs, assay_name, platform):
     """PHA4GE Malaria Community Standard rows (per sample × observed mutant alteration).
     Fills the fields our genomic data supports; everything else (host demographics, accessions,
@@ -827,6 +863,15 @@ def build_pha4ge(samples, mkdefs, assay_name, platform):
                      'sequencing_assay_type': assay_name, 'sequencing_instrument': platform or ''})
         if s.get('lat') is not None: base['geo_loc_latitude'] = s['lat']
         if s.get('lon') is not None: base['geo_loc_longitude'] = s['lon']
+        # carried from the data table rather than left blank
+        for field, key in (('host_age', 'age'), ('host_sex', 'sex'),
+                           ('host_subject_ID', 'host_subject_id'),
+                           ('library_ID', 'library_name')):
+            v = xf(s, key)
+            if v != '' and field in base:
+                base[field] = v
+        if xf(s, 'age') != '':
+            base['host_age_unit'] = 'year'
         for m in muts:
             r = dict(base); g = _afgene(m['gene'])
             r['gene_name'] = g; r['gene_symbol'] = g; r['gene_alteration'] = m['aa']
@@ -945,6 +990,17 @@ def real_export(rep, samples, assay_name, max_afcdc=500):
     mkdefs = {m['key']: m for m in rep['markers']}
     reg_by_dept = {}
     for s in samples: reg_by_dept.setdefault(s['district'], s.get('region') or '—')
+    # Study type is a property of the collection, not of a marker, so the aggregated WHO
+    # rows take the commonest value the samples carry - blank if the table has none. It
+    # used to be the literal "cross_sectional_survey", which asserted a study design that
+    # a dashboard had no way of knowing was a guess.
+    _st = {}
+    for s in samples:
+        v = xf(s, 'study_type')
+        if v != '':
+            _st[v] = _st.get(v, 0) + 1
+    cohort_study_type = max(_st, key=_st.get) if _st else ''
+
     who = []; dhis = []
     for u in rep['units']:
         if not u.get('sampled'): continue
@@ -955,7 +1011,9 @@ def real_export(rep, samples, assay_name, max_afcdc=500):
             if not m or not m.get('assessed') or not n: continue
             x = u['mkx'].get(k, 0); p = round(100*x/n, 1)
             who.append(dict(country=ctry, region=reg, admin2=u['name'], year=yr, gene=m['gene'], mutation=m['aa'],
-                            tested=n, present=x, percent=p, who_tracked=('Yes' if m['who'] else 'No — research')))
+                            tested=n, present=x, percent=p,
+                            who_tracked=('Yes' if m['who'] else 'No — research'),
+                            study_type=cohort_study_type))
             dhis.append(dict(dataElement=('MAL_RES_'+m['gene']+'_'+m['aa']).replace(' ', ''), period=yr,
                              orgUnit=u['name'], categoryOptionCombo='default', value=p))
     afc_mc = []   # marker-centric: one row per sample × codon (wildtype/mutation counts)
@@ -966,18 +1024,25 @@ def real_export(rep, samples, assay_name, max_afcdc=500):
             if not m or not m.get('assessed'): continue
             afc_mc.append({'Sample ID': s['id'], 'Date of sample collection': s.get('date', ''),
                         'Facility name': s.get('site', ''), 'District': s['district'], 'Region': s.get('region') or '—',
-                        'Country name': ctry, 'Study type': '', 'Gene name': _afgene(m['gene']), 'Codon': m['aa'],
-                        'Wildtype count': wt, 'Mutation count': mut, 'Travel_history': '', 'Travel location (if Y)': '',
-                        'Endemicity': '', 'Assay used': assay_name})
+                        'Country name': ctry, 'Study type': xf(s, 'study_type'),
+                        'Gene name': _afgene(m['gene']), 'Codon': m['aa'],
+                        'Wildtype count': wt, 'Mutation count': mut,
+                        'Travel_history': xf(s, 'travel'),
+                        'Travel location (if Y)': xf(s, 'travel_dest'),
+                        'Endemicity': xf(s, 'endemicity'), 'Assay used': assay_name})
             if mut > 0:   # mutation-centric lists observed alterations only
-                afc_mut.append({'Sample ID': s['id'], 'Host subject ID': '',
+                afc_mut.append({'Sample ID': s['id'],
+                        'Host subject ID': xf(s, 'host_subject_id'),
                         'Date of sample collection': _mmm_yyyy(s.get('date', '')), 'Facility name': s.get('site', ''),
                         'Country': ctry, 'Region/Province (Admin Level 1)': s.get('region') or '—',
-                        'District (Admin Level 2)': s['district'], 'Study type': '', 'Gene symbol': _afgene(m['gene']),
-                        'Gene Alteration': m['aa'], 'Haplotype': '', 'Travel history [Y/N]': '',
+                        'District (Admin Level 2)': s['district'],
+                        'Study type': xf(s, 'study_type'), 'Gene symbol': _afgene(m['gene']),
+                        'Gene Alteration': m['aa'], 'Haplotype': '',
+                        'Travel history [Y/N]': xf(s, 'travel'),
                         'Destination of most recent travel(city)': '',
                         'Destination of most recent travel(state/province/territory)': '',
-                        'Destination of most recent travel(country)': '', 'Endemicity': '', 'Assay used': assay_name})
+                        'Destination of most recent travel(country)': xf(s, 'travel_dest'),
+                        'Endemicity': xf(s, 'endemicity'), 'Assay used': assay_name})
     pha4ge = build_pha4ge(samples, mkdefs, assay_name, rep['meta'].get('platform', ''))
     _pack_export(rep, {'who': who, 'afcdc': afc_mut, 'pha4ge': pha4ge, 'dhis2': dhis},
         order=['who', 'dhis2', 'afcdc', 'pha4ge'],

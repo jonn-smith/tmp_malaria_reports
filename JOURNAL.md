@@ -2023,3 +2023,53 @@ Mayotte, which is the useful case because its units are neither Senegalese nor d
 between years ... communes contributed". Log lines now read "admin-4 (commune) units" and
 "admin-2 (district) units" respectively. All self-checks, both suites and the synthetic
 build pass. Image 0.12.9.
+
+## 2026-10-28T11:30:00Z  — Export fields come from the data table; exclusion rubric and counts shown
+
+**Context.** Two operator requests: preserve data-table columns so they populate the
+export formats, and describe the include/exclude rubric with the excluded count on both
+the summary and Methods pages.
+
+**What the exports were doing.** "Study type" was the literal
+`cross_sectional_survey` on every WHO row regardless of design, and Africa CDC's study
+type, endemicity, host subject id and travel fields were always blank - even where the
+table had the data. The Nairobi table carries `Endemicity` (High/Medium/Low), `Sex`,
+`Age_years` and `Library_sample_name`, all of which were being discarded. An asserted
+study design is worse than a blank one, because a dashboard cannot tell it was a guess.
+
+**Action.** Samples now carry `extra`, every non-marker column from the table, and
+`gen_reports.EXPORT_SOURCES` maps export fields to candidate column names (aliases, so
+`StudySubject`/`host_subject_id`/`patient_id` all work) with `xf()` reading them. Wired
+into WHO (`study_type`, the cohort's commonest value rather than a literal), Africa CDC
+(study type, endemicity, host subject id, travel history and destination) and PHA4GE
+(`host_age`, `host_age_unit`, `host_sex`, `host_subject_ID`, `library_ID`). Unmapped
+columns stay on the sample and reach the data JSON, so a new schema field needs no
+upstream re-run.
+
+**A check that caught three wrong field names.** I first mapped to `host_gender`,
+`sequencing_run_ID` and `parasite_density`; none exist in the PHA4GE schema. Asserting the
+field list before trusting it found all three - the real names are `host_sex`, and there is
+no run or density field at all, so those two columns stay in `extra` rather than being
+forced somewhere inappropriate.
+
+**Exclusion accounting.** All three loaders now report `excluded` (reason -> count),
+`n_excluded` and `n_input_samples`, plus `qc_rubric` naming which input shape applied. The
+summary page gains a table at the foot - "Samples excluded: 58 of 411. This report covers
+the remaining 353" - with each machine reason translated into something actionable
+("Library flagged reprep by the amplicon QC workflow - too few loci passed, so the sample
+needs re-preparation before it can be reported"). Methods gains a "Which samples are
+included" card stating the five-part rubric and reiterating the count.
+
+**The rubric is not the same for every input, and the page now says so.** The per-sample
+Terra table carries the QC workflow's verdicts, so controls, failed batches and
+repool/reprep libraries are excluded. The long resmarker tables carry none of that, so only
+the id-convention control test and the location test apply. Writing a single rubric would
+have implied the long-table path checks library QC, which it cannot. Without this,
+`load_mad` runs would have claimed "none excluded" while silently dropping 28 controls and
+29 unplaceable samples.
+
+**Evidence.** Nairobi table: `Endemicity` High/Low/Medium, `host_age`, `host_sex`,
+`library_ID` all populated; with `study_type`/`StudySubject`/`travel_history` columns added
+they appear in all three schemas. Exclusions reconcile - 411 input, 58 excluded, 353
+reported on the Terra path; 940 input, 57 excluded, 883 reported on the MAD path. Image
+0.12.10.

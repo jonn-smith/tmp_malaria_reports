@@ -182,6 +182,15 @@ def load(sample_tsv, selection=None):
                      f"dropped: non-SEN={drop['not_sen']} no_dept={drop['no_dept']}"
                      + (f" (unmatched districts: {sorted(x for x in unmatched if x)})" if unmatched else "") + "\n")
     rep = G.assemble_report('WGS', G.ASSAYS['WGS'], units, selection)
+    _excl = {}
+    if drop.get('not_sen'):
+        _excl['collected outside the report country'] = drop['not_sen']
+    if drop.get('no_dept'):
+        _excl['no usable location (unrecognised district and no usable coordinates)'] = drop['no_dept']
+    rep['meta']['excluded'] = _excl
+    rep['meta']['n_excluded'] = sum(_excl.values())
+    rep['meta']['n_input_samples'] = len(samples) + sum(_excl.values())
+    rep['meta']['qc_rubric'] = 'wgs'
     rep['meta']['real'] = True
     rep['meta']['n_called'] = sum(1 for s_ in samples if s_.get('calls'))
     rep['meta']['version'] = 'v0.12'   # gen_reports reads sys.argv on import; set explicitly

@@ -191,6 +191,20 @@ def load(rm_dir, meta_csv, ad_dir=None, selection=None):
     rep = G.assemble_report('MAD4HATTER', G.ASSAYS['MAD4HATTER'], units, selection)
     rep['meta']['real'] = True
     rep['meta']['n_called'] = sum(1 for s_ in samples if s_.get('calls'))
+    # Same accounting the per-sample-table path reports, so the summary and Methods pages
+    # can state what was removed. This path has no pipeline QC columns to read, so the
+    # control test is the sample-id convention and there is no library-level verdict.
+    _excl = {}
+    if drop['ctrl']:
+        _excl['laboratory control (sample id convention: DC/DD/3D7/NTC/Undetermined)'] = drop['ctrl']
+    if drop['no_meta']:
+        _excl['no site metadata row for the sample'] = drop['no_meta']
+    if drop['no_dept']:
+        _excl['no usable location (coordinates outside the country, or unrecognised)'] = drop['no_dept']
+    rep['meta']['excluded'] = _excl
+    rep['meta']['n_excluded'] = sum(_excl.values())
+    rep['meta']['n_input_samples'] = len(samples) + sum(_excl.values())
+    rep['meta']['qc_rubric'] = 'long-resmarker'
     rep['meta']['version'] = 'v0.12'   # gen_reports reads sys.argv on import; set explicitly
     rep['meta']['data_source'] = 'MAD4HATTER v4 amplicon · UCSF mad4hatter outputs (runs 1–10)'
     rep['meta']['location_audit'] = resolver.audit.meta()
