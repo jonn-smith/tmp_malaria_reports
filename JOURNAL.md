@@ -1988,3 +1988,38 @@ reading Uganda rather than Senegal. Without the flag: chip removed, title clean,
 committed synthetic report still renders `Malaria Molecular Surveillance — Senegal
 MAD4HATTER` as before. All self-checks, both test suites and all three pipelines pass.
 Image 0.12.8.
+
+## 2026-10-28T10:00:00Z  — Methods page reviewed; five hardcoded or stale items fixed
+
+**Context.** The operator spotted that the Methods "Sources" card still read
+"District boundaries: geoBoundaries, Senegal admin level 2" and asked for a review of the
+whole page.
+
+**Findings.** Five items, three of them Senegal-or-geoBoundaries assertions that survived
+multi-country support because everything *around* them was parameterised:
+
+1. **Sources, boundary line.** Asserted both the provider and Senegal. Now
+   "Administrative boundaries: <source> &mdash; <country>, <admin label>". The provider was
+   not recorded anywhere, so `build_maps`-era maps were re-tagged in place with a `source`
+   field - OCHA COD-AB for Uganda, Libya and Mauritius, gbOpen (ADM4) for Mayotte,
+   geoBoundaries gbOpen for the other 50 - and `gen_reports` carries it as
+   `meta.boundary_source`.
+2. **Static `<title>`.** Read "Malaria Molecular Surveillance — Senegal (__ASSAY__)". The
+   JS now rewrites the title, but the literal is what shows before scripts run and in
+   anything that does not run them. Made generic.
+3. **"District coverage varies between years ... districts contributed ... one district".**
+   Hardcoded where `UNIT`/`UNITS` already exist. Mayotte's units are communes and
+   Mauritius's are admin-1 districts, so this was wrong for them.
+4. **Marker classes list was missing the Antigen locus class** added for the 34 ama1/csp
+   columns. A reader seeing an AGN pill had nothing to look up.
+5. **`make_report`'s own log line** said "admin-2 units" regardless; now reports the
+   actual level.
+
+**Evidence.** Uganda report: "Administrative boundaries: OCHA COD-AB — Uganda, Admin-2
+(district)", and **zero** occurrences of the string "Senegal" anywhere in the file.
+Senegal synthetic: "geoBoundaries gbOpen — Senegal, Admin-2 (district)", banner unchanged.
+Mayotte, which is the useful case because its units are neither Senegalese nor districts:
+"geoBoundaries gbOpen (ADM4) — Mayotte, Admin-4 (commune)" and "Commune coverage varies
+between years ... communes contributed". Log lines now read "admin-4 (commune) units" and
+"admin-2 (district) units" respectively. All self-checks, both suites and the synthetic
+build pass. Image 0.12.9.

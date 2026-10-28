@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Malaria Molecular Surveillance — Senegal (__ASSAY__)</title>
+<title>Malaria Molecular Surveillance (__ASSAY__)</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <style>
@@ -1094,6 +1094,7 @@ R.methods=()=>{
         <li><b>Potential marker</b> &mdash; limited evidence, typically laboratory only.</li>
         <li><b>Haplotype component</b> &mdash; WHO lists the codon only within a multi-codon haplotype, which the Notes column names; the codon alone carries no WHO class.</li>
         <li><b>Background</b> &mdash; a locus on this panel that WHO does not list as a resistance marker, reported for interpretation and research.</li>
+        <li><b>Antigen locus</b> &mdash; an immune-target locus the panel types for antigen diversity (for example <i>ama1</i>, <i>csp</i>). Not a resistance marker, so outside the compendium’s scope rather than missing from it, and it carries no treatment implication.</li>
       </ul>
     </div>
 
@@ -1108,8 +1109,8 @@ R.methods=()=>{
         <p style="font-size:13.5px;color:var(--ink2)">Sparse years are grouped into periods so each figure has a usable denominator; a year with
         ${TR?nf(TR.min_frame_n):100} or more QC pass samples stands alone. Periods are summed from per-year counts and always reconcile with the all-years figures.
         Single years are available via the granularity control.</p>
-        <p style="font-size:13.5px;color:var(--ink2);margin-top:8px">District coverage varies between years, so part of any change in a national figure reflects which
-        districts contributed samples rather than change in the parasite population. Samples per period are shown alongside each trend, and scoping to one district
+        <p style="font-size:13.5px;color:var(--ink2);margin-top:8px">${UNIT.charAt(0).toUpperCase()+UNIT.slice(1)} coverage varies between years, so part of any change in a national figure reflects which
+        ${UNITS} contributed samples rather than change in the parasite population. Samples per period are shown alongside each trend, and scoping to one ${UNIT}
         removes that composition effect.</p>
       </div>
     </div>
@@ -1118,7 +1119,7 @@ R.methods=()=>{
       <div class="card"><h3>Sources</h3>
         <ul style="font-size:13px;color:var(--ink2);margin:6px 0 0 18px;line-height:1.9">
           <li>Marker list and classes: <a href="${who}" target="_blank" rel="noopener">WHO Compendium of molecular markers for antimalarial drug resistance</a></li>
-          <li>District boundaries: geoBoundaries, Senegal admin level 2</li>
+          <li>Administrative boundaries: ${esc(M.boundary_source||'geoBoundaries gbOpen')} &mdash; ${esc(M.country||'')}, ${esc(M.admin||'')}</li>
           <li>Gene names link to the corresponding PlasmoDB record</li>
         </ul>
       </div>

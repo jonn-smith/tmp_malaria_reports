@@ -613,7 +613,7 @@ def assemble_report(name, spec, units, selection=None):
     for u in sampled: allyears|=set(u.get('years') or [])
     period=fmt_years(allyears) or 'n/a'
     meta=dict(assay=name,assay_full=spec['full'],platform=spec['platform'],
-              color=spec['color'],note=spec['note'],country=(COUNTRY_NAME or 'Senegal'),admin=(MAP.get('admin_label') or 'Admin-2 (district)'),
+              color=spec['color'],note=spec['note'],country=(COUNTRY_NAME or 'Senegal'),admin=(MAP.get('admin_label') or 'Admin-2 (district)'),boundary_source=(MAP.get('source') or ''),
               admin_available=True,dates_available=bool(allyears),period=period,years=sorted(allyears),
               links=PIPELINE_LINKS.get(name,[]),
               generated='2026-09-23',version=VERSION,real=False,data_source='Synthetic design mock-up (illustrative values)',

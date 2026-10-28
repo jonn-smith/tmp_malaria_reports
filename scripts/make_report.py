@@ -368,7 +368,8 @@ def main(argv=None):
             raise SystemExit('no samples matched --sample-ids; refusing to build an empty report')
     sys.stderr.write(f"[make_report] {G.COUNTRY_ISO} ({m.get('country')}) "
                      f"{a.assay} {version}: {m['n_qc']} QC pass samples, "
-                     f"{m['n_units_sampled']}/{m['n_units_total']} admin-2 units, period {m['period']}\n")
+                     f"{m['n_units_sampled']}/{m['n_units_total']} "
+                     f"{(m.get('admin') or 'admin-2').lower()} units, period {m['period']}\n")
     # A report with no samples is not a result, it is a failed run that looks like a
     # successful one: the task exits 0, Terra shows green, and the HTML renders empty.
     # Every way of getting here is a misconfiguration worth stopping on - an unreadable
