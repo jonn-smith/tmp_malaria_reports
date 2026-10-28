@@ -1104,6 +1104,7 @@ R.export=()=>{
   const fmtNames=order.map(k=>esc(e.views[k].label||k));
   let html=`<h2 class="sec">Export data for dashboards</h2>
     <div class="sec-desc">This dataset reformatted for easy import into downstream dashboards. ${NUMWORD[fmtNames.length]||fmtNames.length} data formats currently supported: ${fmtNames.join(', ')}.</div>
+    ${e.note?`<div class="hint" style="margin-bottom:12px">${esc(e.note)}</div>`:''}
     <div class="controls"><label>Output type: <select id="expsel">`+order.map(k=>`<option value="${k}">${esc(e.views[k].label||k)}</option>`).join('')+`</select></label></div>
     <div id="exportview"></div>`;
   return html;
@@ -1113,6 +1114,7 @@ function wireExport(){
   const render=key=>{const v=V[key]||{cols:[],count:0,preview:[]};
     const rows=v.preview||[], cols=(v.cols&&v.cols.length)?v.cols:Object.keys(rows[0]||{a:1});
     let h=`<div class="card"><h3>${esc(v.title||key)}</h3>`
+      +(v.note?`<div class="sec-desc">${esc(v.note)}</div>`:``)
       +`<div class="hint"><button class="btn" id="dlbtn">\u2913 Download full CSV (${v.count} rows)</button>`
       +(v.count>rows.length?`<div style="color:var(--ink2);margin-top:8px">Table shows the first ${rows.length} of ${v.count} rows; download for the full set.</div>`:``)+`</div>`
       +`<div class="scroll"><table><thead><tr>`+cols.map(c=>`<th>${esc(c)}</th>`).join('')+`</tr></thead><tbody>`

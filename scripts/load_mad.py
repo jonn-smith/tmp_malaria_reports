@@ -212,7 +212,8 @@ def load(rm_dir, meta_csv, ad_dir=None, selection=None):
     if detection.get('recognised'):
         rep['meta']['panel'] = detection['panel']
         rep['meta']['panel_label'] = detection.get('label')
-    G.real_export(rep, samples, 'Amplicon sequencing')
+    G.real_export(rep, samples, 'Amplicon sequencing',
+                  panel=(detection.get('panel') if detection.get('recognised') else ''))
     rep['sites'] = G.sites_from_samples(samples)
     sys.stderr.write(f"[load_mad] site points={len(rep['sites'])}\n")
     return rep

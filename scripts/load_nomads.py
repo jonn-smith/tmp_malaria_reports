@@ -407,7 +407,8 @@ def load(call_tables, site_metadata=None, version=None, data_source=None, select
     # tables, so hard-coding ONT here stamped "ONT amplicon sequencing" into the PHA4GE
     # and Africa CDC exports for short-read runs - a wrong value in a data file someone
     # else will load, which is worse than a wrong label on a page.
-    G.real_export(rep, placed, _pspec.get('export_assay_name') or 'Amplicon sequencing')
+    G.real_export(rep, placed, _pspec.get('export_assay_name') or 'Amplicon sequencing',
+                  panel=_key)
     rep['sites'] = G.sites_from_samples(placed)
     sys.stderr.write(f"[load_nomads] site points={len(rep['sites'])}\n")
     return rep

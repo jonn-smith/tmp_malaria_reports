@@ -95,6 +95,7 @@ schemas/                  export-format specifications / example sheets
   Africa MMS_Data_Sheet_Final_2026.xlsx   Africa CDC molecular-marker data sheet
   MalariaCommunityStandard_*.xlsx         PHA4GE Malaria Community Standard
   pha4ge_fields.json                      PHA4GE 210-field order (parsed)
+  std_vocab.json                          both sheets' picklists + the Africa CDC header row
 reports/                  built HTML reports (synthetic committed; *-real.html ignored)
 build/                    intermediates (data_*.json) — git-ignored
 docs/
@@ -104,15 +105,28 @@ JOURNAL.md                development log for the reporting work
 
 ## Export views
 
-The Export tab offers five dashboard-ready formats. Full tables are embedded
+The Export tab offers four dashboard-ready formats. Full tables are embedded
 **gzip + base64** and decompressed / rebuilt into CSV client-side on download (with a
 progress popup), so the page stays small; the on-screen table shows a preview.
 
-- **WHO Threat Maps** — per admin-2 × marker (tested / present / percent).
+- **WHO Threat Maps** — per admin-2 × marker (tested / present / percent). Representative
+  of the layout; WHO publishes no column spec with the submission sheet.
 - **Africa CDC** — Mutation / Haplotype data sheet (one row per sample × observed alteration).
-- **AF-CDC Marker-Centric** — per sample × codon with wildtype/mutation counts (carries the denominator).
 - **PHA4GE** — Malaria Community Standard (human sample), 210-field per-specimen schema.
 - **DHIS2** — `dataValueSet` import schema.
+
+The two sheet-backed formats are **column-exact and vocabulary-exact**: the Africa CDC
+columns come from the workbook's own header row, and the picklist columns (country, study
+type, gene symbol, gene alteration, travel, endemicity, assay) are mapped onto the lists
+the sheets enforce rather than written through from the data table. The sheets reject
+anything else — `cross_sectional_survey`, `kelch13`, a bare `K76T` and `Senegal` are all
+invalid values in the 2026 edition. A value with no picklist entry becomes `Other` where
+the list offers it, and every such substitution is counted and named under the table.
+`scripts/build_std_vocab.py` regenerates `schemas/std_vocab.json` when a new edition of
+either workbook lands.
+
+Nothing from the data table rides along in these files: a column with no schema field is
+dropped, because the value of a standard is that the columns match.
 
 ## Data sources & standards
 

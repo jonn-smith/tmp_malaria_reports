@@ -796,7 +796,7 @@ VIEW_META = {
  'who':      ('WHO Threat Maps', 'who_threat_map.csv', 'WHO Malaria Threats Map',
              'WHO Malaria Threats Map layout: one row per admin-2 × marker (samples tested, mutant present, percent, and WHO class). Representative of the schema.'),
  'afcdc':    ('Africa CDC', 'afcdc_mutation_haplotype.csv', 'Africa CDC — Mutation / Haplotype data sheet',
-             'Africa CDC Mutation/Haplotype data sheet: one row per sample × observed mutant alteration (Gene symbol · Gene Alteration · Haplotype). Columns not captured in the sequencing data (host subject ID, haplotype, travel history, destinations, endemicity, and study type) are left blank.'),
+             'Africa CDC Mutation/Haplotype data sheet: one row per sample × observed mutant alteration, in the sheet\'s own 17 columns. Seven of them are picklists, so values are mapped onto the sheet\'s vocabulary (Country carries its GAZ id, Gene symbol uses k13 rather than kelch13, Gene Alteration is gene-prefixed, Travel history is Y/N); a value with no picklist entry becomes "Other" and is listed under the table. Haplotype and the travel city/province columns cannot be filled from sequencing data and are blank; host subject ID, study type, travel and endemicity are filled when the data table carries them.'),
  'pha4ge':   ('PHA4GE', 'pha4ge_malaria_standard.csv', 'PHA4GE Malaria Community Standard (human sample) — one row per sample × observed alteration',
              'PHA4GE Malaria Community Standard (human sample): the 210-field per-specimen schema, one row per sample × observed alteration. Only fields the genomic data supports are populated (sample ID, geography, collection date, organism/host, assay/instrument, MOI, and gene/alteration); all other fields (accessions, host demographics, sequencing kit, etc.) are left blank.'),
  'dhis2':    ('DHIS2', 'dhis2_datavalueset.csv', 'DHIS2 dataValueSet',
@@ -808,8 +808,10 @@ def _iso_date(d):
     if len(d) >= 4 and d[:4].isdigit(): return d[:4]
     return ''
 # Columns the data table may carry that the export schemas have a home for. Everything
-# else from the table is kept on the sample as `extra` and surfaces in the data JSON, so a
-# schema field can be wired up later without re-running anything upstream.
+# else the table carried is held on the sample for the duration of the build and then
+# dropped: the exports are published standards with fixed column sets, so a column with no
+# schema field has nowhere to go. Wiring one up later means adding it here, not re-running
+# anything upstream.
 #
 # This exists because the exports used to assert values: "Study type" was the literal
 # "cross_sectional_survey" for every WHO row regardless of design, and Endemicity was
@@ -860,21 +862,27 @@ def build_pha4ge(samples, mkdefs, assay_name, platform):
                      'geo_loc_name(county/region)': s.get('district') or '', 'geo_loc_name(city)': s.get('site') or '',
                      'sample_collection_date': iso,
                      'sample_collection_date_precision': ('day' if len(d) >= 8 and d[:8].isdigit() else 'year' if iso else ''),
-                     'sequencing_assay_type': assay_name, 'sequencing_instrument': platform or ''})
+                     'sequencing_assay_type': _pick('pha4ge', 'sequencing_assay_type',
+                                                    assay_name, _SEQTYPE_ALIAS),
+                     'sequencing_instrument': platform or ''})
         if s.get('lat') is not None: base['geo_loc_latitude'] = s['lat']
         if s.get('lon') is not None: base['geo_loc_longitude'] = s['lon']
-        # carried from the data table rather than left blank
-        for field, key in (('host_age', 'age'), ('host_sex', 'sex'),
-                           ('host_subject_ID', 'host_subject_id'),
+        # carried from the data table rather than left blank. host_sex is a picklist
+        # ('Female [NCIT:C46110]'), so an 'F' from the table has to be mapped onto it.
+        for field, key in (('host_age', 'age'), ('host_subject_ID', 'host_subject_id'),
                            ('library_ID', 'library_name')):
             v = xf(s, key)
             if v != '' and field in base:
                 base[field] = v
+        if 'host_sex' in base:
+            base['host_sex'] = _pick('pha4ge', 'host_sex', xf(s, 'sex'), _SEX_ALIAS)
         if xf(s, 'age') != '':
-            base['host_age_unit'] = 'year'
+            base['host_age_unit'] = _pick('pha4ge', 'host_age_unit', 'year')
         for m in muts:
-            r = dict(base); g = _afgene(m['gene'])
-            r['gene_name'] = g; r['gene_symbol'] = g; r['gene_alteration'] = m['aa']
+            r = dict(base); g = _afgene(m['gene'], 'pha4ge')
+            r['gene_symbol'] = g
+            r['gene_name'] = _pick('pha4ge', 'gene_name', _GENE_LONG.get(g, g))
+            r['gene_alteration'] = _alteration('pha4ge', m['gene'], m['aa'])
             rows.append(r)
     return rows
 def _csv_cell(v):
@@ -903,6 +911,8 @@ def _pack_export(rep, rows_by_key, note, order, preview_n=50):
 def add_export(rep):
     ctry=rep['meta']['country']; assay=rep['meta']['assay']; assay_name=ASSAY_NAME.get(assay,'Sequencing')
     markers=[m for m in rep['markers'] if m.get('assessed')]
+    af_country = _pick('afcdc', 'country', ctry, _COUNTRY_ALIAS)
+    af_assay = _pick('afcdc', 'assay', assay, _ASSAY_ALIAS)
     who=[]; dhis=[]
     for m in markers:
         who.append(dict(country=ctry,admin1='(national)',admin2='(pooled)',year=2024,gene=m['gene'],mutation=m['aa'],
@@ -913,9 +923,10 @@ def add_export(rep):
     random.seed(zlib.crc32(('afcdc_'+assay).encode())); afc=[]; sid=0
     def afgene(g): g=g[2:] if g.startswith('Pf') else g; return 'kelch13' if g=='k13' else g
     def afdate(dm):
+        # MMM-YYYY, which is what the sheet's own column header asks for
         if not dm: return ''
         p=str(dm).split('-'); y=p[0]; mo=int(p[1]) if len(p)>1 else random.randint(1,12)
-        return f"{mo}/{random.randint(1,28)}/{y[2:] if len(y)>=4 else y}"
+        return f"{_MON[mo-1]}-{y}" if 1<=mo<=12 else y
     region_n={_na(k):v for k,v in SEN_REGION.items()}
     for u in sorted([u for u in rep['units'] if u.get('sampled')],key=lambda u:-u['n'])[:6]:
         reg=region_n.get(_na(u['name']),'—'); ab=''.join(c for c in u['name'].upper() if c.isalpha())[:3]
@@ -929,25 +940,35 @@ def add_export(rep):
                     'District':u['name'],'Region':reg,'Country name':ctry,'Study type':'cross_sectional_survey',
                     'Gene name':afgene(m['gene']),'Codon':m['aa'],'Wildtype count':tot-mut,'Mutation count':mut,
                     'Travel_history':trav,'Travel location (if Y)':tloc,'Endemicity':en,'Assay used':assay_name})
-    afc_mut = [{'Sample ID': r['Sample ID'], 'Host subject ID': '',
-                'Date of sample collection': r['Date of sample collection'], 'Facility name': r['Facility name'],
-                'Country': r['Country name'], 'Region/Province (Admin Level 1)': r['Region'],
-                'District (Admin Level 2)': r['District'], 'Study type': r['Study type'], 'Gene symbol': r['Gene name'],
-                'Gene Alteration': r['Codon'], 'Haplotype': '', 'Travel history [Y/N]': r['Travel_history'],
+    afc_mut = _afcdc_align([{'Sample ID': r['Sample ID'], 'Host subject ID': '',
+                AFCDC_DATE_COL: r['Date of sample collection'], 'Facility name': r['Facility name'],
+                'Country': af_country, 'Region/Province (Admin Level 1)': r['Region'],
+                'District (Admin Level 2)': r['District'],
+                'Study type': _pick('afcdc', 'study_type', r['Study type'], _STUDY_ALIAS),
+                'Gene symbol': _afgene(r['Gene name']),
+                'Gene Alteration': _alteration('afcdc', r['Gene name'], r['Codon']),
+                'Haplotype': '',
+                'Travel history [Y/N]': _pick('afcdc', 'travel', r['Travel_history'], _YN_ALIAS),
                 'Destination of most recent travel(city)': r['Travel location (if Y)'],
                 'Destination of most recent travel(state/province/territory)': '',
-                'Destination of most recent travel(country)': '', 'Endemicity': r['Endemicity'],
-                'Assay used': r['Assay used']} for r in afc if r['Mutation count'] > 0]
+                'Destination of most recent travel(country)': '',
+                'Endemicity': _pick('afcdc', 'endemicity', r['Endemicity'], _ENDEMICITY_ALIAS),
+                'Assay used': af_assay} for r in afc if r['Mutation count'] > 0])
     pha4ge = [{**{f: '' for f in PHA4GE_FIELDS},
                'specimen_collector_sample_ID': r['Sample ID'], 'organism': 'Plasmodium falciparum',
                'host_taxid': '9606', 'host(common_name)': 'Human', 'host(scientific_name)': 'Homo sapiens',
                'geo_loc_name(country)': r['Country name'], 'geo_loc_name(state/province/territory)': r['Region'],
                'geo_loc_name(county/region)': r['District'], 'geo_loc_name(city)': r['Facility name'],
-               'sequencing_assay_type': r['Assay used'], 'gene_name': r['Gene name'], 'gene_symbol': r['Gene name'],
-               'gene_alteration': r['Codon']} for r in afc if r['Mutation count'] > 0]
+               'sequencing_assay_type': _pick('pha4ge', 'sequencing_assay_type', r['Assay used'],
+                                              _SEQTYPE_ALIAS),
+               'gene_symbol': _afgene(r['Gene name'], 'pha4ge'),
+               'gene_name': _pick('pha4ge', 'gene_name',
+                                  _GENE_LONG.get(_afgene(r['Gene name'], 'pha4ge'), r['Gene name'])),
+               'gene_alteration': _alteration('pha4ge', r['Gene name'], r['Codon'])}
+              for r in afc if r['Mutation count'] > 0]
     _pack_export(rep, {'who': who, 'afcdc': afc_mut, 'pha4ge': pha4ge, 'dhis2': dhis},
         order=['who', 'dhis2', 'afcdc', 'pha4ge'],
-        note='Africa CDC (Mutation/Haplotype) lists one row per sample × observed mutant alteration; AF-CDC Marker-Centric gives per sample × codon wildtype/mutation counts; PHA4GE follows the Malaria Community Standard (human sample); DHIS2 follows the dataValueSet schema. Values are synthetic; WHO Malaria Threats Map layout is representative.')
+        note='Africa CDC (Mutation/Haplotype) lists one row per sample × observed mutant alteration, in the 2026 data sheet\'s own columns and picklist vocabularies; PHA4GE follows the Malaria Community Standard (human sample); DHIS2 follows the dataValueSet schema. Values are synthetic; WHO Malaria Threats Map layout is representative.' + _vocab_note())
 
 def project(lon, lat):
     """lon/lat -> SVG x,y using the SAME equirectangular projection as build_maps.py (via MAP bounds)."""
@@ -977,11 +998,149 @@ def sites_from_samples(samples):
                       'mkn': a['mkn']})
     return sorted(sites, key=lambda t: -t['n'])
 
-def _afgene(g):
-    g = g[2:] if g.startswith('Pf') else g
-    return 'kelch13' if g == 'k13' else g
+# ---- export controlled vocabularies -----------------------------------------
+# Both export sheets are mostly picklist columns, and a value outside the picklist is
+# rejected by the sheet. Built from the workbooks in schemas/ by build_std_vocab.py.
+VOCAB = json.load(open(_os.path.join(SCHEMA_DIR, 'std_vocab.json')))
+VOCAB_MISS = {}      # 'std.field' -> {value: count}, for the export note and the log
+# The Mutation_Haplotype header row, verbatim - including the parenthetical in the date
+# column, which the exports had shortened.
+AFCDC_COLS = (VOCAB.get('afcdc') or {}).get('_columns') or []
+AFCDC_DATE_COL = next((c for c in AFCDC_COLS if c.lower().startswith('date of sample')),
+                      'Date of sample collection')
 
-def real_export(rep, samples, assay_name, max_afcdc=500):
+
+def _afcdc_align(rows):
+    """Rows in the sheet's own column order, no more and no fewer.
+
+    An export standard is only useful if the columns match, so a column the sheet has and
+    we never populate is emitted blank, and anything we produce that the sheet does not
+    list is dropped with a note rather than carried along."""
+    if not rows or not AFCDC_COLS:
+        return rows
+    extra = [c for c in rows[0] if c not in AFCDC_COLS]
+    if extra:
+        print(f'[export] Africa CDC: {extra} not in the Mutation_Haplotype header; dropped',
+              file=sys.stderr)
+    return [{c: r.get(c, '') for c in AFCDC_COLS} for r in rows]
+
+
+def _vkey(s):
+    """Compare picklist values ignoring case, punctuation and any trailing ontology id,
+    so 'Uganda' matches 'Uganda [GAZ:00001102]' and 'moderate-high' matches 'Moderate High'."""
+    return re.sub(r'[^a-z0-9]+', '', re.sub(r'\[[^\]]*\]', ' ', str(s or '')).lower())
+
+
+def _pick(std, field, value, alias=None, blank=''):
+    """A value's controlled spelling in one standard's picklist.
+
+    Returns the sheet's own spelling on a match; 'Other' for an unmatched value where the
+    list sanctions that fallback; `blank` otherwise. Every unmatched value is counted in
+    VOCAB_MISS - an export column quietly set to 'Other' is the kind of thing that only
+    gets noticed by whoever has to explain the dashboard."""
+    opts = (VOCAB.get(std) or {}).get(field) or []
+    v = str('' if value is None else value).strip()
+    if not v:
+        return blank
+    k = _vkey(v)
+    if alias and k in alias:
+        k = _vkey(alias[k])
+    for o in opts:
+        if _vkey(o) == k:
+            return o
+    VOCAB_MISS.setdefault(f'{std}.{field}', {})
+    VOCAB_MISS[f'{std}.{field}'][v] = VOCAB_MISS[f'{std}.{field}'].get(v, 0) + 1
+    return 'Other' if 'Other' in opts else blank
+
+
+# Gene spellings. Both sheets settled on `k13` and `ferredoxin`; the exports used to write
+# `kelch13` and `fd`, neither of which is in either picklist.
+_GENE_ALIAS = {'kelch13': 'k13', 'pfk13': 'k13', 'pfkelch13': 'k13', 'fd': 'ferredoxin',
+               'ferredoxin': 'ferredoxin', 'pm2': 'pm2/3', 'pm3': 'pm2/3',
+               'plasmepsin2': 'pm2/3', 'plasmepsin23': 'pm2/3', 'cytochromeb': 'cytb'}
+_GENE_LONG = {   # PHA4GE gene_name is the full name, not the symbol
+    'aat1': 'amino acid transporter 1', 'arps10': 'apicoplast ribosomal protein S10',
+    'coronin': 'coronin', 'crt': 'chloroquine Resistance Transporter', 'cytb': 'cytochrome b',
+    'dhfr': 'dihydrofolate reductase', 'dhps': 'dihydropteroate synthase',
+    'exo': 'exonuclease', 'ferredoxin': 'ferredoxin', 'gch1': 'GTP cyclohydrolase I',
+    'hrp2': 'histidine-rich protein 2', 'hrp3': 'histidine-rich protein 3',
+    'k13': 'kelch 13 propeller domain protein (pfkelch13)',
+    'mdr1': 'multidrug resistance protein 1', 'mdr2': 'multidrug resistance protein 2',
+    'pm2/3': 'plasmepsin 2 and 3',
+}
+_STUDY_ALIAS = {   # only designs that map without interpretation; the rest become 'Other'
+    'tes': 'TES', 'therapeuticefficacystudy': 'TES', 'therapeuticefficacytrial': 'TES',
+    'community': 'Community survey', 'communitysurvey': 'Community survey',
+    'householdsurvey': 'Community survey', 'populationsurvey': 'Community survey',
+    'healthfacility': 'Health facility', 'facility': 'Health facility', 'clinic': 'Health facility',
+    'healthfacilitysurvey': 'Health facility', 'passivecasedetection': 'Health facility',
+    'pcd': 'Health facility', 'rcd': 'Reactive case detection (RCD)',
+    'reactivecasedetection': 'Reactive case detection (RCD)',
+    'anc': 'ANC', 'antenatal': 'ANC', 'antenatalcare': 'ANC', 'antenatalclinic': 'ANC',
+}
+_YN_ALIAS = {'yes': 'Y', 'true': 'Y', '1': 'Y', 'y': 'Y',
+             'no': 'N', 'false': 'N', '0': 'N', 'n': 'N', 'none': 'N'}
+_SEX_ALIAS = {'f': 'Female', 'female': 'Female', 'woman': 'Female',
+              'm': 'Male', 'male': 'Male', 'man': 'Male'}
+_ASSAY_ALIAS = {'spotmalariagrc1': 'SpotMalaria', 'spotmalariagrc2': 'SpotMalaria',
+                'mad4hatter': 'MAD4HATTER', 'nomads': 'NOMADS', 'mips': 'MIPS', 'mars': 'MaRS',
+                'pfsmarrt': 'Pf-SMARRT'}
+_SEQTYPE_ALIAS = {'ampliconsequencing': 'Amplicon sequencing assay',
+                  'ontampliconsequencing': 'Amplicon sequencing assay',
+                  'ampliconsequencingnanopore': 'Amplicon sequencing assay',
+                  'wholegenomesequencing': 'Whole genome sequencing assay',
+                  'wgs': 'Whole genome sequencing assay',
+                  'targetedgenomesequencing': 'Targeted genome sequencing'}
+# 'Medium' is what the Uganda table says; the sheet's word for the same band is 'moderate'.
+_ENDEMICITY_ALIAS = {'medium': 'moderate', 'mod': 'moderate', 'moderatehigh': 'moderate-high',
+                     'mediumhigh': 'moderate-high'}
+_COUNTRY_ALIAS = {'drc': 'Democratic Republic of the Congo',
+                  'democraticrepublicofcongo': 'Democratic Republic of the Congo',
+                  'unitedrepublicoftanzania': 'Tanzania'}
+
+
+def _afgene(g, std='afcdc'):
+    """A gene symbol in one standard's picklist spelling."""
+    g = g[2:] if g.startswith('Pf') and len(g) > 3 else g
+    alias = dict(_GENE_ALIAS)
+    alias['coronin' if std == 'afcdc' else 'pfcoronin'] = (
+        'Pfcoronin' if std == 'afcdc' else 'coronin')
+    return _pick(std, 'gene_symbol', g, alias)
+
+
+def _alteration(std, gene, aa):
+    """'crt K76T' - every permitted value in both sheets is gene-prefixed.
+
+    ponytail: an alteration the picklist omits is emitted as composed rather than collapsed
+    to 'Other'. The column exists to name the mutation, and 120 (Africa CDC) or 177
+    (PHA4GE) entries do not cover the compendium; VOCAB_MISS records how many."""
+    sym = _afgene(gene, std)
+    composed = f"{sym if sym != 'Other' else gene} {aa}".strip()
+    opts = (VOCAB.get(std) or {}).get('gene_alteration') or []
+    for o in opts:
+        if _vkey(o) == _vkey(composed):
+            return o
+    VOCAB_MISS.setdefault(f'{std}.gene_alteration', {})
+    VOCAB_MISS[f'{std}.gene_alteration'][composed] = \
+        VOCAB_MISS[f'{std}.gene_alteration'].get(composed, 0) + 1
+    return composed
+
+
+def _vocab_note():
+    """One sentence naming any value that fell outside a picklist. Also logged."""
+    if not VOCAB_MISS:
+        return ''
+    bits = []
+    for field in sorted(VOCAB_MISS):
+        vals = VOCAB_MISS[field]
+        shown = ', '.join(sorted(vals)[:4]) + (f' +{len(vals)-4} more' if len(vals) > 4 else '')
+        bits.append(f'{field} ({shown})')
+    msg = ('Values outside the sheet\'s controlled vocabulary, mapped to "Other" where the '
+           'picklist allows it and left blank otherwise: ' + '; '.join(bits) + '.')
+    print('[export] ' + msg, file=sys.stderr)
+    return ' ' + msg
+
+def real_export(rep, samples, assay_name, max_afcdc=500, panel=''):
     """Export views built ONLY from real measurements + derived fields (no random, no fabrication).
     WHO Threats-Map & DHIS2 = per admin-2 x marker real prevalence. Africa CDC = per sample x codon
     (wildtype/mutation = allele calls from genotypes). Unmeasured columns are left blank.
@@ -999,7 +1158,12 @@ def real_export(rep, samples, assay_name, max_afcdc=500):
         v = xf(s, 'study_type')
         if v != '':
             _st[v] = _st.get(v, 0) + 1
-    cohort_study_type = max(_st, key=_st.get) if _st else ''
+    cohort_study_type = _pick('afcdc', 'study_type', max(_st, key=_st.get) if _st else '')
+    # Africa CDC's "Assay used" picklist names the panel (MAD4HATTER, NOMADS, SpotMalaria,
+    # ...), not the sequencing modality, so it comes from the detected panel rather than
+    # from assay_name. PfPHAST is not in the 2026 list and lands on 'Other'.
+    af_assay = _pick('afcdc', 'assay', panel or assay_name, _ASSAY_ALIAS)
+    af_country = _pick('afcdc', 'country', ctry, _COUNTRY_ALIAS)
 
     who = []; dhis = []
     for u in rep['units']:
@@ -1012,46 +1176,49 @@ def real_export(rep, samples, assay_name, max_afcdc=500):
             x = u['mkx'].get(k, 0); p = round(100*x/n, 1)
             who.append(dict(country=ctry, region=reg, admin2=u['name'], year=yr, gene=m['gene'], mutation=m['aa'],
                             tested=n, present=x, percent=p,
-                            who_tracked=('Yes' if m['who'] else 'No — research'),
-                            study_type=cohort_study_type))
+                            who_tracked=('Yes' if m['who'] else 'No — research')))
             dhis.append(dict(dataElement=('MAL_RES_'+m['gene']+'_'+m['aa']).replace(' ', ''), period=yr,
                              orgUnit=u['name'], categoryOptionCombo='default', value=p))
-    afc_mc = []   # marker-centric: one row per sample × codon (wildtype/mutation counts)
-    afc_mut = []  # mutation/haplotype: one row per sample × mutant alteration (Africa CDC main sheet)
+    # One row per sample × observed mutant alteration, in the Mutation_Haplotype sheet's
+    # own column names and order (AFCDC_COLS, read from the workbook header). Seven of the
+    # seventeen columns are picklists, so values go through _pick rather than straight from
+    # the data table: "Study type" rejects cross_sectional_survey, "Gene symbol" wants k13
+    # rather than kelch13, and "Gene Alteration" wants 'crt K76T' rather than 'K76T'.
+    afc_mut = []
     for s in samples:
         for k, (wt, mut) in (s.get('calls') or {}).items():
             m = mkdefs.get(k)
-            if not m or not m.get('assessed'): continue
-            afc_mc.append({'Sample ID': s['id'], 'Date of sample collection': s.get('date', ''),
-                        'Facility name': s.get('site', ''), 'District': s['district'], 'Region': s.get('region') or '—',
-                        'Country name': ctry, 'Study type': xf(s, 'study_type'),
-                        'Gene name': _afgene(m['gene']), 'Codon': m['aa'],
-                        'Wildtype count': wt, 'Mutation count': mut,
-                        'Travel_history': xf(s, 'travel'),
-                        'Travel location (if Y)': xf(s, 'travel_dest'),
-                        'Endemicity': xf(s, 'endemicity'), 'Assay used': assay_name})
-            if mut > 0:   # mutation-centric lists observed alterations only
-                afc_mut.append({'Sample ID': s['id'],
-                        'Host subject ID': xf(s, 'host_subject_id'),
-                        'Date of sample collection': _mmm_yyyy(s.get('date', '')), 'Facility name': s.get('site', ''),
-                        'Country': ctry, 'Region/Province (Admin Level 1)': s.get('region') or '—',
-                        'District (Admin Level 2)': s['district'],
-                        'Study type': xf(s, 'study_type'), 'Gene symbol': _afgene(m['gene']),
-                        'Gene Alteration': m['aa'], 'Haplotype': '',
-                        'Travel history [Y/N]': xf(s, 'travel'),
-                        'Destination of most recent travel(city)': '',
-                        'Destination of most recent travel(state/province/territory)': '',
-                        'Destination of most recent travel(country)': xf(s, 'travel_dest'),
-                        'Endemicity': xf(s, 'endemicity'), 'Assay used': assay_name})
+            if not m or not m.get('assessed') or mut <= 0: continue
+            afc_mut.append({
+                'Sample ID': s['id'],
+                'Host subject ID': xf(s, 'host_subject_id'),
+                AFCDC_DATE_COL: _mmm_yyyy(s.get('date', '')),
+                'Facility name': s.get('site', ''),
+                'Country': af_country,
+                'Region/Province (Admin Level 1)': s.get('region') or '—',
+                'District (Admin Level 2)': s['district'],
+                'Study type': _pick('afcdc', 'study_type', xf(s, 'study_type'), _STUDY_ALIAS)
+                              or cohort_study_type,
+                'Gene symbol': _afgene(m['gene']),
+                'Gene Alteration': _alteration('afcdc', m['gene'], m['aa']),
+                'Haplotype': '',
+                'Travel history [Y/N]': _pick('afcdc', 'travel', xf(s, 'travel'), _YN_ALIAS),
+                'Destination of most recent travel(city)': '',
+                'Destination of most recent travel(state/province/territory)': '',
+                'Destination of most recent travel(country)':
+                    _pick('afcdc', 'dest_country', xf(s, 'travel_dest'), _COUNTRY_ALIAS),
+                'Endemicity': _pick('afcdc', 'endemicity', xf(s, 'endemicity'), _ENDEMICITY_ALIAS),
+                'Assay used': af_assay})
     pha4ge = build_pha4ge(samples, mkdefs, assay_name, rep['meta'].get('platform', ''))
-    _pack_export(rep, {'who': who, 'afcdc': afc_mut, 'pha4ge': pha4ge, 'dhis2': dhis},
+    _pack_export(rep, {'who': who, 'afcdc': _afcdc_align(afc_mut), 'pha4ge': pha4ge, 'dhis2': dhis},
         order=['who', 'dhis2', 'afcdc', 'pha4ge'],
         note=('All values are real measurements or fields derived from them (prevalence = carriers ÷ typed; '
-              '95% Wilson CIs). WHO Threats-Map and DHIS2 rows are per admin-2 × marker. Africa CDC (Mutation/Haplotype) '
-              'lists one row per sample × observed mutant alteration; AF-CDC Marker-Centric gives per sample × codon '
-              'wildtype/mutation counts (includes wild-type, so it carries the denominator). Full tables are embedded '
-              'compressed and rebuilt on download; the table shows a preview. Blank columns (travel, destination, '
-              'endemicity, study type, host subject ID, haplotype) are not captured in the sequencing data.'))
+              '95% Wilson CIs). WHO Threats-Map and DHIS2 rows are per admin-2 × marker. Africa CDC '
+              '(Mutation/Haplotype) lists one row per sample × observed mutant alteration, in the 2026 data '
+              "sheet's own columns and picklist vocabularies. Full tables are embedded compressed and rebuilt on "
+              'download; the table shows a preview. Columns the sequencing data cannot fill (haplotype, travel '
+              'destination city/province) are blank; the rest are populated from the data table where it carries '
+              'them.' + _vocab_note()))
     return rep
 
 if __name__ == '__main__':
@@ -1065,6 +1232,31 @@ if __name__ == '__main__':
 
     # ---- self-checks -----------------------------------------------------------
     assert abs(wilson(10,100)[1]-5.52)<0.05
+
+    # export vocabularies: every value the sheets police must be a member of their list
+    assert _afgene('Pfk13') == 'k13' and _afgene('kelch13') == 'k13', 'k13 spelling'
+    assert _afgene('fd') == 'ferredoxin' and _afgene('crt') == 'crt'
+    assert _afgene('coronin') == 'Pfcoronin' and _afgene('coronin', 'pha4ge') == 'coronin'
+    assert _afgene('PF3D7_1322700') == 'Other', 'uncatalogued gene must fall back'
+    assert _alteration('afcdc', 'k13', 'C580Y') == 'k13 C580Y', 'alterations are gene-prefixed'
+    assert _alteration('afcdc', 'Pfcrt', 'K76T') == 'crt K76T'
+    assert _pick('afcdc', 'country', 'Uganda').startswith('Uganda [GAZ:'), 'country needs its GAZ id'
+    assert _pick('afcdc', 'country', 'Senegal') == 'Other', 'Senegal is not in the 2026 picklist'
+    assert _pick('afcdc', 'study_type', 'cross_sectional_survey', _STUDY_ALIAS) == 'Other'
+    assert _pick('afcdc', 'study_type', 'ANC', _STUDY_ALIAS) == 'ANC'
+    assert _pick('afcdc', 'travel', 'yes', _YN_ALIAS) == 'Y'
+    assert _pick('afcdc', 'travel', 'maybe', _YN_ALIAS) == '', 'no Other in a Y/N list'
+    assert _pick('afcdc', 'endemicity', 'MODERATE-HIGH') == 'moderate-high'
+    assert _pick('afcdc', 'endemicity', 'Medium', _ENDEMICITY_ALIAS) == 'moderate'
+    assert _pick('afcdc', 'assay', 'MAD4HatTeR', _ASSAY_ALIAS) == 'MAD4HATTER'
+    assert _pick('afcdc', 'assay', 'PFPHAST', _ASSAY_ALIAS) == 'Other'
+    assert _pick('pha4ge', 'host_sex', 'F', _SEX_ALIAS).startswith('Female [NCIT:')
+    assert _pick('pha4ge', 'sequencing_assay_type', 'ONT amplicon sequencing',
+                 _SEQTYPE_ALIAS).startswith('Amplicon sequencing assay')
+    assert _pick('afcdc', 'travel', '') == '', 'blank in, blank out'
+    for name in ('WGS','MAD4HATTER','NOMADS','COMBINED'):
+        cols = reports[name]['export']['views']['afcdc']['cols']
+        assert cols == AFCDC_COLS, f'{name}: Africa CDC columns differ from the sheet header'
     for name in ('WGS','MAD4HATTER','NOMADS','COMBINED'):
         r=reports[name]; m=r['meta']
         assert 'incidence' not in json.dumps(r).lower(), f'{name}: incidence leaked'
