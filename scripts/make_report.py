@@ -19,7 +19,7 @@ Usage:
 Always:
   --out-html report.html --out-data-json data.json [--out-csv-dir csv/]
 """
-import argparse, base64, csv, gzip, io, json, os, sys
+import argparse, base64, csv, gzip, io, json, os, sys, tempfile
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
@@ -473,12 +473,15 @@ def _warn_location(audit):
 def _stage(kind, files):
     """load_mad globs a directory; link the explicitly listed files into one.
 
-    The directory is emptied first. It is a fixed path in the working directory, so a
-    second run in the same directory would otherwise glob the previous run's files as
-    well, silently reporting on a cohort nobody asked for. A WDL task gets a fresh
-    directory and never saw this; running twice by hand does.
+    The directory is emptied first: it is a fixed path, so a second run would otherwise
+    glob the previous run's files as well, silently reporting on a cohort nobody asked
+    for. A WDL task gets a fresh directory and never saw this; running twice by hand does.
+
+    It lives under the temporary directory rather than the working directory, because the
+    working directory is this git repo when run by hand - a run left `_staged_resmarker/`
+    behind with a symlink into /tmp, and `git add -A` duly committed it.
     """
-    d = os.path.abspath(f'_staged_{kind}')
+    d = os.path.join(tempfile.gettempdir(), f'malaria_reports_staged_{kind}')
     if os.path.isdir(d):
         for old in os.listdir(d):
             op = os.path.join(d, old)

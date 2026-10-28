@@ -41,3 +41,7 @@ geoboundaries_adm2/
 node_modules/
 package.json
 package-lock.json
+
+# Input staging directories created by make_report.py --resmarker-table (symlink farms;
+# they now live under TMPDIR, but older runs left them here).
+_staged_*/
