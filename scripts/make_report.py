@@ -63,6 +63,9 @@ def parse_args(argv=None):
                    help='Restrict the report to these samples: a file with one sample id per '
                         'line (# comments allowed) or a comma-separated list. Omit to use every '
                         'sample in the inputs.')
+    p.add_argument('--cohort-name', default=None,
+                   help='Name of this run, shown in the report banner and document title '
+                        'so one report can be told from another (the WDL cohort_name)')
     p.add_argument('--selection-label', default=None,
                    help='Human-readable name for the selection, shown in the report '
                         '(e.g. a Terra sample_set name)')
@@ -312,6 +315,8 @@ def main(argv=None):
 
     # metadata overrides: explicit flags win over the config file
     rep['meta']['version'] = version
+    if a.cohort_name or cfg.get('cohort_name'):
+        rep['meta']['cohort_name'] = a.cohort_name or cfg.get('cohort_name')
     if scope:
         rep['meta']['terra_scope'] = {k: scope[k] for k in
                                       ('entity_type', 'entity_name', 'submission_id',

@@ -1959,3 +1959,32 @@ separators after the alias lookup, which leaves `dhfr-ts -> dhfr` intact.
 unchanged at 883 samples, still detecting `MAD4HATTER = pools D1.1 + R1.2 + R2.1`.
 `reference/panel_loci/README.md` records the derivation, the two borrowed conventions, the
 upload commands and which config input takes which file.
+
+## 2026-10-28T09:10:00Z  — Run name in the banner, and the title's hardcoded country
+
+**Context.** The operator asked for the WDL's required `cohort_name` input to appear in the
+header banner so one report can be told from another. It had only ever been used to name
+the output files - it was never passed to the renderer at all.
+
+**A bug found while doing it.** The `<h1>` read
+`Malaria Molecular Surveillance — Senegal`, hardcoded, with the real country only in the
+sub-line. So every Ugandan report had been titled *Senegal* in its banner since
+multi-country support went in. The sub-line, the scope bar and the exports were all
+correct, which is why it survived - the one place a reader looks first was the one place
+still saying Senegal.
+
+**Action.** `--cohort-name` on `make_report`, passed by all three WDL tasks, surfaced in
+three places: a distinct chip in the banner beside the assay chip, a `Run:` entry first in
+the tagline row, and the document `<title>` - the last of which matters because a browser
+tab or a printed PDF header is often all you see when comparing two reports. The `<h1>`
+country now comes from `meta.country`. Absent a cohort name the chip is removed rather
+than left blank, so the synthetic mock-ups are unchanged.
+
+**Evidence.** Through the full pipeline under miniwdl with
+`cohort_name = "NAIROBI_UG_TEST_ALL"`: title
+`NAIROBI_UG_TEST_ALL — Malaria Molecular Surveillance — Uganda PFPHAST`, run chip
+`NAIROBI_UG_TEST_ALL`, tagline beginning `Run: NAIROBI_UG_TEST_ALL`, and the banner now
+reading Uganda rather than Senegal. Without the flag: chip removed, title clean, and the
+committed synthetic report still renders `Malaria Molecular Surveillance — Senegal
+MAD4HATTER` as before. All self-checks, both test suites and all three pipelines pass.
+Image 0.12.8.
