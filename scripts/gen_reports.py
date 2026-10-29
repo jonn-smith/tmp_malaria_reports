@@ -465,6 +465,37 @@ del _k, _m, _cls, _who, _how, _desc
 MARKER_PCT = 10.0
 MIN_FRAME_N = 100     # a year with >= this many QC pass samples becomes its own trend frame
 
+_SFX_LANE = _re2.compile(r'_L\d+$')
+_SFX_FULL = _re2.compile(r'_S\d+(_L\d+)?$')
+
+
+def name_forms(sid):
+    """Every spelling of one sample name, longest first: as given, without the lane, and
+    without the whole sequencer suffix.
+
+    The same sample legitimately carries three names in one workspace, differing only in
+    how much of the sequencer suffix survives:
+
+      UG_TEST_G001_S68_L001   mad4hatter's allele_data.txt / resmarker_table.txt
+      UG_TEST_G001_S68        the Terra row id
+      UG_TEST_G001            standardise_sample_name, applied by the QC report
+
+    Which one a report sees depends on whether the QC step ran, and the QC step needs a
+    manifest that cohorts aggregated across old runs usually do not have. So matching has
+    to work in all three.
+
+    Note the direction: these are forms of the name *the data supplied*, tested exactly
+    against whatever the caller asked for. Expanding the requested name instead would let
+    a trimmed `X_S2_L001` reduce to `X` and then match row `X_S1`, attributing one
+    sample's calls to another."""
+    s = str(sid or '').strip()
+    out = [s]
+    for cand in (_SFX_LANE.sub('', s), _SFX_FULL.sub('', s)):
+        if cand and cand not in out:
+            out.append(cand)
+    return tuple(out)
+
+
 class Selection:
     """An optional sample allow-list. Report prevalence is a proportion, so a filtered
     cohort has to be visible in the report rather than silently changing the denominators:

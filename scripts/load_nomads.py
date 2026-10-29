@@ -250,7 +250,9 @@ def load(call_tables, site_metadata=None, version=None, data_source=None, select
                 drop['rows'] += 1
                 sid = _get(row, cm, 'sample_id')
                 if not sid: continue
-                if selection is not None and not selection.keep(sid):
+                # the row id as given plus its shorter spellings, so an allow-list written
+                # in the marker-table or QC-report shape matches a Terra-keyed table
+                if selection is not None and not selection.keep(*G.name_forms(sid)):
                     drop['not_selected'] = drop.get('not_selected', 0) + 1
                     continue
                 if sid in qc_bad:

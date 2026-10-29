@@ -379,8 +379,12 @@ def main(argv=None):
             f'no samples made it into the report. Check the loader warnings above. The '
             f'usual causes, in order of likelihood: the wrong country '
             f'(country_iso3 was {G.COUNTRY_ISO}, so every sample outside it was dropped); '
-            f'an unrecognised sample-id column; or site metadata with no district and no '
-            f'lat/lon. See docs/TERRA_TABLES.md for the six required fields.')
+            f'site metadata whose sample names do not match the marker table - a '
+            f'"no site metadata row" count above the size of the cohort means this, and '
+            f'the three name shapes (bare, _S<n>, _S<n>_L<n>) are matched automatically '
+            f'only when they differ by that suffix alone; an unrecognised sample-id '
+            f'column; or site metadata with no district and no lat/lon. '
+            f'See docs/TERRA_TABLES.md for the six required fields.')
     sys.stderr.write(f"[make_report] wrote {a.out_html} and {a.out_data_json}\n")
     return 0
 

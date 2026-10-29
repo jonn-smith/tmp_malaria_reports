@@ -63,12 +63,36 @@ def load_meta(path):
                   'extra': {k: v for k, v in r.items() if v not in (None, '')}}
     return m
 
+
+def meta_index(m):
+    """sample-name spelling -> the key it identifies in the site-metadata table.
+
+    The metadata file may be keyed on any of the three name shapes while the marker table
+    uses another, so each key is registered under all of its spellings. A spelling that
+    two different keys both claim is ambiguous (`X_S1` and `X_S2` both reduce to `X`) and
+    is dropped rather than resolved - picking one would attach the wrong site to a sample.
+    Returns (index, ambiguous spellings)."""
+    idx, clash = {}, set()
+    for k in m:
+        for form in G.name_forms(k):
+            if form in idx and idx[form] != k:
+                clash.add(form)
+            else:
+                idx[form] = k
+    for form in clash:
+        idx.pop(form, None)
+    return idx, sorted(clash)
+
 # admin-2 assignment comes from gen_reports, which works in the projected space of the
 # selected country's map, so the same paths that draw the choropleth assign the samples.
 def dept_of(lat, lon):
     return G.dept_of_point(lat, lon)
 
-base = lambda s: re.sub(r'_S\d+_L001$', '', s)
+# The whole sequencer suffix, not just lane 001. This used to be `_S\d+_L001$`, which
+# meant a second lane (`_S68_L002`, any multi-lane flowcell) was left un-normalised: those
+# samples then sat in a third namespace of their own, failed the site-metadata join and
+# vanished into the `no_meta` count. G.name_forms is the shared spelling of this.
+base = lambda s: re.sub(r'_S\d+(_L\d+)?$', '', str(s or '').strip())
 isctrl = lambda b: b.upper().startswith(('DC', 'DD', '3D7', 'NTC')) or b == 'Undetermined'
 
 def coi_from_alleles(ad_dir):
@@ -114,7 +138,10 @@ def load(rm_dir, meta_csv, ad_dir=None, selection=None):
         for row in rd:
             b = base(row['SampleID'])
             # match either the base id or the run-suffixed id as written in the table
-            if selection is not None and not selection.keep(b, (row.get('SampleID') or '').strip()):
+            # offer every spelling of the name the table gave us, so an allow-list taken
+            # from the Terra data model (row ids) matches as well as one taken from the
+            # marker table (lane-suffixed) or the QC report (bare)
+            if selection is not None and not selection.keep(*G.name_forms(row.get('SampleID'))):
                 continue
             g = (row.get('Gene') or '').strip();
             try: c = int(row.get('CodonID'))
@@ -136,11 +163,18 @@ def load(rm_dir, meta_csv, ad_dir=None, selection=None):
         sys.stderr.write(f'[load_mad] {line}\n')
 
     # build per-sample records (real samples joined to site + coords)
+    midx, mclash = meta_index(meta)
+    if mclash:
+        sys.stderr.write(f'[load_mad] {len(mclash)} site-metadata name(s) are ambiguous '
+                         f'once the sequencer suffix is removed and were not used for '
+                         f'matching: {mclash[:6]}\n')
     samples = []; drop = {'ctrl': 0, 'no_meta': 0, 'no_dept': 0}
     resolver = geoloc.Resolver()
     for b in cov:
         if isctrl(b): drop['ctrl'] += 1; continue
-        mm = meta.get(b)
+        # b is the fully normalised name; midx knows that spelling of every metadata key,
+        # so a site table keyed on row ids or on lane-suffixed names joins too
+        mm = meta.get(b) or meta.get(midx.get(b, ''))
         if not mm: drop['no_meta'] += 1; continue
         site, lat, lon = mm.get('site', ''), mm.get('lat'), mm.get('lon')
         d, _how = resolver.resolve(district=mm.get('district'), lat=lat, lon=lon,
