@@ -663,12 +663,25 @@ def assemble_report(name, spec, units, selection=None):
               stoplight=stoplight,marker_defs={k:MK[k] for k in MK})
     if trends:
         rep_['trends']=trends
-        # pooled numbers must equal the sum over years, or the pooled view and the
-        # trend view would tell different stories for the same cohort.
+        # A cohort can be partly undated: the Tanzania pfPHAST table has a collection date
+        # for 277 of 365 samples. Those samples belong in the pooled denominators - they
+        # were genotyped - but in no year, so pooled and per-year legitimately differ by
+        # exactly the undated count. Anything else is a bug, and when every sample is
+        # dated the check is still strict equality.
+        nat_n=sum(v['n'] for v in trends['nat'].values())
+        undated=tot_qc-nat_n
+        assert undated>=0, f'{name}: per-year n {nat_n} exceeds pooled n_qc {tot_qc}'
+        if undated:
+            meta['n_undated']=undated
+            sys.stderr.write(f'[{name}] {undated} of {tot_qc} samples have no collection '
+                             f'date: counted in every pooled number, absent from Trends\n')
         for i,k in enumerate(trends['mk']):
             sx=sum(v['x'][i] for v in trends['nat'].values()); sd=sum(v['d'][i] for v in trends['nat'].values())
-            assert sx==natx[k] and sd==natn[k], f'{name} {k}: pooled {natx[k]}/{natn[k]} != per-year {sx}/{sd}'
-        assert sum(v['n'] for v in trends['nat'].values())==tot_qc, f'{name}: per-year n != pooled n_qc'
+            if undated:
+                assert sx<=natx[k] and sd<=natn[k], \
+                    f'{name} {k}: per-year {sx}/{sd} exceeds pooled {natx[k]}/{natn[k]}'
+            else:
+                assert sx==natx[k] and sd==natn[k], f'{name} {k}: pooled {natx[k]}/{natn[k]} != per-year {sx}/{sd}'
     return rep_
 
 def build_assay(name, spec):
@@ -866,9 +879,16 @@ EXPORT_SOURCES = {
     'library_name':    ('library_sample_name', 'library_name', 'library'),
     'sequencing_run':  ('sequencing_run', 'run', 'run_id', 'flowcell'),
     'batch':           ('batch', 'plate', 'superbatch'),
-    'travel':          ('travel_history', 'recent_travel', 'travel'),
-    'travel_dest':     ('travel_destination', 'destination', 'destination_of_travel'),
-    'collection_date': ('collection_date', 'date_of_collection', 'collection_month', 'date'),
+    # trailing spellings: the Africa CDC Minimum Standard sheet's own column names, which
+    # a data table filled in from that sheet carries. Appended, so an existing shorter
+    # name keeps priority - xf() returns the first candidate present.
+    'travel':          ('travel_history', 'recent_travel', 'travel',
+                        'travel_history_[y/n]', 'travel_history_y/n'),
+    'travel_dest':     ('travel_destination', 'destination', 'destination_of_travel',
+                        'destination_of_most_recent_travel_country',
+                        'destination_of_most_recent_travel_city'),
+    'collection_date': ('collection_date', 'date_of_collection', 'collection_month', 'date',
+                        'date_of_sample_collection'),
 }
 
 

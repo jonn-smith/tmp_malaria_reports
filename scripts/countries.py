@@ -29,6 +29,11 @@ import gen_reports as G
 # here: they are different countries one letter apart and both have boundary maps.
 FUZZY_CUTOFF = 0.84
 
+# The ontology id Africa CDC's country picklists append: 'Tanzania [GAZ:00001103]'.
+# GAZ is the Gazetteer ontology; the id is stable and the prefix unambiguous, so stripping
+# exactly this is safe where stripping brackets generally would not be.
+_GAZ = re.compile(r'\s*\[\s*GAZ\s*:\s*\d+\s*\]\s*$', re.I)
+
 
 def _na(s):
     """Normalise for comparison: accents, case, punctuation, articles."""
@@ -57,6 +62,12 @@ def resolve(raw, countries=None, require_map=False):
     if not raw or not countries:
         return None
     s = str(raw).strip()
+    # Africa CDC's country picklist carries the GAZ ontology id: 'Tanzania [GAZ:00001103]'.
+    # That is the sheet's controlled spelling, and a data table filled in from the sheet
+    # inherits it, so the whole run used to fail with "could not determine which country".
+    # Only this one well-defined suffix is stripped - not brackets in general, which would
+    # quietly reinterpret names nobody has shown us.
+    s = _GAZ.sub('', s).strip()
     if not s:
         return None
 

@@ -41,6 +41,22 @@ def _blank(v):
     return v is None or str(v).strip().lower() in NULLISH
 
 
+def _same_country(given):
+    """Is this value the country the report is built for, however it is spelled?
+
+    Goes through countries.resolve, so 'Tanzania [GAZ:00001103]', 'TZA' and 'Tanzania'
+    all compare equal to each other. Imported lazily: countries imports gen_reports,
+    which imports this module."""
+    try:
+        import countries as C
+        hit = C.resolve(given)
+    except Exception:
+        hit = None
+    if hit:
+        return hit['iso3'] == G.COUNTRY_ISO
+    return G._na(str(given)) == G._na(G.COUNTRY_NAME or '')
+
+
 class Audit:
     """Everything that went wrong, or went right only by alias, while placing samples."""
 
@@ -199,8 +215,13 @@ class Resolver:
         a = self.audit
         have_name = not _blank(district)
 
-        if not _blank(country) and G.COUNTRY_NAME \
-                and G._na(str(country)) != G._na(G.COUNTRY_NAME):
+        # Cross-check the stated country against the one the report is built for. Compare
+        # resolved identities, not raw strings: the Africa CDC sheet spells the value
+        # 'Tanzania [GAZ:00001103]', which is the same country written differently, and a
+        # literal comparison flagged every sample in the cohort as a mismatch - 352 of 352
+        # on the first real Tanzania run. A cross-check that always fires is worse than
+        # none, because the one that matters stops being visible.
+        if not _blank(country) and G.COUNTRY_NAME and not _same_country(country):
             a._bump(a.country_other, str(country).strip())
 
         # 1. explicit coordinates win

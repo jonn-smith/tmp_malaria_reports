@@ -923,7 +923,7 @@ R.trends=()=>{
   const dflt=(D.markers.filter(m=>m.assessed&&m.action).sort((a,b)=>b.est-a.est)[0]
             ||D.markers.filter(m=>m.assessed&&m.who).sort((a,b)=>b.est-a.est)[0]||{}).key||cm[0];
   return `<h2 class="sec">Trends in AMR markers over time</h2>
-    <div class="sec-desc">Antimicrobial resistance (AMR) marker prevalence over time and space. Years with few samples are merged into larger periods of time for ease-of-visualization (switch to single years to see the raw series).</div>
+    <div class="sec-desc">Antimicrobial resistance (AMR) marker prevalence over time and space. Years with few samples are merged into larger periods of time for ease-of-visualization (switch to single years to see the raw series).${M.n_undated?` <b>${M.n_undated} of ${M.n_qc} samples carry no collection date</b> and so appear in no year below, although they are counted in the pooled prevalence shown elsewhere in this report — which is why the totals here are smaller.`:''}</div>
     ${classLegend()}
     <div class="sec-desc" style="display:flex;align-items:baseline;gap:12px;flex-wrap:wrap">
       <span>Select markers to display on the map and prevalence tables below.</span>

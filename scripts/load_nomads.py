@@ -55,8 +55,18 @@ ALIASES = {
     'call':      ('call', 'genotype', 'gt', 'status', 'result'),
     'mut_reads': ('mutant_reads', 'alt_reads', 'mut_reads', 'mutant_count', 'alt_count'),
     'wt_reads':  ('wildtype_reads', 'ref_reads', 'wt_reads', 'wildtype_count', 'ref_count'),
-    'district':  ('district', 'admin2', 'adm2', 'dept', 'department', 'admin_2'),
-    'region':    ('region', 'admin1', 'adm1', 'admin_1', 'province', 'state'),
+    # The trailing spellings in these come from the Africa CDC Minimum Standard sheet,
+    # which is now the shape sites fill their metadata in; a table built from it inherits
+    # `district(admin_level_2)` and the run used to fail for want of a district. They are
+    # APPENDED deliberately: _colmap takes the first alias present, so a table that
+    # already matched `district` still matches `district` and no existing report changes.
+    # tests/test_column_aliases.py pins that order.
+    'district':  ('district', 'admin2', 'adm2', 'dept', 'department', 'admin_2',
+                  'district(admin_level_2)', 'district_(admin_level_2)',
+                  'district_admin_level_2'),
+    'region':    ('region', 'admin1', 'adm1', 'admin_1', 'province', 'state',
+                  'region_province(admin_level_1)', 'region_province_(admin_level_1)',
+                  'region_province_admin_level_1', 'region_province'),
     'country':   ('country', 'admin0', 'adm0', 'country_name'),
     'site':      ('site', 'facility', 'location', 'facility_name'),
     'lat':       ('lat', 'latitude'),
@@ -66,7 +76,8 @@ ALIASES = {
     'qc_status': ('library_sample_qc_status', 'qc_status', 'sample_qc_status'),
     'batch_pass': ('batch_pass', 'batchpass'),
     'sample_type': ('sample_type', 'sampletype'),
-    'date':      ('date', 'collection_date', 'date_of_collection'),
+    'date':      ('date', 'collection_date', 'date_of_collection',
+                  'date_of_sample_collection'),
 }
 # The amplicon QC workflow grades each library pass / repool / reprep, worst-across-
 # reactions, from the proportion of good loci (reprep below 0.5, repool below 0.75). Only
@@ -105,6 +116,13 @@ def _colmap(fieldnames):
             out['sample_id'] = h
             break
     for canon, alts in ALIASES.items():
+        # The row id wins. A table whose metadata came from the Africa CDC sheet has a
+        # `sample_id` column of its own, and the alias loop used to overwrite the Terra
+        # row id with it - on the Tanzania table that column is the site-local specimen
+        # number, which repeats across districts (34 numbers appear at two or three
+        # sites), so two different samples would have merged into one row.
+        if canon in out:
+            continue
         for a in alts:
             if a in have:
                 out[canon] = have[a]
@@ -166,10 +184,15 @@ def _year_of(row, cm):
     if y[:4].isdigit(): return y[:4]
     d = _get(row, cm, 'date')
     if d[:4].isdigit(): return d[:4]
-    # day-first forms (28.07.2025, 28/07/2025) - what the Nomadic experiment metadata
-    # CSVs use. Only the year is taken, so day/month order never has to be guessed.
-    m = re.match(r'^\d{1,2}[./-]\d{1,2}[./-](\d{4})$', d.strip())
-    return m.group(1) if m else None
+    # Slash/dot forms: 28.07.2025 from the Nomadic metadata CSVs, and 1/3/25 from a sheet
+    # that has been through Excel, which reformats an ISO date on open. Only the year is
+    # taken, so day/month order never has to be guessed; a two-digit year is read as 20xx,
+    # which is the only reading that makes sense for a surveillance collection date.
+    m = re.match(r'^\d{1,2}[./-]\d{1,2}[./-](\d{2}|\d{4})$', d.strip())
+    if not m:
+        return None
+    y = m.group(1)
+    return y if len(y) == 4 else f'20{y}'
 
 
 def _f(v):
@@ -240,9 +263,11 @@ def load(call_tables, site_metadata=None, version=None, data_source=None, select
     drop = {'rows': 0, 'no_marker': 0, 'not_typed': 0, 'no_location': 0, 'not_selected': 0}
     qc_seen, qc_bad, qc_reasons = set(), {}, {}
     seen_loci = set()
+    date_cols = []          # which columns, if any, were meant to supply a date
     for path in call_tables:
             rows, fields = _read_calls(path)
             cm = _colmap(fields)
+            date_cols += [cm[k] for k in ('date', 'year') if cm.get(k)]
             if 'sample_id' not in cm:
                 sys.stderr.write(f'[load_nomads] skipping {path}: no sample_id column\n')
                 continue
@@ -359,6 +384,16 @@ def load(call_tables, site_metadata=None, version=None, data_source=None, select
     sys.stderr.write(f"[load_nomads] tables={len(call_tables)} rows={drop['rows']} samples={len(placed)} "
                      f"depts sampled={ns}/{len(units)} dropped={{'no_marker': {drop['no_marker']}, "
                      f"'not_typed': {drop['not_typed']}, 'no_location': {drop['no_location']}}}\n")
+
+    # A date column that yields no dates is a silent loss of the whole Trends tab and of
+    # the reporting period, so say so rather than printing "period n/a" and moving on.
+    if placed and not any(s.get('date') for s in placed):
+        cols = sorted({c for c in date_cols if c})
+        sys.stderr.write(f"[load_nomads] NO DATES: "
+                         + (f"the date column(s) {cols} hold nothing this reads"
+                            if cols else "no date or year column was found")
+                         + ". The report has no period and no Trends frames; dates are "
+                           "read as YYYY[-MM-DD], YYYY/MM/DD or D/M/YY(YY)\n")
 
     # Assemble under the DETECTED panel, not under this loader's name. The spec supplies
     # assay_full, platform, note and links, and the exports read meta['platform'] while
